@@ -1,0 +1,45 @@
+[package]
+name = "git-repo-manager"
+version = "0.1.0"
+edition = "2021"
+authors = [
+    "Hannes Körber <hannes@hkoerber.de>",
+]
+description = """
+Manage multiple git repositories.
+You configure the git repositories in a file, the program does the rest!
+"""
+
+license = "GPL-3.0-only"
+
+[lib]
+name = "grm"
+path = "src/lib.rs"
+
+[[bin]]
+name = "grm"
+path = "src/main.rs"
+
+[dependencies]
+
+[dependencies.toml]
+version = "0.5"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+
+[dependencies.git2]
+version = "0.13"
+
+[dependencies.shellexpand]
+version = "2.1"
+
+[dependencies.clap]
+version = "3.0.0-beta.5"
+
+[dependencies.console]
+version = "0.15.0"
+
+[dependencies.regex]
+version = "1.5"

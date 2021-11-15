@@ -1,0 +1,24 @@
+[[trees]]
+root = "~/projects/"
+
+  [[trees.repos]]
+  name = "git-repo-manager"
+
+    [[trees.repos.remotes]]
+    name = "origin"
+    url = "https://code.hkoerber.de/hannes/git-repo-manager.git"
+    type = "https"
+
+    [[trees.repos.remotes]]
+    name = "github"
+    url = "https://github.com/hakoerber/git-repo-manager.git"
+    type = "https"
+
+
+  [[trees.repos]]
+  name = "dotfiles"
+
+    [[trees.repos.remotes]]
+    name = "origin"
+    url = "https://github.com/hakoerber/dotfiles.git"
+    type = "https"
