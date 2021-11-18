@@ -240,7 +240,7 @@ fn find_repos_without_details(path: &Path) -> Option<Vec<PathBuf>> {
     Some(repos)
 }
 
-fn find_repos(root: &Path, at_root: bool) -> Option<Vec<Repo>> {
+fn find_repos(root: &Path) -> Option<Vec<Repo>> {
     let mut repos: Vec<Repo> = Vec::new();
 
     for path in find_repos_without_details(root).unwrap() {
@@ -321,7 +321,7 @@ fn find_repos(root: &Path, at_root: bool) -> Option<Vec<Repo>> {
         };
 
         repos.push(Repo {
-            name: match at_root {
+            name: match path == root {
                 true => match &root.parent() {
                     Some(parent) => path_as_string(path.strip_prefix(parent).unwrap()),
                     None => {
@@ -338,7 +338,7 @@ fn find_repos(root: &Path, at_root: bool) -> Option<Vec<Repo>> {
 }
 
 fn find_in_tree(path: &Path) -> Option<Tree> {
-    let repos: Vec<Repo> = match find_repos(path, true) {
+    let repos: Vec<Repo> = match find_repos(path) {
         Some(vec) => vec,
         None => Vec::new(),
     };
