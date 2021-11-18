@@ -10,6 +10,9 @@ Manage multiple git repositories.
 You configure the git repositories in a file, the program does the rest!
 """
 
+# Required for `std::path::Path::is_symlink()`. Will be released with 1.57.
+rust-version = "1.57"
+
 license = "GPL-3.0-only"
 
 [lib]
