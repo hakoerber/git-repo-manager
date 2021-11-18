@@ -1,5 +1,5 @@
 [[trees]]
-root = "~/projects/"
+root = "~/example-projects/"
 
   [[trees.repos]]
   name = "git-repo-manager"
