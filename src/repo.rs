@@ -17,7 +17,7 @@ pub enum RemoteType {
 pub struct Remote {
     pub name: String,
     pub url: String,
-    #[serde(alias = "type")]
+    #[serde(rename = "type")]
     pub remote_type: RemoteType,
 }
 
