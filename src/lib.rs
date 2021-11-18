@@ -160,6 +160,7 @@ fn sync_trees(config: Config) {
                             }
                         };
                         if remote.url != current_url {
+                            print_repo_action(name, &format!("Updating remote {} to \"{}\"", &remote.name, &remote.url));
                             if let Err(e) = repo_handle.remote_set_url(&remote.name, &remote.url) {
                                 print_repo_error(name, &format!("Repository failed during setting of the remote URL for remote \"{}\": {}", &remote.name, e));
                                 continue;
