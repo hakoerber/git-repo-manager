@@ -53,6 +53,44 @@ pub struct Repo {
     pub remotes: Option<Vec<Remote>>,
 }
 
+pub struct RepoChanges {
+    pub files_new: usize,
+    pub files_modified: usize,
+    pub files_deleted: usize,
+}
+
+pub enum SubmoduleStatus {
+    Clean,
+    Uninitialized,
+    Changed,
+    OutOfDate,
+}
+
+pub enum RemoteTrackingStatus {
+    UpToDate,
+    Ahead(usize),
+    Behind(usize),
+    Diverged(usize, usize),
+}
+
+pub struct RepoStatus {
+    pub operation: Option<git2::RepositoryState>,
+
+    pub empty: bool,
+
+    pub remotes: Vec<String>,
+
+    pub head: Option<String>,
+
+    pub changes: Option<RepoChanges>,
+
+    pub worktrees: usize,
+
+    pub submodules: Vec<(String, SubmoduleStatus)>,
+
+    pub branches: Vec<(String, Option<(String, RemoteTrackingStatus)>)>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -176,5 +214,132 @@ pub fn clone_repo(remote: &Remote, path: &Path) -> Result<(), Box<dyn std::error
                 Err(e) => Err(Box::new(e)),
             }
         }
+    }
+}
+
+pub fn get_repo_status(repo: &git2::Repository) -> RepoStatus {
+    let operation = match repo.state() {
+        git2::RepositoryState::Clean => None,
+        state => Some(state),
+    };
+
+    let empty = repo.is_empty().unwrap();
+
+    let remotes = repo
+        .remotes()
+        .unwrap()
+        .iter()
+        .map(|repo_name| repo_name.unwrap().to_string())
+        .collect::<Vec<String>>();
+
+    let head = match empty {
+        true => None,
+        false => Some(repo.head().unwrap().shorthand().unwrap().to_string()),
+    };
+
+    let statuses = repo.statuses(None).unwrap();
+
+    let changes = match statuses.is_empty() {
+        true => None,
+        false => {
+            let mut files_new = 0;
+            let mut files_modified = 0;
+            let mut files_deleted = 0;
+            for status in statuses.iter() {
+                let status_bits = status.status();
+                if status_bits.intersects(
+                    git2::Status::INDEX_MODIFIED
+                        | git2::Status::INDEX_RENAMED
+                        | git2::Status::INDEX_TYPECHANGE
+                        | git2::Status::WT_MODIFIED
+                        | git2::Status::WT_RENAMED
+                        | git2::Status::WT_TYPECHANGE,
+                ) {
+                    files_modified += 1;
+                } else if status_bits.intersects(git2::Status::INDEX_NEW | git2::Status::WT_NEW) {
+                    files_new += 1;
+                } else if status_bits
+                    .intersects(git2::Status::INDEX_DELETED | git2::Status::WT_DELETED)
+                {
+                    files_deleted += 1;
+                }
+            }
+            Some(RepoChanges {
+                files_new,
+                files_modified,
+                files_deleted,
+            })
+        }
+    };
+
+    let worktrees = repo.worktrees().unwrap().len();
+
+    let mut submodules = Vec::new();
+    for submodule in repo.submodules().unwrap() {
+        let submodule_name = submodule.name().unwrap().to_string();
+
+        let submodule_status;
+        let status = repo
+            .submodule_status(submodule.name().unwrap(), git2::SubmoduleIgnore::None)
+            .unwrap();
+
+        if status.intersects(
+            git2::SubmoduleStatus::WD_INDEX_MODIFIED
+                | git2::SubmoduleStatus::WD_WD_MODIFIED
+                | git2::SubmoduleStatus::WD_UNTRACKED,
+        ) {
+            submodule_status = SubmoduleStatus::Changed;
+        } else if status.is_wd_uninitialized() {
+            submodule_status = SubmoduleStatus::Uninitialized;
+        } else if status.is_wd_modified() {
+            submodule_status = SubmoduleStatus::OutOfDate;
+        } else {
+            submodule_status = SubmoduleStatus::Clean;
+        }
+
+        submodules.push((submodule_name, submodule_status));
+    }
+
+    let mut branches = Vec::new();
+    for (local_branch, _) in repo
+        .branches(Some(git2::BranchType::Local))
+        .unwrap()
+        .map(|branch_name| branch_name.unwrap())
+    {
+        let branch_name = local_branch.name().unwrap().unwrap().to_string();
+        let remote_branch = match local_branch.upstream() {
+            Ok(remote_branch) => {
+                let remote_branch_name = remote_branch.name().unwrap().unwrap().to_string();
+
+                let (ahead, behind) = repo
+                    .graph_ahead_behind(
+                        local_branch.get().peel_to_commit().unwrap().id(),
+                        remote_branch.get().peel_to_commit().unwrap().id(),
+                    )
+                    .unwrap();
+
+                let remote_tracking_status = match (ahead, behind) {
+                    (0, 0) => RemoteTrackingStatus::UpToDate,
+                    (0, d) => RemoteTrackingStatus::Behind(d),
+                    (d, 0) => RemoteTrackingStatus::Ahead(d),
+                    (d1, d2) => RemoteTrackingStatus::Diverged(d1, d2),
+                };
+                Some((remote_branch_name, remote_tracking_status))
+            }
+            // Err => no remote branch
+            Err(_) => None,
+        };
+        branches.push((branch_name, remote_branch));
+    }
+
+    RepoStatus {
+        operation,
+        empty,
+        remotes,
+        head,
+        changes,
+        worktrees,
+        submodules,
+        branches,
     }
 }

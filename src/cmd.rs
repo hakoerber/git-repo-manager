@@ -26,6 +26,8 @@ pub enum SubCommand {
     Sync(Sync),
     #[clap(about = "Generate a repository configuration from an existing file tree")]
     Find(Find),
+    #[clap(about = "Show status of configured repositories")]
+    Status(OptionalConfig),
 }
 
 #[derive(Parser)]
@@ -38,6 +40,17 @@ pub struct Sync {
         about = "Path to the configuration file"
     )]
     pub config: String,
+}
+
+#[derive(Parser)]
+#[clap()]
+pub struct OptionalConfig {
+    #[clap(
+        short,
+        long,
+        about = "Path to the configuration file"
+    )]
+    pub config: Option<String>,
 }
 
 #[derive(Parser)]

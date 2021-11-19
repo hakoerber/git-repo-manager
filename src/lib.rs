@@ -10,7 +10,12 @@ mod repo;
 use config::{Config, Tree};
 use output::*;
 
-use repo::{clone_repo, detect_remote_type, init_repo, open_repo, Remote, Repo};
+use comfy_table::{Table, Cell};
+
+use repo::{
+    clone_repo, detect_remote_type, get_repo_status, init_repo, open_repo, Remote, Repo,
+    RepoErrorKind, RemoteTrackingStatus
+};
 
 fn path_as_string(path: &Path) -> String {
     path.to_path_buf().into_os_string().into_string().unwrap()
@@ -358,6 +363,137 @@ fn find_in_tree(path: &Path) -> Option<Tree> {
     })
 }
 
+fn add_table_header(table: &mut Table) {
+    table
+        .load_preset(comfy_table::presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Repo"),
+            Cell::new("Status"),
+            Cell::new("Branches"),
+            Cell::new("HEAD"),
+            Cell::new("Remotes"),
+        ]);
+}
+
+fn add_repo_status(table: &mut Table, repo_name: &String, repo_handle: &git2::Repository) {
+    let repo_status = get_repo_status(repo_handle);
+
+    table.add_row(vec![
+        repo_name,
+        &match repo_status.changes {
+            Some(changes) => {
+                let mut out = Vec::new();
+                if changes.files_new > 0 {
+                    out.push(format!("New: {}\n", changes.files_new))
+                }
+                if changes.files_modified > 0 {
+                    out.push(format!("Modified: {}\n", changes.files_modified))
+                }
+                if changes.files_deleted > 0 {
+                    out.push(format!("Deleted: {}\n", changes.files_deleted))
+                }
+                out.into_iter().collect::<String>().trim().to_string()
+            },
+            None => String::from("No changes"),
+        },
+        &repo_status.branches.iter().map(|(branch_name, remote_branch)| {
+            format!("branch: {}{}\n",
+                &branch_name,
+                &match remote_branch {
+                    None => String::from(" <!local>"),
+                    Some((remote_branch_name, remote_tracking_status)) => {
+                        format!(" <{}>{}",
+                            remote_branch_name,
+                            &match remote_tracking_status {
+                                RemoteTrackingStatus::UpToDate => String::from(" \u{2714}"),
+                                RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
+                                RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
+                                RemoteTrackingStatus::Diverged(d1, d2) => format!(" [-{}/+{}]", &d1,&d2),
+                            }
+                        )
+                    }
+                }
+            )
+        }).collect::<String>().trim().to_string(),
+        &match repo_status.head {
+            Some(head) => head,
+            None => String::from("Empty"),
+        },
+        &repo_status.remotes.iter().map(|r| format!("{}\n", r)).collect::<String>().trim().to_string(),
+    ]);
+}
+
+fn show_single_repo_status(path: &PathBuf) {
+    let mut table = Table::new();
+    add_table_header(&mut table);
+
+    let repo_handle = open_repo(path);
+
+    if let Err(error) = repo_handle {
+        if error.kind == RepoErrorKind::NotFound {
+            print_error(&"Directory is not a git directory".to_string());
+        } else {
+            print_error(&format!("Opening repository failed: {}", error));
+        }
+        process::exit(1);
+    };
+
+    let repo_name = match path.file_name() {
+        None => {
+            print_warning("Cannot detect repo name. Are you working in /?");
+            String::from("unknown")
+        },
+        Some(file_name) => match file_name.to_str() {
+            None => {
+                print_warning("Name of current directory is not valid UTF-8");
+                String::from("invalid")
+            },
+            Some(name) => name.to_string(),
+        }
+    };
+
+    add_repo_status(&mut table, &repo_name, &repo_handle.unwrap());
+
+    println!("{}", table);
+}
+
+fn show_status(config: Config) {
+    for tree in config.trees {
+        let repos = tree.repos.unwrap_or_default();
+
+        let root_path = expand_path(Path::new(&tree.root));
+
+        let mut table = Table::new();
+        add_table_header(&mut table);
+
+        for repo in &repos {
+            let repo_path = root_path.join(&repo.name);
+
+            if !repo_path.exists() {
+                print_repo_error(&repo.name, &"Repository does not exist. Run sync?".to_string());
+                continue;
+            }
+
+            let repo_handle = open_repo(&repo_path);
+
+            if let Err(error) = repo_handle {
+                if error.kind == RepoErrorKind::NotFound {
+                    print_repo_error(&repo.name, &"No git repository found. Run sync?".to_string());
+                } else {
+                    print_repo_error(&repo.name, &format!("Opening repository failed: {}", error));
+                }
+                continue;
+            };
+
+            let repo_handle = repo_handle.unwrap();
+
+            add_repo_status(&mut table, &repo.name, &repo_handle);
+        }
+        println!("{}", table);
+    }
+}
+
 pub fn run() {
     let opts = cmd::parse();
 
@@ -371,6 +507,31 @@ pub fn run() {
                 }
             };
             sync_trees(config);
+        }
+        cmd::SubCommand::Status(args) => {
+            match &args.config {
+                Some(config_path) => {
+                    let config = match config::read_config(config_path) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            print_error(&e);
+                            process::exit(1);
+                        }
+                    };
+                    show_status(config);
+                },
+                None => {
+                    let dir = match std::env::current_dir(){
+                        Ok(d) => d,
+                        Err(e) => {
+                            print_error(&format!("Could not open current directory: {}", e));
+                            process::exit(1);
+                        },
+                    };
+
+                    show_single_repo_status(&dir);
+                }
+            }
         }
         cmd::SubCommand::Find(find) => {
             let path = Path::new(&find.path);

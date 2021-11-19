@@ -3,7 +3,7 @@ name = "git-repo-manager"
 version = "0.1.0"
 edition = "2021"
 authors = [
-    "Hannes Körber <hannes@hkoerber.de>",
+  "Hannes Körber <hannes@hkoerber.de>",
 ]
 description = """
 Manage multiple git repositories.
@@ -46,3 +46,6 @@ version = "0.15.0"
 
 [dependencies.regex]
 version = "1.5"
+
+[dependencies.comfy-table]
+version = "5.0"

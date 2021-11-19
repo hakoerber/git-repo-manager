@@ -53,6 +53,32 @@ $ grm find ~/your/project/root > config.toml
 
 This will detect all repositories and remotes and write them to `config.toml`.
 
+### Show the state of your projects
+
+```bash
+$ grm status --config example.config.toml
++------------------+------------+----------------------------------+--------+---------+
+| Repo             | Status     | Branches                         | HEAD   | Remotes |
++=====================================================================================+
+| git-repo-manager |            | branch: master <origin/master> ✔ | master | github  |
+|                  |            |                                  |        | origin  |
+|------------------+------------+----------------------------------+--------+---------|
+| dotfiles         | No changes | branch: master <origin/master> ✔ | master | origin  |
++------------------+------------+----------------------------------+--------+---------+
+```
+
+You can also use `status` without `--config` to check the current directory:
+
+```
+$ cd ./dotfiles
+$ grm status
++----------+------------+----------------------------------+--------+---------+
+| Repo     | Status     | Branches                         | HEAD   | Remotes |
++=============================================================================+
+| dotfiles | No changes | branch: master <origin/master> ✔ | master | origin  |
++----------+------------+----------------------------------+--------+---------+
+```
+
 # Why?
 
 I have a **lot** of repositories on my machines. My own stuff, forks, quick
