@@ -11,7 +11,7 @@ pub struct Config {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Tree {
-    pub root: Option<String>,
+    pub root: String,
     pub repos: Option<Vec<Repo>>,
 }
 

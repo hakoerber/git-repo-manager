@@ -353,7 +353,7 @@ fn find_in_tree(path: &Path) -> Option<Tree> {
     }
 
     Some(Tree {
-        root: Some(root.into_os_string().into_string().unwrap()),
+        root: root.into_os_string().into_string().unwrap(),
         repos: Some(repos),
     })
 }
