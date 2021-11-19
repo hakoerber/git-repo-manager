@@ -12,6 +12,31 @@ pub enum RemoteType {
     Https,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum RepoErrorKind {
+    NotFound,
+    Unknown(String),
+}
+
+#[derive(Debug)]
+pub struct RepoError {
+    pub kind: RepoErrorKind,
+}
+
+impl RepoError {
+    fn new(kind: RepoErrorKind) -> RepoError {
+        RepoError { kind }
+    }
+}
+
+impl std::error::Error for RepoError {}
+
+impl std::fmt::Display for RepoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self.kind)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Remote {
@@ -104,10 +129,15 @@ pub fn detect_remote_type(remote_url: &str) -> Option<RemoteType> {
     None
 }
 
-pub fn open_repo(path: &Path) -> Result<Repository, Box<dyn std::error::Error>> {
+pub fn open_repo(path: &Path) -> Result<Repository, RepoError> {
     match Repository::open(path) {
         Ok(r) => Ok(r),
-        Err(e) => Err(Box::new(e)),
+        Err(e) => match e.code() {
+            git2::ErrorCode::NotFound => Err(RepoError::new(RepoErrorKind::NotFound)),
+            _ => Err(RepoError::new(RepoErrorKind::Unknown(
+                e.message().to_string(),
+            ))),
+        },
     }
 }
 
