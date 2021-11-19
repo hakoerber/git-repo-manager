@@ -26,38 +26,37 @@ fn env_home() -> PathBuf {
     }
 }
 
+fn expand_path(path: &Path) -> PathBuf {
+    fn home_dir() -> Option<PathBuf> {
+        Some(env_home())
+    }
+
+    let expanded_path = match shellexpand::full_with_context(
+        &path_as_string(path),
+        home_dir,
+        |name| -> Result<Option<String>, &'static str> {
+            match name {
+                "HOME" => Ok(Some(path_as_string(home_dir().unwrap().as_path()))),
+                _ => Ok(None),
+            }
+        },
+    ) {
+        Ok(std::borrow::Cow::Borrowed(path)) => path.to_owned(),
+        Ok(std::borrow::Cow::Owned(path)) => path,
+        Err(e) => {
+            print_error(&format!("Unable to expand root: {}", e));
+            process::exit(1);
+        }
+    };
+
+    Path::new(&expanded_path).to_path_buf()
+}
+
 fn sync_trees(config: Config) {
     for tree in config.trees {
         let repos = tree.repos.unwrap_or_default();
 
-        let root_path = match &tree.root {
-            Some(root) => {
-                fn home_dir() -> Option<PathBuf> {
-                    Some(env_home())
-                }
-
-                let expanded_path = match shellexpand::full_with_context(
-                    &root,
-                    home_dir,
-                    |name| -> Result<Option<String>, &'static str> {
-                        match name {
-                            "HOME" => Ok(Some(path_as_string(home_dir().unwrap().as_path()))),
-                            _ => Ok(None),
-                        }
-                    },
-                ) {
-                    Ok(std::borrow::Cow::Borrowed(path)) => path.to_owned(),
-                    Ok(std::borrow::Cow::Owned(path)) => path,
-                    Err(e) => {
-                        print_error(&format!("Unable to expand root: {}", e));
-                        process::exit(1);
-                    }
-                };
-
-                Path::new(&expanded_path).to_path_buf()
-            }
-            None => std::env::current_dir().unwrap(),
-        };
+        let root_path = expand_path(Path::new(&tree.root));
 
         for repo in &repos {
             let name = &repo.name;
