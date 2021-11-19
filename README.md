@@ -11,7 +11,7 @@ you configure your repositories.
 ### Install
 
 ```bash
-$ cargo install --git https://github.com/hakoerber/git-repo-manager.git
+$ cargo install --git https://github.com/hakoerber/git-repo-manager.git --branch master
 ```
 
 ### Get the example configuration
