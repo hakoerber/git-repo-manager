@@ -59,32 +59,30 @@ fn sync_trees(config: Config) {
         let root_path = expand_path(Path::new(&tree.root));
 
         for repo in &repos {
-            let name = &repo.name;
-
             let repo_path = root_path.join(&repo.name);
 
             let mut repo_handle = None;
 
             if repo_path.exists() {
                 repo_handle = Some(open_repo(&repo_path).unwrap_or_else(|error| {
-                    print_repo_error(name, &format!("Opening repository failed: {}", error));
+                    print_repo_error(&repo.name, &format!("Opening repository failed: {}", error));
                     process::exit(1);
                 }));
             } else {
                 match &repo.remotes {
                     None => {
                         print_repo_action(
-                            name,
+                            &repo.name,
                             "Repository does not have remotes configured, initializing new",
                         );
                         repo_handle = match init_repo(&repo_path) {
                             Ok(r) => {
-                                print_repo_success(name, "Repository created");
+                                print_repo_success(&repo.name, "Repository created");
                                 Some(r)
                             }
                             Err(e) => {
                                 print_repo_error(
-                                    name,
+                                    &repo.name,
                                     &format!("Repository failed during init: {}", e),
                                 );
                                 None
@@ -101,11 +99,11 @@ fn sync_trees(config: Config) {
 
                         match clone_repo(first, &repo_path) {
                             Ok(_) => {
-                                print_repo_success(name, "Repository successfully cloned");
+                                print_repo_success(&repo.name, "Repository successfully cloned");
                             }
                             Err(e) => {
                                 print_repo_error(
-                                    name,
+                                    &repo.name,
                                     &format!("Repository failed during clone: {}", e),
                                 );
                                 continue;
@@ -122,7 +120,7 @@ fn sync_trees(config: Config) {
                     Ok(r) => r,
                     Err(e) => {
                         print_repo_error(
-                            name,
+                            &repo.name,
                             &format!("Repository failed during getting the remotes: {}", e),
                         );
                         continue;
@@ -136,7 +134,7 @@ fn sync_trees(config: Config) {
                 for remote in remotes {
                     if !current_remotes.iter().any(|r| *r == remote.name) {
                         print_repo_action(
-                            name,
+                            &repo.name,
                             &format!(
                                 "Setting up new remote \"{}\" to \"{}\"",
                                 &remote.name, &remote.url
@@ -144,7 +142,7 @@ fn sync_trees(config: Config) {
                         );
                         if let Err(e) = repo_handle.remote(&remote.name, &remote.url) {
                             print_repo_error(
-                                name,
+                                &repo.name,
                                 &format!("Repository failed during setting the remotes: {}", e),
                             );
                             continue;
@@ -154,14 +152,17 @@ fn sync_trees(config: Config) {
                         let current_url = match current_remote.url() {
                             Some(url) => url,
                             None => {
-                                print_repo_error(name, &format!("Repository failed during getting of the remote URL for remote \"{}\". This is most likely caused by a non-utf8 remote name", remote.name));
+                                print_repo_error(&repo.name, &format!("Repository failed during getting of the remote URL for remote \"{}\". This is most likely caused by a non-utf8 remote name", remote.name));
                                 continue;
                             }
                         };
                         if remote.url != current_url {
-                            print_repo_action(name, &format!("Updating remote {} to \"{}\"", &remote.name, &remote.url));
+                            print_repo_action(
+                                &repo.name,
+                                &format!("Updating remote {} to \"{}\"", &remote.name, &remote.url),
+                            );
                             if let Err(e) = repo_handle.remote_set_url(&remote.name, &remote.url) {
-                                print_repo_error(name, &format!("Repository failed during setting of the remote URL for remote \"{}\": {}", &remote.name, e));
+                                print_repo_error(&repo.name, &format!("Repository failed during setting of the remote URL for remote \"{}\": {}", &remote.name, e));
                                 continue;
                             };
                         }
@@ -171,12 +172,12 @@ fn sync_trees(config: Config) {
                 for current_remote in &current_remotes {
                     if !remotes.iter().any(|r| &r.name == current_remote) {
                         print_repo_action(
-                            name,
+                            &repo.name,
                             &format!("Deleting remote \"{}\"", &current_remote,),
                         );
                         if let Err(e) = repo_handle.remote_delete(current_remote) {
                             print_repo_error(
-                                name,
+                                &repo.name,
                                 &format!(
                                     "Repository failed during deleting remote \"{}\": {}",
                                     &current_remote, e
