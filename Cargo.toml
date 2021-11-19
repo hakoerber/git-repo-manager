@@ -10,6 +10,17 @@ Manage multiple git repositories.
 You configure the git repositories in a file, the program does the rest!
 """
 
+keywords = ["git"]
+categories = [
+  "command-line-utilities",
+  "development-tools",
+]
+
+homepage = "https://github.com/hakoerber/git-repo-manager"
+repository = "https://github.com/hakoerber/git-repo-manager"
+
+readme = "README.md"
+
 # Required for `std::path::Path::is_symlink()`. Will be released with 1.57.
 rust-version = "1.57"
 
