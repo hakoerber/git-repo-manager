@@ -127,3 +127,7 @@ It requires nightly features due to the usage of [`std::path::Path::is_symlink()
 * [`serde`](https://docs.rs/serde/) because we're using Rust, after all
 * [`git2`](https://docs.rs/git2/), a safe wrapper around `libgit2`, for all git operations
 * [`clap`](https://docs.rs/clap/), [`console`](https://docs.rs/console/) and [`shellexpand`](https://docs.rs/shellexpand) for good UX
+
+# Links
+
+* [crates.io](https://crates.io/crates/git-repo-manager)
