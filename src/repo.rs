@@ -237,7 +237,7 @@ pub fn get_repo_status(repo: &git2::Repository) -> RepoStatus {
         false => Some(repo.head().unwrap().shorthand().unwrap().to_string()),
     };
 
-    let statuses = repo.statuses(None).unwrap();
+    let statuses = repo.statuses(Some(git2::StatusOptions::new().include_ignored(false))).unwrap();
 
     let changes = match statuses.is_empty() {
         true => None,
@@ -263,6 +263,9 @@ pub fn get_repo_status(repo: &git2::Repository) -> RepoStatus {
                 {
                     files_deleted += 1;
                 }
+            }
+            if (files_new, files_modified, files_deleted) == (0, 0, 0) {
+                panic!("is_empty() returned true, but no file changes were detected. This is a bug!");
             }
             Some(RepoChanges {
                 files_new,
