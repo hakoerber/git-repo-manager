@@ -376,7 +376,7 @@ fn add_table_header(table: &mut Table) {
         ]);
 }
 
-fn add_repo_status(table: &mut Table, repo_name: &String, repo_handle: &git2::Repository) {
+fn add_repo_status(table: &mut Table, repo_name: &str, repo_handle: &git2::Repository) {
     let repo_status = get_repo_status(repo_handle);
 
     table.add_row(vec![
@@ -424,7 +424,7 @@ fn add_repo_status(table: &mut Table, repo_name: &String, repo_handle: &git2::Re
     ]);
 }
 
-fn show_single_repo_status(path: &PathBuf) {
+fn show_single_repo_status(path: &Path) {
     let mut table = Table::new();
     add_table_header(&mut table);
 
