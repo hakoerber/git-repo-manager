@@ -74,47 +74,39 @@ fn sync_trees(config: Config) {
                     process::exit(1);
                 }));
             } else {
-                match &repo.remotes {
-                    None => {
-                        print_repo_action(
-                            &repo.name,
-                            "Repository does not have remotes configured, initializing new",
-                        );
-                        repo_handle = match init_repo(&repo_path) {
-                            Ok(r) => {
-                                print_repo_success(&repo.name, "Repository created");
-                                Some(r)
-                            }
-                            Err(e) => {
-                                print_repo_error(
-                                    &repo.name,
-                                    &format!("Repository failed during init: {}", e),
-                                );
-                                None
-                            }
+                if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().len().clone() == 0 {
+                    print_repo_action(
+                        &repo.name,
+                        "Repository does not have remotes configured, initializing new",
+                    );
+                    repo_handle = match init_repo(&repo_path) {
+                        Ok(r) => {
+                            print_repo_success(&repo.name, "Repository created");
+                            Some(r)
+                        }
+                        Err(e) => {
+                            print_repo_error(
+                                &repo.name,
+                                &format!("Repository failed during init: {}", e),
+                            );
+                            None
                         }
                     }
-                    Some(r) => {
-                        let first = match r.first() {
-                            Some(e) => e,
-                            None => {
-                                panic!("Repos is an empty array. This is a bug");
-                            }
-                        };
+                } else {
+                    let first = repo.remotes.as_ref().unwrap().first().unwrap();
 
-                        match clone_repo(first, &repo_path) {
-                            Ok(_) => {
-                                print_repo_success(&repo.name, "Repository successfully cloned");
-                            }
-                            Err(e) => {
-                                print_repo_error(
-                                    &repo.name,
-                                    &format!("Repository failed during clone: {}", e),
-                                );
-                                continue;
-                            }
-                        };
-                    }
+                    match clone_repo(first, &repo_path) {
+                        Ok(_) => {
+                            print_repo_success(&repo.name, "Repository successfully cloned");
+                        }
+                        Err(e) => {
+                            print_repo_error(
+                                &repo.name,
+                                &format!("Repository failed during clone: {}", e),
+                            );
+                            continue;
+                        }
+                    };
                 }
             }
             if let Some(remotes) = &repo.remotes {
