@@ -387,7 +387,7 @@ fn add_repo_status(table: &mut Table, repo_name: &str, repo_handle: &git2::Repos
                 }
                 out.into_iter().collect::<String>().trim().to_string()
             },
-            None => String::from("No changes"),
+            None => String::from("\u{2714}"),
         },
         &repo_status.branches.iter().map(|(branch_name, remote_branch)| {
             format!("branch: {}{}\n",
