@@ -599,7 +599,6 @@ pub fn run() {
                 trees: vec![find_in_tree(path).unwrap()],
             };
 
-            println!("{:#?}", config);
             let toml = toml::to_string(&config).unwrap();
 
             print!("{}", toml);
@@ -655,7 +654,7 @@ pub fn run() {
                     };
                     let status = get_repo_status(&repo);
                     if let Some(_) = status.changes {
-                        println!("Changes found in worktree, refusing to delete!");
+                        print_error("Changes found in worktree, refusing to delete!");
                         process::exit(1);
                     }
 
