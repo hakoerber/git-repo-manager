@@ -75,7 +75,7 @@ fn sync_trees(config: Config) {
                 if repo.worktree_setup && !actual_git_directory.exists() {
                     print_repo_error(
                         &repo.name,
-                        &format!("Repo already exists, but is not using a worktree setup"),
+                        "Repo already exists, but is not using a worktree setup",
                     );
                     process::exit(1);
                 }
@@ -88,43 +88,39 @@ fn sync_trees(config: Config) {
                         process::exit(1);
                     },
                 ));
-            } else {
-                if matches!(&repo.remotes, None)
-                    || repo.remotes.as_ref().unwrap().len().clone() == 0
-                {
-                    print_repo_action(
-                        &repo.name,
-                        "Repository does not have remotes configured, initializing new",
-                    );
-                    repo_handle = match init_repo(&repo_path, repo.worktree_setup) {
-                        Ok(r) => {
-                            print_repo_success(&repo.name, "Repository created");
-                            Some(r)
-                        }
-                        Err(e) => {
-                            print_repo_error(
-                                &repo.name,
-                                &format!("Repository failed during init: {}", e),
-                            );
-                            None
-                        }
+            } else if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().is_empty() {
+                print_repo_action(
+                    &repo.name,
+                    "Repository does not have remotes configured, initializing new",
+                );
+                repo_handle = match init_repo(&repo_path, repo.worktree_setup) {
+                    Ok(r) => {
+                        print_repo_success(&repo.name, "Repository created");
+                        Some(r)
                     }
-                } else {
-                    let first = repo.remotes.as_ref().unwrap().first().unwrap();
-
-                    match clone_repo(first, &repo_path, repo.worktree_setup) {
-                        Ok(_) => {
-                            print_repo_success(&repo.name, "Repository successfully cloned");
-                        }
-                        Err(e) => {
-                            print_repo_error(
-                                &repo.name,
-                                &format!("Repository failed during clone: {}", e),
-                            );
-                            continue;
-                        }
-                    };
+                    Err(e) => {
+                        print_repo_error(
+                            &repo.name,
+                            &format!("Repository failed during init: {}", e),
+                        );
+                        None
+                    }
                 }
+            } else {
+                let first = repo.remotes.as_ref().unwrap().first().unwrap();
+
+                match clone_repo(first, &repo_path, repo.worktree_setup) {
+                    Ok(_) => {
+                        print_repo_success(&repo.name, "Repository successfully cloned");
+                    }
+                    Err(e) => {
+                        print_repo_error(
+                            &repo.name,
+                            &format!("Repository failed during clone: {}", e),
+                        );
+                        continue;
+                    }
+                };
             }
             if let Some(remotes) = &repo.remotes {
                 let repo_handle = repo_handle.unwrap_or_else(|| {
@@ -602,7 +598,7 @@ pub fn run() {
             let toml = toml::to_string(&config).unwrap();
 
             print!("{}", toml);
-        },
+        }
         cmd::SubCommand::Worktree(args) => {
             let dir = match std::env::current_dir() {
                 Ok(d) => d,
@@ -618,14 +614,21 @@ pub fn run() {
                         Ok(r) => r,
                         Err(e) => {
                             match e.kind {
-                                RepoErrorKind::NotFound => print_error(&"Current directory does not contain a worktree setup"),
+                                RepoErrorKind::NotFound => print_error(
+                                    "Current directory does not contain a worktree setup",
+                                ),
                                 _ => print_error(&format!("Error opening repo: {}", e)),
                             }
                             process::exit(1);
                         }
                     };
 
-                    let worktrees = repo.worktrees().unwrap().iter().map(|e| e.unwrap()).collect::<String>();
+                    let worktrees = repo
+                        .worktrees()
+                        .unwrap()
+                        .iter()
+                        .map(|e| e.unwrap())
+                        .collect::<String>();
                     if worktrees.contains(&action_args.name) {
                         print_error("Worktree directory already exists");
                         process::exit(1);
@@ -638,7 +641,7 @@ pub fn run() {
                             process::exit(1);
                         }
                     };
-                },
+                }
                 cmd::WorktreeAction::Delete(action_args) => {
                     let worktree_dir = dir.join(&action_args.name);
                     if !worktree_dir.exists() {
@@ -650,15 +653,17 @@ pub fn run() {
                         Err(e) => {
                             print_error(&format!("Error opening repo: {}", e));
                             process::exit(1);
-                        },
+                        }
                     };
                     let status = get_repo_status(&repo);
-                    if let Some(_) = status.changes {
+                    if status.changes.is_some() {
                         print_error("Changes found in worktree, refusing to delete!");
                         process::exit(1);
                     }
 
-                    let mut branch = repo.find_branch(&action_args.name, git2::BranchType::Local).unwrap();
+                    let mut branch = repo
+                        .find_branch(&action_args.name, git2::BranchType::Local)
+                        .unwrap();
                     match branch.upstream() {
                         Ok(remote_branch) => {
                             let (ahead, behind) = repo
@@ -672,24 +677,31 @@ pub fn run() {
                                 print_error(&format!("Branch {} is not in line with remote branch, refusing to delete worktree!", &action_args.name));
                                 process::exit(1);
                             }
-                        },
+                        }
                         Err(_) => {
                             print_error(&format!("No remote tracking branch for branch {} found, refusing to delete worktree!", &action_args.name));
                             process::exit(1);
-                        },
+                        }
                     }
 
                     match std::fs::remove_dir_all(&worktree_dir) {
                         Ok(_) => print_success(&format!("Worktree {} deleted", &action_args.name)),
                         Err(e) => {
-                            print_error(&format!("Error deleting {}: {}", &worktree_dir.display(), e));
+                            print_error(&format!(
+                                "Error deleting {}: {}",
+                                &worktree_dir.display(),
+                                e
+                            ));
                             process::exit(1);
-                        },
+                        }
                     }
-                    repo.find_worktree(&action_args.name).unwrap().prune(None).unwrap();
+                    repo.find_worktree(&action_args.name)
+                        .unwrap()
+                        .prune(None)
+                        .unwrap();
                     branch.delete().unwrap();
-                },
+                }
             }
-        },
+        }
     }
 }
