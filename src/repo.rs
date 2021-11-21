@@ -274,7 +274,7 @@ pub fn get_repo_status(repo: &git2::Repository) -> RepoStatus {
     };
 
     let statuses = repo
-        .statuses(Some(git2::StatusOptions::new().include_ignored(false)))
+        .statuses(Some(git2::StatusOptions::new().include_ignored(false).include_untracked(true)))
         .unwrap();
 
     let changes = match statuses.is_empty() {
