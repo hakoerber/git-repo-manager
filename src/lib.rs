@@ -19,6 +19,46 @@ use repo::{
 
 const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup() {
+        std::env::set_var("HOME", "/home/test");
+    }
+
+    #[test]
+    fn check_expand_tilde() {
+        setup();
+        assert_eq!(
+            expand_path(Path::new("~/file")),
+            Path::new("/home/test/file")
+        );
+    }
+
+    #[test]
+    fn check_expand_invalid_tilde() {
+        setup();
+        assert_eq!(
+            expand_path(Path::new("/home/~/file")),
+            Path::new("/home/~/file")
+        );
+    }
+
+    #[test]
+    fn check_expand_home() {
+        setup();
+        assert_eq!(
+            expand_path(Path::new("$HOME/file")),
+            Path::new("/home/test/file")
+        );
+        assert_eq!(
+            expand_path(Path::new("${HOME}/file")),
+            Path::new("/home/test/file")
+        );
+    }
+}
+
 fn path_as_string(path: &Path) -> String {
     path.to_path_buf().into_os_string().into_string().unwrap()
 }
