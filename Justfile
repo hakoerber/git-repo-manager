@@ -1,4 +1,5 @@
 lint:
+    cargo fmt --check
     cargo clippy --no-deps
 
 lint-fix:
