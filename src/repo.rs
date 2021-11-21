@@ -46,10 +46,18 @@ pub struct Remote {
     pub remote_type: RemoteType,
 }
 
+fn worktree_setup_default() -> bool {
+    false
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Repo {
     pub name: String,
+
+    #[serde(default = "worktree_setup_default")]
+    pub worktree_setup: bool,
+
     pub remotes: Option<Vec<Remote>>,
 }
 
@@ -167,8 +175,16 @@ pub fn detect_remote_type(remote_url: &str) -> Option<RemoteType> {
     None
 }
 
-pub fn open_repo(path: &Path) -> Result<Repository, RepoError> {
-    match Repository::open(path) {
+pub fn open_repo(path: &Path, is_worktree: bool) -> Result<Repository, RepoError> {
+    let open_func = match is_worktree {
+        true => Repository::open_bare,
+        false => Repository::open,
+    };
+    let path = match is_worktree {
+        true => path.join(super::GIT_MAIN_WORKTREE_DIRECTORY),
+        false => path.to_path_buf(),
+    };
+    match open_func(path) {
         Ok(r) => Ok(r),
         Err(e) => match e.code() {
             git2::ErrorCode::NotFound => Err(RepoError::new(RepoErrorKind::NotFound)),
@@ -179,24 +195,43 @@ pub fn open_repo(path: &Path) -> Result<Repository, RepoError> {
     }
 }
 
-pub fn init_repo(path: &Path) -> Result<Repository, Box<dyn std::error::Error>> {
-    match Repository::init(path) {
-        Ok(r) => Ok(r),
-        Err(e) => Err(Box::new(e)),
+pub fn init_repo(path: &Path, is_worktree: bool) -> Result<Repository, Box<dyn std::error::Error>> {
+    match is_worktree {
+        false => match Repository::init(path) {
+            Ok(r) => Ok(r),
+            Err(e) => Err(Box::new(e)),
+        },
+        true => match Repository::init_bare(path.join(super::GIT_MAIN_WORKTREE_DIRECTORY)) {
+            Ok(r) => Ok(r),
+            Err(e) => Err(Box::new(e)),
+        },
     }
 }
 
-pub fn clone_repo(remote: &Remote, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+pub fn clone_repo(
+    remote: &Remote,
+    path: &Path,
+    is_worktree: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let clone_target = match is_worktree {
+        false => path.to_path_buf(),
+        true => path.join(super::GIT_MAIN_WORKTREE_DIRECTORY),
+    };
+
     print_action(&format!(
         "Cloning into \"{}\" from \"{}\"",
-        &path.display(),
+        &clone_target.display(),
         &remote.url
     ));
     match remote.remote_type {
-        RemoteType::Https => match Repository::clone(&remote.url, &path) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(Box::new(e)),
-        },
+        RemoteType::Https => {
+            let mut builder = git2::build::RepoBuilder::new();
+            builder.bare(is_worktree);
+            match builder.clone(&remote.url, &clone_target) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(Box::new(e)),
+            }
+        }
         RemoteType::Ssh => {
             let mut callbacks = RemoteCallbacks::new();
             callbacks.credentials(|_url, username_from_url, _allowed_types| {
@@ -207,9 +242,10 @@ pub fn clone_repo(remote: &Remote, path: &Path) -> Result<(), Box<dyn std::error
             fo.remote_callbacks(callbacks);
 
             let mut builder = git2::build::RepoBuilder::new();
+            builder.bare(is_worktree);
             builder.fetch_options(fo);
 
-            match builder.clone(&remote.url, path) {
+            match builder.clone(&remote.url, &clone_target) {
                 Ok(_) => Ok(()),
                 Err(e) => Err(Box::new(e)),
             }
@@ -237,7 +273,9 @@ pub fn get_repo_status(repo: &git2::Repository) -> RepoStatus {
         false => Some(repo.head().unwrap().shorthand().unwrap().to_string()),
     };
 
-    let statuses = repo.statuses(Some(git2::StatusOptions::new().include_ignored(false))).unwrap();
+    let statuses = repo
+        .statuses(Some(git2::StatusOptions::new().include_ignored(false)))
+        .unwrap();
 
     let changes = match statuses.is_empty() {
         true => None,
@@ -265,7 +303,9 @@ pub fn get_repo_status(repo: &git2::Repository) -> RepoStatus {
                 }
             }
             if (files_new, files_modified, files_deleted) == (0, 0, 0) {
-                panic!("is_empty() returned true, but no file changes were detected. This is a bug!");
+                panic!(
+                    "is_empty() returned true, but no file changes were detected. This is a bug!"
+                );
             }
             Some(RepoChanges {
                 files_new,

@@ -45,11 +45,7 @@ pub struct Sync {
 #[derive(Parser)]
 #[clap()]
 pub struct OptionalConfig {
-    #[clap(
-        short,
-        long,
-        about = "Path to the configuration file"
-    )]
+    #[clap(short, long, about = "Path to the configuration file")]
     pub config: Option<String>,
 }
 

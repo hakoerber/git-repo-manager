@@ -10,12 +10,14 @@ mod repo;
 use config::{Config, Tree};
 use output::*;
 
-use comfy_table::{Table, Cell};
+use comfy_table::{Cell, Table};
 
 use repo::{
-    clone_repo, detect_remote_type, get_repo_status, init_repo, open_repo, Remote, Repo,
-    RepoErrorKind, RemoteTrackingStatus
+    clone_repo, detect_remote_type, get_repo_status, init_repo, open_repo, Remote,
+    RemoteTrackingStatus, Repo, RepoErrorKind,
 };
+
+const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
 fn path_as_string(path: &Path) -> String {
     path.to_path_buf().into_os_string().into_string().unwrap()
@@ -65,21 +67,36 @@ fn sync_trees(config: Config) {
 
         for repo in &repos {
             let repo_path = root_path.join(&repo.name);
+            let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
             let mut repo_handle = None;
 
             if repo_path.exists() {
-                repo_handle = Some(open_repo(&repo_path).unwrap_or_else(|error| {
-                    print_repo_error(&repo.name, &format!("Opening repository failed: {}", error));
+                if repo.worktree_setup && !actual_git_directory.exists() {
+                    print_repo_error(
+                        &repo.name,
+                        &format!("Repo already exists, but is not using a worktree setup"),
+                    );
                     process::exit(1);
-                }));
+                }
+                repo_handle = Some(open_repo(&repo_path, repo.worktree_setup).unwrap_or_else(
+                    |error| {
+                        print_repo_error(
+                            &repo.name,
+                            &format!("Opening repository failed: {}", error),
+                        );
+                        process::exit(1);
+                    },
+                ));
             } else {
-                if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().len().clone() == 0 {
+                if matches!(&repo.remotes, None)
+                    || repo.remotes.as_ref().unwrap().len().clone() == 0
+                {
                     print_repo_action(
                         &repo.name,
                         "Repository does not have remotes configured, initializing new",
                     );
-                    repo_handle = match init_repo(&repo_path) {
+                    repo_handle = match init_repo(&repo_path, repo.worktree_setup) {
                         Ok(r) => {
                             print_repo_success(&repo.name, "Repository created");
                             Some(r)
@@ -95,7 +112,7 @@ fn sync_trees(config: Config) {
                 } else {
                     let first = repo.remotes.as_ref().unwrap().first().unwrap();
 
-                    match clone_repo(first, &repo_path) {
+                    match clone_repo(first, &repo_path, repo.worktree_setup) {
                         Ok(_) => {
                             print_repo_success(&repo.name, "Repository successfully cloned");
                         }
@@ -110,8 +127,9 @@ fn sync_trees(config: Config) {
                 }
             }
             if let Some(remotes) = &repo.remotes {
-                let repo_handle = repo_handle
-                    .unwrap_or_else(|| open_repo(&repo_path).unwrap_or_else(|_| process::exit(1)));
+                let repo_handle = repo_handle.unwrap_or_else(|| {
+                    open_repo(&repo_path, repo.worktree_setup).unwrap_or_else(|_| process::exit(1))
+                });
 
                 let current_remotes: Vec<String> = match repo_handle.remotes() {
                     Ok(r) => r,
@@ -190,7 +208,7 @@ fn sync_trees(config: Config) {
         }
 
         let current_repos = find_repos_without_details(&root_path).unwrap();
-        for repo in current_repos {
+        for (repo, _) in current_repos {
             let name = path_as_string(repo.strip_prefix(&root_path).unwrap());
             if !repos.iter().any(|r| r.name == name) {
                 print_warning(&format!("Found unmanaged repository: {}", name));
@@ -199,12 +217,16 @@ fn sync_trees(config: Config) {
     }
 }
 
-fn find_repos_without_details(path: &Path) -> Option<Vec<PathBuf>> {
-    let mut repos: Vec<PathBuf> = Vec::new();
+fn find_repos_without_details(path: &Path) -> Option<Vec<(PathBuf, bool)>> {
+    let mut repos: Vec<(PathBuf, bool)> = Vec::new();
 
     let git_dir = path.join(".git");
+    let git_worktree = path.join(GIT_MAIN_WORKTREE_DIRECTORY);
+
     if git_dir.exists() {
-        repos.push(path.to_path_buf());
+        repos.push((path.to_path_buf(), false));
+    } else if git_worktree.exists() {
+        repos.push((path.to_path_buf(), true));
     } else {
         match fs::read_dir(path) {
             Ok(contents) => {
@@ -238,14 +260,29 @@ fn find_repos_without_details(path: &Path) -> Option<Vec<PathBuf>> {
     Some(repos)
 }
 
+fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
+    match is_worktree {
+        false => path.to_path_buf(),
+        true => path.join(GIT_MAIN_WORKTREE_DIRECTORY),
+    }
+}
+
 fn find_repos(root: &Path) -> Option<Vec<Repo>> {
     let mut repos: Vec<Repo> = Vec::new();
 
-    for path in find_repos_without_details(root).unwrap() {
-        let repo = match open_repo(&path) {
+    for (path, is_worktree) in find_repos_without_details(root).unwrap() {
+        let repo = match open_repo(&path, is_worktree) {
             Ok(r) => r,
             Err(e) => {
-                print_error(&format!("Error opening repo {}: {}", path.display(), e));
+                print_error(&format!(
+                    "Error opening repo {}{}: {}",
+                    path.display(),
+                    match is_worktree {
+                        true => " as worktree",
+                        false => "",
+                    },
+                    e
+                ));
                 return None;
             }
         };
@@ -330,6 +367,7 @@ fn find_repos(root: &Path) -> Option<Vec<Repo>> {
                 false => path_as_string(path.strip_prefix(&root).unwrap()),
             },
             remotes,
+            worktree_setup: is_worktree,
         });
     }
     Some(repos)
@@ -386,41 +424,56 @@ fn add_repo_status(table: &mut Table, repo_name: &str, repo_handle: &git2::Repos
                     out.push(format!("Deleted: {}\n", changes.files_deleted))
                 }
                 out.into_iter().collect::<String>().trim().to_string()
-            },
+            }
             None => String::from("\u{2714}"),
         },
-        &repo_status.branches.iter().map(|(branch_name, remote_branch)| {
-            format!("branch: {}{}\n",
-                &branch_name,
-                &match remote_branch {
-                    None => String::from(" <!local>"),
-                    Some((remote_branch_name, remote_tracking_status)) => {
-                        format!(" <{}>{}",
-                            remote_branch_name,
-                            &match remote_tracking_status {
-                                RemoteTrackingStatus::UpToDate => String::from(" \u{2714}"),
-                                RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
-                                RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
-                                RemoteTrackingStatus::Diverged(d1, d2) => format!(" [-{}/+{}]", &d1,&d2),
-                            }
-                        )
+        &repo_status
+            .branches
+            .iter()
+            .map(|(branch_name, remote_branch)| {
+                format!(
+                    "branch: {}{}\n",
+                    &branch_name,
+                    &match remote_branch {
+                        None => String::from(" <!local>"),
+                        Some((remote_branch_name, remote_tracking_status)) => {
+                            format!(
+                                " <{}>{}",
+                                remote_branch_name,
+                                &match remote_tracking_status {
+                                    RemoteTrackingStatus::UpToDate => String::from(" \u{2714}"),
+                                    RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
+                                    RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
+                                    RemoteTrackingStatus::Diverged(d1, d2) =>
+                                        format!(" [-{}/+{}]", &d1, &d2),
+                                }
+                            )
+                        }
                     }
-                }
-            )
-        }).collect::<String>().trim().to_string(),
+                )
+            })
+            .collect::<String>()
+            .trim()
+            .to_string(),
         &match repo_status.head {
             Some(head) => head,
             None => String::from("Empty"),
         },
-        &repo_status.remotes.iter().map(|r| format!("{}\n", r)).collect::<String>().trim().to_string(),
+        &repo_status
+            .remotes
+            .iter()
+            .map(|r| format!("{}\n", r))
+            .collect::<String>()
+            .trim()
+            .to_string(),
     ]);
 }
 
-fn show_single_repo_status(path: &Path) {
+fn show_single_repo_status(path: &Path, is_worktree: bool) {
     let mut table = Table::new();
     add_table_header(&mut table);
 
-    let repo_handle = open_repo(path);
+    let repo_handle = open_repo(path, is_worktree);
 
     if let Err(error) = repo_handle {
         if error.kind == RepoErrorKind::NotFound {
@@ -435,14 +488,14 @@ fn show_single_repo_status(path: &Path) {
         None => {
             print_warning("Cannot detect repo name. Are you working in /?");
             String::from("unknown")
-        },
+        }
         Some(file_name) => match file_name.to_str() {
             None => {
                 print_warning("Name of current directory is not valid UTF-8");
                 String::from("invalid")
-            },
+            }
             Some(name) => name.to_string(),
-        }
+        },
     };
 
     add_repo_status(&mut table, &repo_name, &repo_handle.unwrap());
@@ -463,15 +516,21 @@ fn show_status(config: Config) {
             let repo_path = root_path.join(&repo.name);
 
             if !repo_path.exists() {
-                print_repo_error(&repo.name, &"Repository does not exist. Run sync?".to_string());
+                print_repo_error(
+                    &repo.name,
+                    &"Repository does not exist. Run sync?".to_string(),
+                );
                 continue;
             }
 
-            let repo_handle = open_repo(&repo_path);
+            let repo_handle = open_repo(&repo_path, repo.worktree_setup);
 
             if let Err(error) = repo_handle {
                 if error.kind == RepoErrorKind::NotFound {
-                    print_repo_error(&repo.name, &"No git repository found. Run sync?".to_string());
+                    print_repo_error(
+                        &repo.name,
+                        &"No git repository found. Run sync?".to_string(),
+                    );
                 } else {
                     print_repo_error(&repo.name, &format!("Opening repository failed: {}", error));
                 }
@@ -500,31 +559,30 @@ pub fn run() {
             };
             sync_trees(config);
         }
-        cmd::SubCommand::Status(args) => {
-            match &args.config {
-                Some(config_path) => {
-                    let config = match config::read_config(config_path) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            print_error(&e);
-                            process::exit(1);
-                        }
-                    };
-                    show_status(config);
-                },
-                None => {
-                    let dir = match std::env::current_dir(){
-                        Ok(d) => d,
-                        Err(e) => {
-                            print_error(&format!("Could not open current directory: {}", e));
-                            process::exit(1);
-                        },
-                    };
-
-                    show_single_repo_status(&dir);
-                }
+        cmd::SubCommand::Status(args) => match &args.config {
+            Some(config_path) => {
+                let config = match config::read_config(config_path) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        print_error(&e);
+                        process::exit(1);
+                    }
+                };
+                show_status(config);
             }
-        }
+            None => {
+                let dir = match std::env::current_dir() {
+                    Ok(d) => d,
+                    Err(e) => {
+                        print_error(&format!("Could not open current directory: {}", e));
+                        process::exit(1);
+                    }
+                };
+
+                let has_worktree = dir.join(GIT_MAIN_WORKTREE_DIRECTORY).exists();
+                show_single_repo_status(&dir, has_worktree);
+            }
+        },
         cmd::SubCommand::Find(find) => {
             let path = Path::new(&find.path);
             if !path.exists() {
@@ -541,6 +599,7 @@ pub fn run() {
                 trees: vec![find_in_tree(path).unwrap()],
             };
 
+            println!("{:#?}", config);
             let toml = toml::to_string(&config).unwrap();
 
             print!("{}", toml);
