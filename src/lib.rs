@@ -5,7 +5,7 @@ use std::process;
 mod cmd;
 mod config;
 mod output;
-mod repo;
+pub mod repo;
 
 use config::{Config, Tree};
 use output::*;
