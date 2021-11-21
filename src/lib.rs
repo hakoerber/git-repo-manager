@@ -603,6 +603,94 @@ pub fn run() {
             let toml = toml::to_string(&config).unwrap();
 
             print!("{}", toml);
-        }
+        },
+        cmd::SubCommand::Worktree(args) => {
+            let dir = match std::env::current_dir() {
+                Ok(d) => d,
+                Err(e) => {
+                    print_error(&format!("Could not open current directory: {}", e));
+                    process::exit(1);
+                }
+            };
+
+            match args.action {
+                cmd::WorktreeAction::Add(action_args) => {
+                    let repo = match open_repo(&dir, true) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            match e.kind {
+                                RepoErrorKind::NotFound => print_error(&"Current directory does not contain a worktree setup"),
+                                _ => print_error(&format!("Error opening repo: {}", e)),
+                            }
+                            process::exit(1);
+                        }
+                    };
+
+                    let worktrees = repo.worktrees().unwrap().iter().map(|e| e.unwrap()).collect::<String>();
+                    if worktrees.contains(&action_args.name) {
+                        print_error("Worktree directory already exists");
+                        process::exit(1);
+                    }
+
+                    match repo.worktree(&action_args.name, &dir.join(&action_args.name), None) {
+                        Ok(_) => print_success(&format!("Worktree {} created", &action_args.name)),
+                        Err(e) => {
+                            print_error(&format!("Error creating worktree: {}", e));
+                            process::exit(1);
+                        }
+                    };
+                },
+                cmd::WorktreeAction::Delete(action_args) => {
+                    let worktree_dir = dir.join(&action_args.name);
+                    if !worktree_dir.exists() {
+                        print_error(&format!("{} does not exist", &action_args.name));
+                        process::exit(1);
+                    }
+                    let repo = match open_repo(&worktree_dir, false) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            print_error(&format!("Error opening repo: {}", e));
+                            process::exit(1);
+                        },
+                    };
+                    let status = get_repo_status(&repo);
+                    if let Some(_) = status.changes {
+                        println!("Changes found in worktree, refusing to delete!");
+                        process::exit(1);
+                    }
+
+                    let mut branch = repo.find_branch(&action_args.name, git2::BranchType::Local).unwrap();
+                    match branch.upstream() {
+                        Ok(remote_branch) => {
+                            let (ahead, behind) = repo
+                                .graph_ahead_behind(
+                                    branch.get().peel_to_commit().unwrap().id(),
+                                    remote_branch.get().peel_to_commit().unwrap().id(),
+                                )
+                                .unwrap();
+
+                            if (ahead, behind) != (0, 0) {
+                                print_error(&format!("Branch {} is not in line with remote branch, refusing to delete worktree!", &action_args.name));
+                                process::exit(1);
+                            }
+                        },
+                        Err(_) => {
+                            print_error(&format!("No remote tracking branch for branch {} found, refusing to delete worktree!", &action_args.name));
+                            process::exit(1);
+                        },
+                    }
+
+                    match std::fs::remove_dir_all(&worktree_dir) {
+                        Ok(_) => print_success(&format!("Worktree {} deleted", &action_args.name)),
+                        Err(e) => {
+                            print_error(&format!("Error deleting {}: {}", &worktree_dir.display(), e));
+                            process::exit(1);
+                        },
+                    }
+                    repo.find_worktree(&action_args.name).unwrap().prune(None).unwrap();
+                    branch.delete().unwrap();
+                },
+            }
+        },
     }
 }

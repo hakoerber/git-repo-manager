@@ -79,6 +79,35 @@ $ grm status
 +----------+------------+----------------------------------+--------+---------+
 ```
 
+### Manage worktrees for projects
+
+Optionally, GRM can also set up a repository to support multiple worktrees. See
+[the git documentation](https://git-scm.com/docs/git-worktree) for details about
+worktrees. Long story short: Worktrees allow you to have multiple independent
+checkouts of the same repository in different directories, backed by a single
+git repository.
+
+To use this, specify `worktree_setup = true` for a repo in your configuration.
+After the sync, you will see that the target directory is empty. Actually, the
+repository was bare-cloned into a hidden directory: `.git-main-working-tree`.
+Don't touch it! GRM provides a command to manage working trees.
+
+Use `grm worktree add <name>` to create a new checkout of a new branch into
+a subdirectory. An example:
+
+```bash
+$ grm worktree add mybranch
+$ cd ./mybranch
+$ git status
+On branch mybranch
+
+nothing to commit, working tree clean
+```
+
+If you're done with your worktree, use `grm worktree delete <name>` to remove it.
+GRM will refuse to delete worktrees that contain uncommitted or unpushed changes,
+otherwise you might lose work.
+
 # Why?
 
 I have a **lot** of repositories on my machines. My own stuff, forks, quick

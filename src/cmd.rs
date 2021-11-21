@@ -28,6 +28,12 @@ pub enum SubCommand {
     Find(Find),
     #[clap(about = "Show status of configured repositories")]
     Status(OptionalConfig),
+    #[clap(
+        visible_alias = "wt",
+        about = "Manage worktrees"
+    )]
+    Worktree(Worktree),
+
 }
 
 #[derive(Parser)]
@@ -54,6 +60,27 @@ pub struct Find {
     #[clap(about = "The path to search through")]
     pub path: String,
 }
+
+#[derive(Parser)]
+pub struct Worktree {
+    #[clap(subcommand, name = "action")]
+    pub action: WorktreeAction,
+}
+
+#[derive(Parser)]
+pub enum WorktreeAction {
+    #[clap(about = "Add a new worktree")]
+    Add(WorktreeActionArgs),
+    #[clap(about = "Add an existing worktree")]
+    Delete(WorktreeActionArgs),
+}
+
+#[derive(Parser)]
+pub struct WorktreeActionArgs {
+    #[clap(about = "Name of the worktree")]
+    pub name: String,
+}
+
 
 pub fn parse() -> Opts {
     Opts::parse()
