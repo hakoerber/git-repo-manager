@@ -66,16 +66,46 @@ pub struct Worktree {
 #[derive(Parser)]
 pub enum WorktreeAction {
     #[clap(about = "Add a new worktree")]
-    Add(WorktreeActionArgs),
+    Add(WorktreeAddArgs),
     #[clap(about = "Add an existing worktree")]
-    Delete(WorktreeActionArgs),
+    Delete(WorktreeDeleteArgs),
+    #[clap(about = "Show state of existing worktrees")]
+    Status(WorktreeStatusArgs),
+    #[clap(about = "Clean all worktrees that do not contain uncommited/unpushed changes")]
+    Clean(WorktreeCleanArgs),
 }
 
 #[derive(Parser)]
-pub struct WorktreeActionArgs {
+pub struct WorktreeAddArgs {
     #[clap(about = "Name of the worktree")]
     pub name: String,
+
+    #[clap(
+        short = 'p',
+        long = "branch-prefix",
+        about = "Prefix for the branch name"
+    )]
+    pub branch_prefix: Option<String>,
+    #[clap(short = 't', long = "track", about = "Remote branch to track")]
+    pub track: Option<String>,
 }
+#[derive(Parser)]
+pub struct WorktreeDeleteArgs {
+    #[clap(about = "Name of the worktree")]
+    pub name: String,
+
+    #[clap(
+        long = "force",
+        about = "Force deletion, even when there are uncommitted/unpushed changes"
+    )]
+    pub force: bool,
+}
+
+#[derive(Parser)]
+pub struct WorktreeStatusArgs {}
+
+#[derive(Parser)]
+pub struct WorktreeCleanArgs {}
 
 pub fn parse() -> Opts {
     Opts::parse()

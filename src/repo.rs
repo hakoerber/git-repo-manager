@@ -90,11 +90,14 @@ pub struct RepoStatus {
 
     pub head: Option<String>,
 
-    pub changes: Option<RepoChanges>,
+    // None(_) => Could not get changes (e.g. because it's a worktree setup
+    // Some(None) => No changes
+    // Some(Some(_)) => Changes
+    pub changes: Option<Option<RepoChanges>>,
 
     pub worktrees: usize,
 
-    pub submodules: Vec<(String, SubmoduleStatus)>,
+    pub submodules: Option<Vec<(String, SubmoduleStatus)>>,
 
     pub branches: Vec<(String, Option<(String, RemoteTrackingStatus)>)>,
 }
@@ -253,7 +256,7 @@ pub fn clone_repo(
     }
 }
 
-pub fn get_repo_status(repo: &git2::Repository) -> RepoStatus {
+pub fn get_repo_status(repo: &git2::Repository, is_worktree: bool) -> RepoStatus {
     let operation = match repo.state() {
         git2::RepositoryState::Clean => None,
         state => Some(state),
@@ -268,84 +271,100 @@ pub fn get_repo_status(repo: &git2::Repository) -> RepoStatus {
         .map(|repo_name| repo_name.unwrap().to_string())
         .collect::<Vec<String>>();
 
-    let head = match empty {
+    let head = match is_worktree {
         true => None,
-        false => Some(repo.head().unwrap().shorthand().unwrap().to_string()),
+        false => match empty {
+            true => None,
+            false => Some(repo.head().unwrap().shorthand().unwrap().to_string()),
+        },
     };
 
-    let statuses = repo
-        .statuses(Some(
-            git2::StatusOptions::new()
-                .include_ignored(false)
-                .include_untracked(true),
-        ))
-        .unwrap();
-
-    let changes = match statuses.is_empty() {
+    let changes = match is_worktree {
         true => None,
         false => {
-            let mut files_new = 0;
-            let mut files_modified = 0;
-            let mut files_deleted = 0;
-            for status in statuses.iter() {
-                let status_bits = status.status();
-                if status_bits.intersects(
-                    git2::Status::INDEX_MODIFIED
-                        | git2::Status::INDEX_RENAMED
-                        | git2::Status::INDEX_TYPECHANGE
-                        | git2::Status::WT_MODIFIED
-                        | git2::Status::WT_RENAMED
-                        | git2::Status::WT_TYPECHANGE,
-                ) {
-                    files_modified += 1;
-                } else if status_bits.intersects(git2::Status::INDEX_NEW | git2::Status::WT_NEW) {
-                    files_new += 1;
-                } else if status_bits
-                    .intersects(git2::Status::INDEX_DELETED | git2::Status::WT_DELETED)
-                {
-                    files_deleted += 1;
+            let statuses = repo
+                .statuses(Some(
+                    git2::StatusOptions::new()
+                        .include_ignored(false)
+                        .include_untracked(true),
+                ))
+                .unwrap();
+
+            match statuses.is_empty() {
+                true => Some(None),
+                false => {
+                    let mut files_new = 0;
+                    let mut files_modified = 0;
+                    let mut files_deleted = 0;
+                    for status in statuses.iter() {
+                        let status_bits = status.status();
+                        if status_bits.intersects(
+                            git2::Status::INDEX_MODIFIED
+                                | git2::Status::INDEX_RENAMED
+                                | git2::Status::INDEX_TYPECHANGE
+                                | git2::Status::WT_MODIFIED
+                                | git2::Status::WT_RENAMED
+                                | git2::Status::WT_TYPECHANGE,
+                        ) {
+                            files_modified += 1;
+                        } else if status_bits
+                            .intersects(git2::Status::INDEX_NEW | git2::Status::WT_NEW)
+                        {
+                            files_new += 1;
+                        } else if status_bits
+                            .intersects(git2::Status::INDEX_DELETED | git2::Status::WT_DELETED)
+                        {
+                            files_deleted += 1;
+                        }
+                    }
+                    if (files_new, files_modified, files_deleted) == (0, 0, 0) {
+                        panic!(
+                            "is_empty() returned true, but no file changes were detected. This is a bug!"
+                        );
+                    }
+                    Some(Some(RepoChanges {
+                        files_new,
+                        files_modified,
+                        files_deleted,
+                    }))
                 }
             }
-            if (files_new, files_modified, files_deleted) == (0, 0, 0) {
-                panic!(
-                    "is_empty() returned true, but no file changes were detected. This is a bug!"
-                );
-            }
-            Some(RepoChanges {
-                files_new,
-                files_modified,
-                files_deleted,
-            })
         }
     };
 
     let worktrees = repo.worktrees().unwrap().len();
 
-    let mut submodules = Vec::new();
-    for submodule in repo.submodules().unwrap() {
-        let submodule_name = submodule.name().unwrap().to_string();
+    let submodules = match is_worktree {
+        true => None,
+        false => {
+            let mut submodules = Vec::new();
+            for submodule in repo.submodules().unwrap() {
+                let submodule_name = submodule.name().unwrap().to_string();
 
-        let submodule_status;
-        let status = repo
-            .submodule_status(submodule.name().unwrap(), git2::SubmoduleIgnore::None)
-            .unwrap();
+                let submodule_status;
+                let status = repo
+                    .submodule_status(submodule.name().unwrap(), git2::SubmoduleIgnore::None)
+                    .unwrap();
 
-        if status.intersects(
-            git2::SubmoduleStatus::WD_INDEX_MODIFIED
-                | git2::SubmoduleStatus::WD_WD_MODIFIED
-                | git2::SubmoduleStatus::WD_UNTRACKED,
-        ) {
-            submodule_status = SubmoduleStatus::Changed;
-        } else if status.is_wd_uninitialized() {
-            submodule_status = SubmoduleStatus::Uninitialized;
-        } else if status.is_wd_modified() {
-            submodule_status = SubmoduleStatus::OutOfDate;
-        } else {
-            submodule_status = SubmoduleStatus::Clean;
+                if status.intersects(
+                    git2::SubmoduleStatus::WD_INDEX_MODIFIED
+                        | git2::SubmoduleStatus::WD_WD_MODIFIED
+                        | git2::SubmoduleStatus::WD_UNTRACKED,
+                ) {
+                    submodule_status = SubmoduleStatus::Changed;
+                } else if status.is_wd_uninitialized() {
+                    submodule_status = SubmoduleStatus::Uninitialized;
+                } else if status.is_wd_modified() {
+                    submodule_status = SubmoduleStatus::OutOfDate;
+                } else {
+                    submodule_status = SubmoduleStatus::Clean;
+                }
+
+                submodules.push((submodule_name, submodule_status));
+            }
+            Some(submodules)
         }
-
-        submodules.push((submodule_name, submodule_status));
-    }
+    };
 
     let mut branches = Vec::new();
     for (local_branch, _) in repo

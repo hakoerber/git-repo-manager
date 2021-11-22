@@ -99,6 +99,16 @@ fn expand_path(path: &Path) -> PathBuf {
     Path::new(&expanded_path).to_path_buf()
 }
 
+fn get_default_branch(repo: &git2::Repository) -> Result<git2::Branch, String> {
+    match repo.find_branch("main", git2::BranchType::Local) {
+        Ok(branch) => Ok(branch),
+        Err(_) => match repo.find_branch("master", git2::BranchType::Local) {
+            Ok(branch) => Ok(branch),
+            Err(_) => Err(String::from("Could not determine default branch")),
+        },
+    }
+}
+
 fn sync_trees(config: Config) {
     for tree in config.trees {
         let repos = tree.repos.unwrap_or_default();
@@ -448,6 +458,7 @@ fn add_table_header(table: &mut Table) {
         .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
         .set_header(vec![
             Cell::new("Repo"),
+            Cell::new("Worktree"),
             Cell::new("Status"),
             Cell::new("Branches"),
             Cell::new("HEAD"),
@@ -455,26 +466,50 @@ fn add_table_header(table: &mut Table) {
         ]);
 }
 
-fn add_repo_status(table: &mut Table, repo_name: &str, repo_handle: &git2::Repository) {
-    let repo_status = get_repo_status(repo_handle);
+fn add_worktree_table_header(table: &mut Table) {
+    table
+        .load_preset(comfy_table::presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_header(vec![
+            Cell::new("Worktree"),
+            Cell::new("Status"),
+            Cell::new("Branch"),
+            Cell::new("Remote branch"),
+        ]);
+}
+
+fn add_repo_status(
+    table: &mut Table,
+    repo_name: &str,
+    repo_handle: &git2::Repository,
+    is_worktree: bool,
+) {
+    let repo_status = get_repo_status(repo_handle, is_worktree);
 
     table.add_row(vec![
         repo_name,
+        match is_worktree {
+            true => "\u{2714}",
+            false => "",
+        },
         &match repo_status.changes {
-            Some(changes) => {
-                let mut out = Vec::new();
-                if changes.files_new > 0 {
-                    out.push(format!("New: {}\n", changes.files_new))
+            None => String::from("-"),
+            Some(changes) => match changes {
+                Some(changes) => {
+                    let mut out = Vec::new();
+                    if changes.files_new > 0 {
+                        out.push(format!("New: {}\n", changes.files_new))
+                    }
+                    if changes.files_modified > 0 {
+                        out.push(format!("Modified: {}\n", changes.files_modified))
+                    }
+                    if changes.files_deleted > 0 {
+                        out.push(format!("Deleted: {}\n", changes.files_deleted))
+                    }
+                    out.into_iter().collect::<String>().trim().to_string()
                 }
-                if changes.files_modified > 0 {
-                    out.push(format!("Modified: {}\n", changes.files_modified))
-                }
-                if changes.files_deleted > 0 {
-                    out.push(format!("Deleted: {}\n", changes.files_deleted))
-                }
-                out.into_iter().collect::<String>().trim().to_string()
-            }
-            None => String::from("\u{2714}"),
+                None => String::from("\u{2714}"),
+            },
         },
         &repo_status
             .branches
@@ -504,9 +539,12 @@ fn add_repo_status(table: &mut Table, repo_name: &str, repo_handle: &git2::Repos
             .collect::<String>()
             .trim()
             .to_string(),
-        &match repo_status.head {
-            Some(head) => head,
-            None => String::from("Empty"),
+        &match is_worktree {
+            true => String::from(""),
+            false => match repo_status.head {
+                Some(head) => head,
+                None => String::from("Empty"),
+            },
         },
         &repo_status
             .remotes
@@ -515,6 +553,72 @@ fn add_repo_status(table: &mut Table, repo_name: &str, repo_handle: &git2::Repos
             .collect::<String>()
             .trim()
             .to_string(),
+    ]);
+}
+
+fn add_worktree_status(table: &mut Table, worktree_name: &str, repo: &git2::Repository) {
+    let repo_status = get_repo_status(repo, false);
+
+    let head = repo.head().unwrap();
+
+    if !head.is_branch() {
+        print_error("No branch checked out in worktree");
+        process::exit(1);
+    }
+
+    let local_branch_name = head.shorthand().unwrap();
+    let local_branch = repo
+        .find_branch(local_branch_name, git2::BranchType::Local)
+        .unwrap();
+
+    let upstream_output = match local_branch.upstream() {
+        Ok(remote_branch) => {
+            let remote_branch_name = remote_branch.name().unwrap().unwrap().to_string();
+
+            let (ahead, behind) = repo
+                .graph_ahead_behind(
+                    local_branch.get().peel_to_commit().unwrap().id(),
+                    remote_branch.get().peel_to_commit().unwrap().id(),
+                )
+                .unwrap();
+
+            format!(
+                "{}{}\n",
+                &remote_branch_name,
+                &match (ahead, behind) {
+                    (0, 0) => String::from(""),
+                    (d, 0) => format!(" [+{}]", &d),
+                    (0, d) => format!(" [-{}]", &d),
+                    (d1, d2) => format!(" [+{}/-{}]", &d1, &d2),
+                },
+            )
+        }
+        Err(_) => String::from(""),
+    };
+
+    table.add_row(vec![
+        worktree_name,
+        &match repo_status.changes {
+            None => String::from(""),
+            Some(changes) => match changes {
+                Some(changes) => {
+                    let mut out = Vec::new();
+                    if changes.files_new > 0 {
+                        out.push(format!("New: {}\n", changes.files_new))
+                    }
+                    if changes.files_modified > 0 {
+                        out.push(format!("Modified: {}\n", changes.files_modified))
+                    }
+                    if changes.files_deleted > 0 {
+                        out.push(format!("Deleted: {}\n", changes.files_deleted))
+                    }
+                    out.into_iter().collect::<String>().trim().to_string()
+                }
+                None => String::from("\u{2714}"),
+            },
+        },
+        local_branch_name,
+        &upstream_output,
     ]);
 }
 
@@ -547,7 +651,7 @@ fn show_single_repo_status(path: &Path, is_worktree: bool) {
         },
     };
 
-    add_repo_status(&mut table, &repo_name, &repo_handle.unwrap());
+    add_repo_status(&mut table, &repo_name, &repo_handle.unwrap(), is_worktree);
 
     println!("{}", table);
 }
@@ -588,10 +692,102 @@ fn show_status(config: Config) {
 
             let repo_handle = repo_handle.unwrap();
 
-            add_repo_status(&mut table, &repo.name, &repo_handle);
+            add_repo_status(&mut table, &repo.name, &repo_handle, repo.worktree_setup);
         }
         println!("{}", table);
     }
+}
+
+enum WorktreeRemoveFailureReason {
+    Changes(String),
+    Error(String),
+}
+
+fn remove_worktree(
+    name: &str,
+    worktree_dir: &Path,
+    force: bool,
+    main_repo: &git2::Repository,
+) -> Result<(), WorktreeRemoveFailureReason> {
+    if !worktree_dir.exists() {
+        return Err(WorktreeRemoveFailureReason::Error(format!(
+            "{} does not exist",
+            name
+        )));
+    }
+    let worktree_repo = match open_repo(worktree_dir, false) {
+        Ok(r) => r,
+        Err(e) => {
+            return Err(WorktreeRemoveFailureReason::Error(format!(
+                "Error opening repo: {}",
+                e
+            )));
+        }
+    };
+
+    let head = worktree_repo.head().unwrap();
+    if !head.is_branch() {
+        return Err(WorktreeRemoveFailureReason::Error(String::from(
+            "No branch checked out in worktree",
+        )));
+    }
+
+    let branch_name = head.shorthand().unwrap();
+    if !branch_name.ends_with(name) {
+        return Err(WorktreeRemoveFailureReason::Error(format!(
+            "Branch {} is checked out in worktree, this does not look correct",
+            &branch_name
+        )));
+    }
+
+    let mut branch = worktree_repo
+        .find_branch(branch_name, git2::BranchType::Local)
+        .unwrap();
+
+    if !force {
+        let status = get_repo_status(&worktree_repo, false);
+        if status.changes.is_some() {
+            return Err(WorktreeRemoveFailureReason::Changes(String::from(
+                "Changes found in worktree",
+            )));
+        }
+
+        match branch.upstream() {
+            Ok(remote_branch) => {
+                let (ahead, behind) = worktree_repo
+                    .graph_ahead_behind(
+                        branch.get().peel_to_commit().unwrap().id(),
+                        remote_branch.get().peel_to_commit().unwrap().id(),
+                    )
+                    .unwrap();
+
+                if (ahead, behind) != (0, 0) {
+                    return Err(WorktreeRemoveFailureReason::Changes(format!(
+                        "Branch {} is not in line with remote branch",
+                        name
+                    )));
+                }
+            }
+            Err(_) => {
+                return Err(WorktreeRemoveFailureReason::Changes(format!(
+                    "No remote tracking branch for branch {} found",
+                    name
+                )));
+            }
+        }
+    }
+
+    if let Err(e) = std::fs::remove_dir_all(&worktree_dir) {
+        return Err(WorktreeRemoveFailureReason::Error(format!(
+            "Error deleting {}: {}",
+            &worktree_dir.display(),
+            e
+        )));
+    }
+    main_repo.find_worktree(name).unwrap().prune(None).unwrap();
+    branch.delete().unwrap();
+
+    Ok(())
 }
 
 pub fn run() {
@@ -667,33 +863,80 @@ pub fn run() {
                 }
             };
 
+            let repo = match open_repo(&dir, true) {
+                Ok(r) => r,
+                Err(e) => {
+                    match e.kind {
+                        RepoErrorKind::NotFound => {
+                            print_error("Current directory does not contain a worktree setup")
+                        }
+                        _ => print_error(&format!("Error opening repo: {}", e)),
+                    }
+                    process::exit(1);
+                }
+            };
+
+            let worktrees = repo
+                .worktrees()
+                .unwrap()
+                .iter()
+                .map(|e| e.unwrap().to_string())
+                .collect::<Vec<String>>();
+
             match args.action {
                 cmd::WorktreeAction::Add(action_args) => {
-                    let repo = match open_repo(&dir, true) {
-                        Ok(r) => r,
-                        Err(e) => {
-                            match e.kind {
-                                RepoErrorKind::NotFound => print_error(
-                                    "Current directory does not contain a worktree setup",
-                                ),
-                                _ => print_error(&format!("Error opening repo: {}", e)),
-                            }
-                            process::exit(1);
-                        }
-                    };
-
-                    let worktrees = repo
-                        .worktrees()
-                        .unwrap()
-                        .iter()
-                        .map(|e| e.unwrap())
-                        .collect::<String>();
                     if worktrees.contains(&action_args.name) {
-                        print_error("Worktree directory already exists");
+                        print_error("Worktree already exists");
                         process::exit(1);
                     }
 
-                    match repo.worktree(&action_args.name, &dir.join(&action_args.name), None) {
+                    let branch_name = match action_args.branch_prefix {
+                        Some(prefix) => format!("{}{}", &prefix, &action_args.name),
+                        None => action_args.name.clone(),
+                    };
+
+                    let checkout_commit = match &action_args.track {
+                        Some(upstream_branch_name) => {
+                            match repo.find_branch(upstream_branch_name, git2::BranchType::Remote) {
+                                Ok(branch) => branch.into_reference().peel_to_commit().unwrap(),
+                                Err(_) => {
+                                    print_error(&format!(
+                                        "Remote branch {} not found",
+                                        &upstream_branch_name
+                                    ));
+                                    process::exit(1);
+                                }
+                            }
+                        }
+                        None => get_default_branch(&repo)
+                            .unwrap()
+                            .into_reference()
+                            .peel_to_commit()
+                            .unwrap(),
+                    };
+
+                    let mut target_branch =
+                        match repo.find_branch(&branch_name, git2::BranchType::Local) {
+                            Ok(branchref) => branchref,
+                            Err(_) => repo.branch(&branch_name, &checkout_commit, false).unwrap(),
+                        };
+
+                    if let Some(upstream_branch_name) = action_args.track {
+                        target_branch
+                            .set_upstream(Some(&upstream_branch_name))
+                            .unwrap();
+                    }
+
+                    let worktree = repo.worktree(
+                        &action_args.name,
+                        &dir.join(&action_args.name),
+                        Some(
+                            git2::WorktreeAddOptions::new()
+                                .reference(Some(&target_branch.into_reference())),
+                        ),
+                    );
+
+                    match worktree {
                         Ok(_) => print_success(&format!("Worktree {} created", &action_args.name)),
                         Err(e) => {
                             print_error(&format!("Error creating worktree: {}", e));
@@ -701,64 +944,122 @@ pub fn run() {
                         }
                     };
                 }
+
                 cmd::WorktreeAction::Delete(action_args) => {
                     let worktree_dir = dir.join(&action_args.name);
-                    if !worktree_dir.exists() {
-                        print_error(&format!("{} does not exist", &action_args.name));
-                        process::exit(1);
-                    }
-                    let repo = match open_repo(&worktree_dir, false) {
-                        Ok(r) => r,
-                        Err(e) => {
-                            print_error(&format!("Error opening repo: {}", e));
-                            process::exit(1);
-                        }
-                    };
-                    let status = get_repo_status(&repo);
-                    if status.changes.is_some() {
-                        print_error("Changes found in worktree, refusing to delete!");
-                        process::exit(1);
-                    }
 
-                    let mut branch = repo
-                        .find_branch(&action_args.name, git2::BranchType::Local)
-                        .unwrap();
-                    match branch.upstream() {
-                        Ok(remote_branch) => {
-                            let (ahead, behind) = repo
-                                .graph_ahead_behind(
-                                    branch.get().peel_to_commit().unwrap().id(),
-                                    remote_branch.get().peel_to_commit().unwrap().id(),
-                                )
-                                .unwrap();
-
-                            if (ahead, behind) != (0, 0) {
-                                print_error(&format!("Branch {} is not in line with remote branch, refusing to delete worktree!", &action_args.name));
-                                process::exit(1);
-                            }
-                        }
-                        Err(_) => {
-                            print_error(&format!("No remote tracking branch for branch {} found, refusing to delete worktree!", &action_args.name));
-                            process::exit(1);
-                        }
-                    }
-
-                    match std::fs::remove_dir_all(&worktree_dir) {
+                    match remove_worktree(
+                        &action_args.name,
+                        &worktree_dir,
+                        action_args.force,
+                        &repo,
+                    ) {
                         Ok(_) => print_success(&format!("Worktree {} deleted", &action_args.name)),
-                        Err(e) => {
-                            print_error(&format!(
-                                "Error deleting {}: {}",
-                                &worktree_dir.display(),
-                                e
-                            ));
+                        Err(error) => {
+                            match error {
+                                WorktreeRemoveFailureReason::Error(msg) => {
+                                    print_error(&msg);
+                                    process::exit(1);
+                                }
+                                WorktreeRemoveFailureReason::Changes(changes) => {
+                                    print_warning(&format!(
+                                        "Changes in worktree: {}. Refusing to delete",
+                                        changes
+                                    ));
+                                }
+                            }
                             process::exit(1);
                         }
                     }
-                    repo.find_worktree(&action_args.name)
-                        .unwrap()
-                        .prune(None)
-                        .unwrap();
-                    branch.delete().unwrap();
+                }
+                cmd::WorktreeAction::Status(_args) => {
+                    let mut table = Table::new();
+                    add_worktree_table_header(&mut table);
+                    for worktree in &worktrees {
+                        let repo_dir = &dir.join(&worktree);
+                        if repo_dir.exists() {
+                            let repo = match open_repo(repo_dir, false) {
+                                Ok(r) => r,
+                                Err(e) => {
+                                    print_error(&format!("Error opening repo: {}", e));
+                                    process::exit(1);
+                                }
+                            };
+                            add_worktree_status(&mut table, worktree, &repo);
+                        } else {
+                            print_warning(&format!(
+                                "Worktree {} does not have a directory",
+                                &worktree
+                            ));
+                        }
+                    }
+                    for entry in std::fs::read_dir(&dir).unwrap() {
+                        let dirname = path_as_string(
+                            &entry
+                                .unwrap()
+                                .path()
+                                .strip_prefix(&dir)
+                                .unwrap()
+                                .to_path_buf(),
+                        );
+                        if dirname == GIT_MAIN_WORKTREE_DIRECTORY {
+                            continue;
+                        }
+                        if !&worktrees.contains(&dirname) {
+                            print_warning(&format!(
+                                "Found {}, which is not a valid worktree directory!",
+                                &dirname
+                            ));
+                        }
+                    }
+                    println!("{}", table);
+                }
+                cmd::WorktreeAction::Clean(_args) => {
+                    for worktree in &worktrees {
+                        let repo_dir = &dir.join(&worktree);
+                        if repo_dir.exists() {
+                            match remove_worktree(worktree, repo_dir, false, &repo) {
+                                Ok(_) => print_success(&format!("Worktree {} deleted", &worktree)),
+                                Err(error) => match error {
+                                    WorktreeRemoveFailureReason::Changes(changes) => {
+                                        print_warning(&format!(
+                                            "Changes found in {}: {}, skipping",
+                                            &worktree, &changes
+                                        ));
+                                        continue;
+                                    }
+                                    WorktreeRemoveFailureReason::Error(e) => {
+                                        print_error(&e);
+                                        process::exit(1);
+                                    }
+                                },
+                            }
+                        } else {
+                            print_warning(&format!(
+                                "Worktree {} does not have a directory",
+                                &worktree
+                            ));
+                        }
+                    }
+                    for entry in std::fs::read_dir(&dir).unwrap() {
+                        let dirname = path_as_string(
+                            &entry
+                                .unwrap()
+                                .path()
+                                .strip_prefix(&dir)
+                                .unwrap()
+                                .to_path_buf(),
+                        );
+                        if dirname == GIT_MAIN_WORKTREE_DIRECTORY {
+                            continue;
+                        }
+                        if !&worktrees.contains(&dirname) {
+                            print_warning(&format!(
+                                "Found {}, which is not a valid worktree directory!",
+                                &dirname
+                            ));
+                        }
+                    }
                 }
             }
         }
