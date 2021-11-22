@@ -1,4 +1,5 @@
-lint:
+check:
+    cargo check
     cargo fmt --check
     cargo clippy --no-deps
 
