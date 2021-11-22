@@ -303,10 +303,14 @@ fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
     }
 }
 
-fn find_repos(root: &Path) -> Option<Vec<Repo>> {
+fn find_repos(root: &Path) -> Option<(Vec<Repo>, bool)> {
     let mut repos: Vec<Repo> = Vec::new();
+    let mut repo_in_root = false;
 
     for (path, is_worktree) in find_repos_without_details(root).unwrap() {
+        if path == root {
+            repo_in_root = true;
+        }
         let repo = match open_repo(&path, is_worktree) {
             Ok(r) => r,
             Err(e) => {
@@ -406,16 +410,25 @@ fn find_repos(root: &Path) -> Option<Vec<Repo>> {
             worktree_setup: is_worktree,
         });
     }
-    Some(repos)
+    Some((repos, repo_in_root))
 }
 
 fn find_in_tree(path: &Path) -> Option<Tree> {
-    let repos: Vec<Repo> = match find_repos(path) {
-        Some(vec) => vec,
-        None => Vec::new(),
+    let (repos, repo_in_root): (Vec<Repo>, bool) = match find_repos(path) {
+        Some((vec, repo_in_root)) => (vec, repo_in_root),
+        None => (Vec::new(), false),
     };
 
     let mut root = path.to_path_buf();
+    if repo_in_root {
+        root = match root.parent() {
+            Some(root) => root.to_path_buf(),
+            None => {
+                print_error("Cannot detect root directory. Are you working in /?");
+                process::exit(1);
+            }
+        }
+    }
     let home = env_home();
     if root.starts_with(&home) {
         // The tilde is not handled differently, it's just a normal path component for `Path`.
