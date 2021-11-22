@@ -631,13 +631,19 @@ pub fn run() {
                 process::exit(1);
             }
 
-            let config = Config {
-                trees: vec![find_in_tree(path).unwrap()],
-            };
+            let trees = vec![find_in_tree(path).unwrap()];
+            if trees.iter().all(|t| match &t.repos {
+                None => false,
+                Some(r) => r.is_empty(),
+            }) {
+                print_warning("No repositories found");
+            } else {
+                let config = Config { trees };
 
-            let toml = toml::to_string(&config).unwrap();
+                let toml = toml::to_string(&config).unwrap();
 
-            print!("{}", toml);
+                print!("{}", toml);
+            }
         }
         cmd::SubCommand::Worktree(args) => {
             let dir = match std::env::current_dir() {
