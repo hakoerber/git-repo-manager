@@ -481,7 +481,7 @@ fn add_repo_status(table: &mut Table, repo_name: &str, repo_handle: &git2::Repos
                                     RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
                                     RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
                                     RemoteTrackingStatus::Diverged(d1, d2) =>
-                                        format!(" [-{}/+{}]", &d1, &d2),
+                                        format!(" [+{}/-{}]", &d1, &d2),
                                 }
                             )
                         }
