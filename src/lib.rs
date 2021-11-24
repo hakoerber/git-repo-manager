@@ -749,7 +749,7 @@ fn remove_worktree(
 
     if !force {
         let status = get_repo_status(&worktree_repo, false);
-        if status.changes.is_some() {
+        if status.changes.unwrap().is_some() {
             return Err(WorktreeRemoveFailureReason::Changes(String::from(
                 "Changes found in worktree",
             )));
