@@ -797,66 +797,68 @@ pub fn run() {
     let opts = cmd::parse();
 
     match opts.subcmd {
-        cmd::SubCommand::Sync(sync) => {
-            let config = match config::read_config(&sync.config) {
-                Ok(c) => c,
-                Err(e) => {
-                    print_error(&e);
-                    process::exit(1);
-                }
-            };
-            sync_trees(config);
-        }
-        cmd::SubCommand::Status(args) => match &args.config {
-            Some(config_path) => {
-                let config = match config::read_config(config_path) {
+        cmd::SubCommand::Repos(repos) => match repos.action {
+            cmd::ReposAction::Sync(sync) => {
+                let config = match config::read_config(&sync.config) {
                     Ok(c) => c,
                     Err(e) => {
                         print_error(&e);
                         process::exit(1);
                     }
                 };
-                show_status(config);
+                sync_trees(config);
             }
-            None => {
-                let dir = match std::env::current_dir() {
-                    Ok(d) => d,
-                    Err(e) => {
-                        print_error(&format!("Could not open current directory: {}", e));
-                        process::exit(1);
-                    }
-                };
+            cmd::ReposAction::Status(args) => match &args.config {
+                Some(config_path) => {
+                    let config = match config::read_config(config_path) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            print_error(&e);
+                            process::exit(1);
+                        }
+                    };
+                    show_status(config);
+                }
+                None => {
+                    let dir = match std::env::current_dir() {
+                        Ok(d) => d,
+                        Err(e) => {
+                            print_error(&format!("Could not open current directory: {}", e));
+                            process::exit(1);
+                        }
+                    };
 
-                let has_worktree = dir.join(GIT_MAIN_WORKTREE_DIRECTORY).exists();
-                show_single_repo_status(&dir, has_worktree);
+                    let has_worktree = dir.join(GIT_MAIN_WORKTREE_DIRECTORY).exists();
+                    show_single_repo_status(&dir, has_worktree);
+                }
+            },
+            cmd::ReposAction::Find(find) => {
+                let path = Path::new(&find.path);
+                if !path.exists() {
+                    print_error(&format!("Path \"{}\" does not exist", path.display()));
+                    process::exit(1);
+                }
+                let path = &path.canonicalize().unwrap();
+                if !path.is_dir() {
+                    print_error(&format!("Path \"{}\" is not a directory", path.display()));
+                    process::exit(1);
+                }
+
+                let trees = vec![find_in_tree(path).unwrap()];
+                if trees.iter().all(|t| match &t.repos {
+                    None => false,
+                    Some(r) => r.is_empty(),
+                }) {
+                    print_warning("No repositories found");
+                } else {
+                    let config = Config { trees };
+
+                    let toml = toml::to_string(&config).unwrap();
+
+                    print!("{}", toml);
+                }
             }
         },
-        cmd::SubCommand::Find(find) => {
-            let path = Path::new(&find.path);
-            if !path.exists() {
-                print_error(&format!("Path \"{}\" does not exist", path.display()));
-                process::exit(1);
-            }
-            let path = &path.canonicalize().unwrap();
-            if !path.is_dir() {
-                print_error(&format!("Path \"{}\" is not a directory", path.display()));
-                process::exit(1);
-            }
-
-            let trees = vec![find_in_tree(path).unwrap()];
-            if trees.iter().all(|t| match &t.repos {
-                None => false,
-                Some(r) => r.is_empty(),
-            }) {
-                print_warning("No repositories found");
-            } else {
-                let config = Config { trees };
-
-                let toml = toml::to_string(&config).unwrap();
-
-                print!("{}", toml);
-            }
-        }
         cmd::SubCommand::Worktree(args) => {
             let dir = match std::env::current_dir() {
                 Ok(d) => d,

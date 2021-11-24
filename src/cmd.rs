@@ -19,6 +19,20 @@ pub struct Opts {
 
 #[derive(Parser)]
 pub enum SubCommand {
+    #[clap(about = "Manage repositories")]
+    Repos(Repos),
+    #[clap(visible_alias = "wt", about = "Manage worktrees")]
+    Worktree(Worktree),
+}
+
+#[derive(Parser)]
+pub struct Repos {
+    #[clap(subcommand, name = "action")]
+    pub action: ReposAction,
+}
+
+#[derive(Parser)]
+pub enum ReposAction {
     #[clap(
         visible_alias = "run",
         about = "Synchronize the repositories to the configured values"
@@ -28,8 +42,6 @@ pub enum SubCommand {
     Find(Find),
     #[clap(about = "Show status of configured repositories")]
     Status(OptionalConfig),
-    #[clap(visible_alias = "wt", about = "Manage worktrees")]
-    Worktree(Worktree),
 }
 
 #[derive(Parser)]
