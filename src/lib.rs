@@ -945,7 +945,7 @@ pub fn run() {
                                 "Remote branch {} not found",
                                 &upstream_branch_name
                             ));
-                            let split_at = upstream_branch_name.find("/").unwrap_or(0);
+                            let split_at = upstream_branch_name.find('/').unwrap_or(0);
                             if split_at == 0 || split_at >= upstream_branch_name.len() - 1 {
                                 print_error("Tracking branch needs to match the pattern <remote>/<branch_name>");
                                 process::exit(1);
