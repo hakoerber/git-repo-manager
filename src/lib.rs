@@ -949,10 +949,6 @@ pub fn run() {
                                 .set_upstream(Some(&upstream_branch_name))
                                 .unwrap();
                         } else {
-                            print_error(&format!(
-                                "Remote branch {} not found",
-                                &upstream_branch_name
-                            ));
                             let split_at = upstream_branch_name.find('/').unwrap_or(0);
                             if split_at == 0 || split_at >= upstream_branch_name.len() - 1 {
                                 print_error("Tracking branch needs to match the pattern <remote>/<branch_name>");
