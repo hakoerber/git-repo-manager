@@ -936,10 +936,7 @@ pub fn run() {
                     let worktree = repo.worktree(
                         &action_args.name,
                         &dir.join(&action_args.name),
-                        Some(
-                            git2::WorktreeAddOptions::new()
-                                .reference(Some(&target_branch.into_reference())),
-                        ),
+                        Some(git2::WorktreeAddOptions::new().reference(Some(target_branch.get()))),
                     );
 
                     match worktree {
