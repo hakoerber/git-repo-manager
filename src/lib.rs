@@ -18,6 +18,7 @@ use repo::{
 };
 
 const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
+const BRANCH_NAMESPACE_SEPARATOR: &str = "/";
 
 #[cfg(test)]
 mod tests {
@@ -733,7 +734,9 @@ fn remove_worktree(
     }
 
     let branch_name = head.shorthand().unwrap();
-    if !branch_name.ends_with(name) {
+    if branch_name != name
+        && !branch_name.ends_with(&format!("{}{}", BRANCH_NAMESPACE_SEPARATOR, name))
+    {
         return Err(WorktreeRemoveFailureReason::Error(format!(
             "Branch {} is checked out in worktree, this does not look correct",
             &branch_name
@@ -890,8 +893,11 @@ pub fn run() {
                         process::exit(1);
                     }
 
-                    let branch_name = match action_args.branch_prefix {
-                        Some(prefix) => format!("{}{}", &prefix, &action_args.name),
+                    let branch_name = match action_args.branch_namespace {
+                        Some(prefix) => format!(
+                            "{}{}{}",
+                            &prefix, BRANCH_NAMESPACE_SEPARATOR, &action_args.name
+                        ),
                         None => action_args.name.clone(),
                     };
 
