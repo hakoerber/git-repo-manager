@@ -90,7 +90,7 @@ pub struct RepoStatus {
 
     pub head: Option<String>,
 
-    // None(_) => Could not get changes (e.g. because it's a worktree setup
+    // None(_) => Could not get changes (e.g. because it's a worktree setup)
     // Some(None) => No changes
     // Some(Some(_)) => Changes
     pub changes: Option<Option<RepoChanges>>,
