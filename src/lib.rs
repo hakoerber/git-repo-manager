@@ -633,7 +633,7 @@ fn show_single_repo_status(path: &Path, is_worktree: bool) {
 
     if let Err(error) = repo_handle {
         if error.kind == RepoErrorKind::NotFound {
-            print_error(&"Directory is not a git directory".to_string());
+            print_error("Directory is not a git directory");
         } else {
             print_error(&format!("Opening repository failed: {}", error));
         }
