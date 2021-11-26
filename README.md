@@ -3,110 +3,8 @@
 GRM helps you manage git repositories in a declarative way. Configure your
 repositories in a [TOML](https://toml.io/) file, GRM does the rest.
 
-## Quickstart
-
-See [the example configuration](example.config.toml) to get a feel for the way
-you configure your repositories.
-
-### Install
-
-```bash
-$ cargo install --git https://github.com/hakoerber/git-repo-manager.git --branch master
-```
-
-### Get the example configuration
-
-```bash
-$ curl --proto '=https' --tlsv1.2 -sSfO https://raw.githubusercontent.com/hakoerber/git-repo-manager/master/example.config.toml
-```
-
-### Run it!
-
-```bash
-$ grm sync --config example.config.toml
-[⚙] Cloning into "/home/me/projects/git-repo-manager" from "https://code.hkoerber.de/hannes/git-repo-manager.git"
-[✔] git-repo-manager: Repository successfully cloned
-[⚙] git-repo-manager: Setting up new remote "github" to "https://github.com/hakoerber/git-repo-manager.git"
-[✔] git-repo-manager: OK
-[⚙] Cloning into "/home/me/projects/dotfiles" from "https://github.com/hakoerber/dotfiles.git"
-[✔] dotfiles: Repository successfully cloned
-[✔] dotfiles: OK
-```
-
-If you run it again, it will report no changes:
-
-```
-$ grm sync --config example.config.toml
-[✔] git-repo-manager: OK
-[✔] dotfiles: OK
-```
-
-### Generate your own configuration
-
-Now, if you already have a few repositories, it would be quite laborious to write
-a configuration from scratch. Luckily, GRM has a way to generate a configuration
-from an existing file tree:
-
-```bash
-$ grm find ~/your/project/root > config.toml
-```
-
-This will detect all repositories and remotes and write them to `config.toml`.
-
-### Show the state of your projects
-
-```bash
-$ grm status --config example.config.toml
-+------------------+------------+----------------------------------+--------+---------+
-| Repo             | Status     | Branches                         | HEAD   | Remotes |
-+=====================================================================================+
-| git-repo-manager |            | branch: master <origin/master> ✔ | master | github  |
-|                  |            |                                  |        | origin  |
-|------------------+------------+----------------------------------+--------+---------|
-| dotfiles         | No changes | branch: master <origin/master> ✔ | master | origin  |
-+------------------+------------+----------------------------------+--------+---------+
-```
-
-You can also use `status` without `--config` to check the current directory:
-
-```
-$ cd ./dotfiles
-$ grm status
-+----------+------------+----------------------------------+--------+---------+
-| Repo     | Status     | Branches                         | HEAD   | Remotes |
-+=============================================================================+
-| dotfiles | No changes | branch: master <origin/master> ✔ | master | origin  |
-+----------+------------+----------------------------------+--------+---------+
-```
-
-### Manage worktrees for projects
-
-Optionally, GRM can also set up a repository to support multiple worktrees. See
-[the git documentation](https://git-scm.com/docs/git-worktree) for details about
-worktrees. Long story short: Worktrees allow you to have multiple independent
-checkouts of the same repository in different directories, backed by a single
-git repository.
-
-To use this, specify `worktree_setup = true` for a repo in your configuration.
-After the sync, you will see that the target directory is empty. Actually, the
-repository was bare-cloned into a hidden directory: `.git-main-working-tree`.
-Don't touch it! GRM provides a command to manage working trees.
-
-Use `grm worktree add <name>` to create a new checkout of a new branch into
-a subdirectory. An example:
-
-```bash
-$ grm worktree add mybranch
-$ cd ./mybranch
-$ git status
-On branch mybranch
-
-nothing to commit, working tree clean
-```
-
-If you're done with your worktree, use `grm worktree delete <name>` to remove it.
-GRM will refuse to delete worktrees that contain uncommitted or unpushed changes,
-otherwise you might lose work.
+**Take a look at the [official documentation](https://hakoerber.github.io/git-repo-manager/)
+for installation & quickstart.**
 
 # Why?
 
@@ -145,10 +43,6 @@ repositories itself.
 
 * Support multiple file formats (YAML, JSON).
 * Add systemd timer unit to run regular syncs
-
-# Dev Notes
-
-It requires nightly features due to the usage of [`std::path::Path::is_symlink()`](https://doc.rust-lang.org/std/fs/struct.FileType.html#method.is_symlink). See the [tracking issue](https://github.com/rust-lang/rust/issues/85748).
 
 # Crates
 
