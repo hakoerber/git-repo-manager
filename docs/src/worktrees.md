@@ -192,6 +192,9 @@ can also use the following:
 $ grm wt clean
 ```
 
+Note that this will not delete the default branch of the repository. It can of
+course still be delete with `grm wt delete` if neccessary.
+
 ### Converting an existing repository
 
 It is possible to convert an existing directory to a worktree setup, using `grm

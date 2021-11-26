@@ -1171,7 +1171,21 @@ pub fn run() {
                 cmd::WorktreeAction::Clean(_args) => {
                     let repo = get_repo(&dir);
                     let worktrees = get_worktrees(&repo);
-                    for worktree in &worktrees {
+
+                    let default_branch = match get_default_branch(&repo) {
+                        Ok(branch) => branch,
+                        Err(error) => {
+                            print_error(&format!("Failed getting default branch: {}", error));
+                            process::exit(1);
+                        }
+                    };
+
+                    let default_branch_name = default_branch.name().unwrap().unwrap();
+
+                    for worktree in worktrees
+                        .iter()
+                        .filter(|worktree| *worktree != default_branch_name)
+                    {
                         let repo_dir = &dir.join(&worktree);
                         if repo_dir.exists() {
                             match remove_worktree(worktree, repo_dir, false, &repo) {
@@ -1197,6 +1211,7 @@ pub fn run() {
                             ));
                         }
                     }
+
                     for entry in std::fs::read_dir(&dir).unwrap() {
                         let dirname = path_as_string(
                             &entry
@@ -1207,6 +1222,9 @@ pub fn run() {
                                 .to_path_buf(),
                         );
                         if dirname == GIT_MAIN_WORKTREE_DIRECTORY {
+                            continue;
+                        }
+                        if dirname == default_branch_name {
                             continue;
                         }
                         if !&worktrees.contains(&dirname) {
