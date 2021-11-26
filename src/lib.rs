@@ -13,14 +13,15 @@ use output::*;
 use comfy_table::{Cell, Table};
 
 use repo::{
-    clone_repo, detect_remote_type, get_repo_status, init_repo, open_repo, Remote,
-    RemoteTrackingStatus, Repo, RepoErrorKind,
+    clone_repo, detect_remote_type, get_repo_status, init_repo, open_repo, repo_make_bare,
+    repo_set_config_push, Remote, RemoteTrackingStatus, Repo, RepoErrorKind,
 };
 
 const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 const BRANCH_NAMESPACE_SEPARATOR: &str = "/";
 
 const GIT_CONFIG_BARE_KEY: &str = "core.bare";
+const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
 
 #[cfg(test)]
 mod tests {
@@ -1155,23 +1156,17 @@ pub fn run() {
                         process::exit(1);
                     });
 
-                    let mut config = worktree_repo.config().unwrap_or_else(|error| {
-                        print_error(&format!(
-                            "Opening getting repository configuration: {}",
-                            error
-                        ));
+                    repo_make_bare(&worktree_repo, true).unwrap_or_else(|error| {
+                        print_error(&format!("Error: {}", error));
                         process::exit(1);
                     });
 
-                    config
-                        .set_bool(GIT_CONFIG_BARE_KEY, true)
-                        .unwrap_or_else(|error| {
-                            print_error(&format!(
-                                "Error setting {}: {}",
-                                GIT_CONFIG_BARE_KEY, error
-                            ));
-                            process::exit(1);
-                        });
+                    repo_set_config_push(&worktree_repo, "upstream").unwrap_or_else(|error| {
+                        print_error(&format!("Error: {}", error));
+                        process::exit(1);
+                    });
+
+                    print_success("Conversion done");
                 }
                 cmd::WorktreeAction::Clean(_args) => {
                     let repo = get_repo(&dir);

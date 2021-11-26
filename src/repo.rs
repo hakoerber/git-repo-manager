@@ -199,16 +199,43 @@ pub fn open_repo(path: &Path, is_worktree: bool) -> Result<Repository, RepoError
 }
 
 pub fn init_repo(path: &Path, is_worktree: bool) -> Result<Repository, Box<dyn std::error::Error>> {
-    match is_worktree {
-        false => match Repository::init(path) {
-            Ok(r) => Ok(r),
-            Err(e) => Err(Box::new(e)),
-        },
-        true => match Repository::init_bare(path.join(super::GIT_MAIN_WORKTREE_DIRECTORY)) {
-            Ok(r) => Ok(r),
-            Err(e) => Err(Box::new(e)),
-        },
+    let repo = match is_worktree {
+        false => Repository::init(path)?,
+        true => Repository::init_bare(path.join(super::GIT_MAIN_WORKTREE_DIRECTORY))?,
+    };
+
+    if is_worktree {
+        repo_set_config_push(&repo, "upstream")?;
     }
+
+    Ok(repo)
+}
+
+pub fn get_repo_config(repo: &git2::Repository) -> Result<git2::Config, String> {
+    repo.config()
+        .map_err(|error| format!("Failed getting repository configuration: {}", error))
+}
+
+pub fn repo_make_bare(repo: &git2::Repository, value: bool) -> Result<(), String> {
+    let mut config = get_repo_config(repo)?;
+
+    config
+        .set_bool(super::GIT_CONFIG_BARE_KEY, value)
+        .map_err(|error| format!("Could not set {}: {}", super::GIT_CONFIG_BARE_KEY, error))
+}
+
+pub fn repo_set_config_push(repo: &git2::Repository, value: &str) -> Result<(), String> {
+    let mut config = get_repo_config(repo)?;
+
+    config
+        .set_str(super::GIT_CONFIG_PUSH_DEFAULT, value)
+        .map_err(|error| {
+            format!(
+                "Could not set {}: {}",
+                super::GIT_CONFIG_PUSH_DEFAULT,
+                error
+            )
+        })
 }
 
 pub fn clone_repo(
@@ -230,10 +257,7 @@ pub fn clone_repo(
         RemoteType::Https => {
             let mut builder = git2::build::RepoBuilder::new();
             builder.bare(is_worktree);
-            match builder.clone(&remote.url, &clone_target) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(Box::new(e)),
-            }
+            builder.clone(&remote.url, &clone_target)?;
         }
         RemoteType::Ssh => {
             let mut callbacks = RemoteCallbacks::new();
@@ -248,12 +272,16 @@ pub fn clone_repo(
             builder.bare(is_worktree);
             builder.fetch_options(fo);
 
-            match builder.clone(&remote.url, &clone_target) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(Box::new(e)),
-            }
+            builder.clone(&remote.url, &clone_target)?;
         }
     }
+
+    if is_worktree {
+        let repo = open_repo(&clone_target, false)?;
+        repo_set_config_push(&repo, "upstream")?;
+    }
+
+    Ok(())
 }
 
 pub fn get_repo_status(repo: &git2::Repository, is_worktree: bool) -> RepoStatus {
