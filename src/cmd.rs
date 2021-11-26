@@ -83,6 +83,8 @@ pub enum WorktreeAction {
     Delete(WorktreeDeleteArgs),
     #[clap(about = "Show state of existing worktrees")]
     Status(WorktreeStatusArgs),
+    #[clap(about = "Convert a normal repository to a worktree setup")]
+    Convert(WorktreeConvertArgs),
     #[clap(about = "Clean all worktrees that do not contain uncommited/unpushed changes")]
     Clean(WorktreeCleanArgs),
 }
@@ -115,6 +117,9 @@ pub struct WorktreeDeleteArgs {
 
 #[derive(Parser)]
 pub struct WorktreeStatusArgs {}
+
+#[derive(Parser)]
+pub struct WorktreeConvertArgs {}
 
 #[derive(Parser)]
 pub struct WorktreeCleanArgs {}

@@ -20,6 +20,8 @@ use repo::{
 const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 const BRANCH_NAMESPACE_SEPARATOR: &str = "/";
 
+const GIT_CONFIG_BARE_KEY: &str = "core.bare";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -868,28 +870,33 @@ pub fn run() {
                 }
             };
 
-            let repo = match open_repo(&dir, true) {
-                Ok(r) => r,
-                Err(e) => {
-                    match e.kind {
-                        RepoErrorKind::NotFound => {
-                            print_error("Current directory does not contain a worktree setup")
+            fn get_repo(dir: &Path) -> git2::Repository {
+                match open_repo(dir, true) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        match e.kind {
+                            RepoErrorKind::NotFound => {
+                                print_error("Current directory does not contain a worktree setup")
+                            }
+                            _ => print_error(&format!("Error opening repo: {}", e)),
                         }
-                        _ => print_error(&format!("Error opening repo: {}", e)),
+                        process::exit(1);
                     }
-                    process::exit(1);
                 }
-            };
+            }
 
-            let worktrees = repo
-                .worktrees()
-                .unwrap()
-                .iter()
-                .map(|e| e.unwrap().to_string())
-                .collect::<Vec<String>>();
+            fn get_worktrees(repo: &git2::Repository) -> Vec<String> {
+                repo.worktrees()
+                    .unwrap()
+                    .iter()
+                    .map(|e| e.unwrap().to_string())
+                    .collect::<Vec<String>>()
+            }
 
             match args.action {
                 cmd::WorktreeAction::Add(action_args) => {
+                    let repo = get_repo(&dir);
+                    let worktrees = get_worktrees(&repo);
                     if worktrees.contains(&action_args.name) {
                         print_error("Worktree already exists");
                         process::exit(1);
@@ -1014,6 +1021,7 @@ pub fn run() {
 
                 cmd::WorktreeAction::Delete(action_args) => {
                     let worktree_dir = dir.join(&action_args.name);
+                    let repo = get_repo(&dir);
 
                     match remove_worktree(
                         &action_args.name,
@@ -1040,6 +1048,8 @@ pub fn run() {
                     }
                 }
                 cmd::WorktreeAction::Status(_args) => {
+                    let repo = get_repo(&dir);
+                    let worktrees = get_worktrees(&repo);
                     let mut table = Table::new();
                     add_worktree_table_header(&mut table);
                     for worktree in &worktrees {
@@ -1081,7 +1091,91 @@ pub fn run() {
                     }
                     println!("{}", table);
                 }
+                cmd::WorktreeAction::Convert(_args) => {
+                    // Converting works like this:
+                    // * Check whether there are uncommitted/unpushed changes
+                    // * Move the contents of .git dir to the worktree directory
+                    // * Remove all files
+                    // * Set `core.bare` to `true`
+
+                    let repo = open_repo(&dir, false).unwrap_or_else(|error| {
+                        if error.kind == RepoErrorKind::NotFound {
+                            print_error("Directory does not contain a git repository");
+                        } else {
+                            print_error(&format!("Opening repository failed: {}", error));
+                        }
+                        process::exit(1);
+                    });
+
+                    let status = get_repo_status(&repo, false);
+                    if status.changes.unwrap().is_some() {
+                        print_error("Changes found in repository, refusing to convert");
+                    }
+
+                    if let Err(error) = std::fs::rename(".git", GIT_MAIN_WORKTREE_DIRECTORY) {
+                        print_error(&format!("Error moving .git directory: {}", error));
+                    }
+
+                    for entry in match std::fs::read_dir(&dir) {
+                        Ok(iterator) => iterator,
+                        Err(error) => {
+                            print_error(&format!("Opening directory failed: {}", error));
+                            process::exit(1);
+                        }
+                    } {
+                        match entry {
+                            Ok(entry) => {
+                                let path = entry.path();
+                                // The path will ALWAYS have a file component
+                                if path.file_name().unwrap() == GIT_MAIN_WORKTREE_DIRECTORY {
+                                    continue;
+                                }
+                                if path.is_file() || path.is_symlink() {
+                                    if let Err(error) = std::fs::remove_file(&path) {
+                                        print_error(&format!("Failed removing {}", error));
+                                        process::exit(1);
+                                    }
+                                } else if let Err(error) = std::fs::remove_dir_all(&path) {
+                                    print_error(&format!("Failed removing {}", error));
+                                    process::exit(1);
+                                }
+                            }
+                            Err(error) => {
+                                print_error(&format!("Error getting directory entry: {}", error));
+                                process::exit(1);
+                            }
+                        }
+                    }
+
+                    let worktree_repo = open_repo(&dir, true).unwrap_or_else(|error| {
+                        print_error(&format!(
+                            "Opening newly converted repository failed: {}",
+                            error
+                        ));
+                        process::exit(1);
+                    });
+
+                    let mut config = worktree_repo.config().unwrap_or_else(|error| {
+                        print_error(&format!(
+                            "Opening getting repository configuration: {}",
+                            error
+                        ));
+                        process::exit(1);
+                    });
+
+                    config
+                        .set_bool(GIT_CONFIG_BARE_KEY, true)
+                        .unwrap_or_else(|error| {
+                            print_error(&format!(
+                                "Error setting {}: {}",
+                                GIT_CONFIG_BARE_KEY, error
+                            ));
+                            process::exit(1);
+                        });
+                }
                 cmd::WorktreeAction::Clean(_args) => {
+                    let repo = get_repo(&dir);
+                    let worktrees = get_worktrees(&repo);
                     for worktree in &worktrees {
                         let repo_dir = &dir.join(&worktree);
                         if repo_dir.exists() {

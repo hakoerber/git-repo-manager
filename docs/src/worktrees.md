@@ -192,6 +192,23 @@ can also use the following:
 $ grm wt clean
 ```
 
+### Converting an existing repository
+
+It is possible to convert an existing directory to a worktree setup, using `grm
+wt convert`. This command has to be run in the root of the repository you want
+to convert:
+
+```
+grm wt convert
+[✔] Conversion successful
+```
+
+This command will refuse to run if you have any changes in your repository.
+Commit them and try again!
+
+Afterwards, the directory is empty, as there are no worktrees checked out yet.
+Now you can use the usual commands to set up worktrees.
+
 ### Manual access
 
 GRM isn't doing any magic, it's just git under the hood. If you need to have access
