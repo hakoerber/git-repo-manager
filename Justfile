@@ -1,4 +1,4 @@
-check:
+check: test
     cargo check
     cargo fmt --check
     cargo clippy --no-deps
