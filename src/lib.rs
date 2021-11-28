@@ -1,3 +1,5 @@
+#![feature(io_error_more)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
