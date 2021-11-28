@@ -12,8 +12,13 @@ release:
 install:
     cargo install --path .
 
-test:
+test: test-unit test-integration
+
+test-unit:
     cargo test --lib --bins
+
+test-integration:
+    cargo test --test "*"
 
 update-dependencies:
     @cd ./depcheck \
