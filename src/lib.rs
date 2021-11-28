@@ -115,7 +115,8 @@ fn get_default_branch(repo: &git2::Repository) -> Result<git2::Branch, String> {
     }
 }
 
-fn sync_trees(config: Config) {
+fn sync_trees(config: Config) -> bool {
+    let mut failures = false;
     for tree in config.trees {
         let repos = tree.repos.unwrap_or_default();
 
@@ -133,7 +134,8 @@ fn sync_trees(config: Config) {
                         &repo.name,
                         "Repo already exists, but is not using a worktree setup",
                     );
-                    process::exit(1);
+                    failures = true;
+                    continue;
                 }
                 repo_handle = match open_repo(&repo_path, repo.worktree_setup) {
                     Ok(repo) => Some(repo),
@@ -151,7 +153,8 @@ fn sync_trees(config: Config) {
                                 &format!("Opening repository failed: {}", error),
                             );
                         }
-                        process::exit(1);
+                        failures = true;
+                        continue;
                     }
                 };
             } else if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().is_empty() {
@@ -200,6 +203,7 @@ fn sync_trees(config: Config) {
                             &repo.name,
                             &format!("Repository failed during getting the remotes: {}", e),
                         );
+                        failures = true;
                         continue;
                     }
                 }
@@ -222,6 +226,7 @@ fn sync_trees(config: Config) {
                                 &repo.name,
                                 &format!("Repository failed during setting the remotes: {}", e),
                             );
+                            failures = true;
                             continue;
                         }
                     } else {
@@ -230,6 +235,7 @@ fn sync_trees(config: Config) {
                             Some(url) => url,
                             None => {
                                 print_repo_error(&repo.name, &format!("Repository failed during getting of the remote URL for remote \"{}\". This is most likely caused by a non-utf8 remote name", remote.name));
+                                failures = true;
                                 continue;
                             }
                         };
@@ -240,6 +246,7 @@ fn sync_trees(config: Config) {
                             );
                             if let Err(e) = repo_handle.remote_set_url(&remote.name, &remote.url) {
                                 print_repo_error(&repo.name, &format!("Repository failed during setting of the remote URL for remote \"{}\": {}", &remote.name, e));
+                                failures = true;
                                 continue;
                             };
                         }
@@ -260,6 +267,7 @@ fn sync_trees(config: Config) {
                                     &current_remote, e
                                 ),
                             );
+                            failures = true;
                             continue;
                         }
                     }
@@ -277,6 +285,8 @@ fn sync_trees(config: Config) {
             }
         }
     }
+
+    !failures
 }
 
 fn find_repos_without_details(path: &Path) -> Option<Vec<(PathBuf, bool)>> {
@@ -821,7 +831,9 @@ pub fn run() {
                         process::exit(1);
                     }
                 };
-                sync_trees(config);
+                if !sync_trees(config) {
+                    process::exit(1);
+                }
             }
             cmd::ReposAction::Status(args) => match &args.config {
                 Some(config_path) => {
