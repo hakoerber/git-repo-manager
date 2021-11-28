@@ -1,7 +1,7 @@
 check: test
     cargo check
     cargo fmt --check
-    cargo clippy --no-deps
+    cargo clippy --no-deps -- -Dwarnings
 
 lint-fix:
     cargo clippy --no-deps --fix
