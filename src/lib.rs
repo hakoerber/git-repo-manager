@@ -993,7 +993,10 @@ pub fn run() {
                             );
                             remote
                                 .push(&[push_refspec], Some(&mut push_options))
-                                .unwrap();
+                                .unwrap_or_else(|error| {
+                                    print_error(&format!("Pushing to {} ({}) failed: {}", remote_name, remote.url().unwrap(), error));
+                                    process::exit(1);
+                                });
 
                             target_branch
                                 .set_upstream(Some(&upstream_branch_name))
