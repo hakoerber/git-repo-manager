@@ -277,7 +277,15 @@ fn sync_trees(config: Config) -> bool {
             print_repo_success(&repo.name, "OK");
         }
 
-        let current_repos = find_repos_without_details(&root_path).unwrap();
+        let current_repos = match find_repos_without_details(&root_path) {
+            Ok(repos) => repos,
+            Err(error) => {
+                print_error(&error.to_string());
+                failures = true;
+                continue;
+            }
+        };
+
         for (repo, _) in current_repos {
             let name = path_as_string(repo.strip_prefix(&root_path).unwrap());
             if !repos.iter().any(|r| r.name == name) {
@@ -289,7 +297,7 @@ fn sync_trees(config: Config) -> bool {
     !failures
 }
 
-fn find_repos_without_details(path: &Path) -> Option<Vec<(PathBuf, bool)>> {
+fn find_repos_without_details(path: &Path) -> Result<Vec<(PathBuf, bool)>, String> {
     let mut repos: Vec<(PathBuf, bool)> = Vec::new();
 
     let git_dir = path.join(".git");
@@ -310,26 +318,34 @@ fn find_repos_without_details(path: &Path) -> Option<Vec<(PathBuf, bool)>> {
                                 continue;
                             }
                             if path.is_dir() {
-                                if let Some(mut r) = find_repos_without_details(&path) {
-                                    repos.append(&mut r);
-                                };
+                                match find_repos_without_details(&path) {
+                                    Ok(ref mut r) => repos.append(r),
+                                    Err(error) => return Err(error),
+                                }
                             }
                         }
                         Err(e) => {
-                            print_error(&format!("Error accessing directory: {}", e));
-                            continue;
+                            return Err(format!("Error accessing directory: {}", e));
                         }
                     };
                 }
             }
             Err(e) => {
-                print_error(&format!("Failed to open \"{}\": {}", &path.display(), &e));
-                return None;
+                return Err(format!(
+                    "Failed to open \"{}\": {}",
+                    &path.display(),
+                    match e.kind() {
+                        std::io::ErrorKind::NotADirectory =>
+                            String::from("directory expected, but path is not a directory"),
+                        std::io::ErrorKind::NotFound => String::from("not found"),
+                        _ => format!("{:?}", e.kind()),
+                    }
+                ));
             }
         };
     }
 
-    Some(repos)
+    Ok(repos)
 }
 
 fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
