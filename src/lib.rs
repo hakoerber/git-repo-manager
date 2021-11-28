@@ -135,15 +135,25 @@ fn sync_trees(config: Config) {
                     );
                     process::exit(1);
                 }
-                repo_handle = Some(open_repo(&repo_path, repo.worktree_setup).unwrap_or_else(
-                    |error| {
-                        print_repo_error(
-                            &repo.name,
-                            &format!("Opening repository failed: {}", error),
-                        );
+                repo_handle = match open_repo(&repo_path, repo.worktree_setup) {
+                    Ok(repo) => Some(repo),
+                    Err(error) => {
+                        if !repo.worktree_setup {
+                            if open_repo(&repo_path, true).is_ok() {
+                                print_repo_error(
+                                    &repo.name,
+                                    "Repo already exists, but is using a worktree setup",
+                                );
+                            }
+                        } else {
+                            print_repo_error(
+                                &repo.name,
+                                &format!("Opening repository failed: {}", error),
+                            );
+                        }
                         process::exit(1);
-                    },
-                ));
+                    }
+                };
             } else if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().is_empty() {
                 print_repo_action(
                     &repo.name,
