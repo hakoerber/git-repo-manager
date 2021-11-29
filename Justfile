@@ -1,7 +1,7 @@
-check:
+check: test
     cargo check
     cargo fmt --check
-    cargo clippy --no-deps
+    cargo clippy --no-deps -- -Dwarnings
 
 lint-fix:
     cargo clippy --no-deps --fix
@@ -12,8 +12,25 @@ release:
 install:
     cargo install --path .
 
-test:
+test: test-unit test-integration test-e2e
+
+test-unit:
     cargo test --lib --bins
+
+test-integration:
+    cargo test --test "*"
+
+e2e-venv:
+    cd ./e2e_tests \
+    && python3 -m venv venv \
+    && . ./venv/bin/activate \
+    && pip --disable-pip-version-check install -r ./requirements.txt >/dev/null
+
+
+test-e2e: e2e-venv release
+    cd ./e2e_tests \
+    && . ./venv/bin/activate \
+    && python -m pytest .
 
 update-dependencies:
     @cd ./depcheck \

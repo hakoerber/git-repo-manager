@@ -21,7 +21,7 @@ else:
     subprocess.run(
         ["git", "clone", "--depth=1", "https://github.com/rust-lang/crates.io-index"],
         check=True,
-        capture_output=False, # to get some git output
+        capture_output=False,  # to get some git output
     )
 
 with open("../Cargo.toml", "r") as cargo_config:

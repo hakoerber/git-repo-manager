@@ -21,8 +21,12 @@ pub fn read_config(path: &str) -> Result<Config, String> {
         Err(e) => {
             return Err(format!(
                 "Error reading configuration file \"{}\": {}",
-                path, e
-            ))
+                path,
+                match e.kind() {
+                    std::io::ErrorKind::NotFound => String::from("not found"),
+                    _ => e.to_string(),
+                }
+            ));
         }
     };
 

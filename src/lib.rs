@@ -1,3 +1,5 @@
+#![feature(io_error_more)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
@@ -113,7 +115,8 @@ fn get_default_branch(repo: &git2::Repository) -> Result<git2::Branch, String> {
     }
 }
 
-fn sync_trees(config: Config) {
+fn sync_trees(config: Config) -> bool {
+    let mut failures = false;
     for tree in config.trees {
         let repos = tree.repos.unwrap_or_default();
 
@@ -131,17 +134,29 @@ fn sync_trees(config: Config) {
                         &repo.name,
                         "Repo already exists, but is not using a worktree setup",
                     );
-                    process::exit(1);
+                    failures = true;
+                    continue;
                 }
-                repo_handle = Some(open_repo(&repo_path, repo.worktree_setup).unwrap_or_else(
-                    |error| {
-                        print_repo_error(
-                            &repo.name,
-                            &format!("Opening repository failed: {}", error),
-                        );
-                        process::exit(1);
-                    },
-                ));
+                repo_handle = match open_repo(&repo_path, repo.worktree_setup) {
+                    Ok(repo) => Some(repo),
+                    Err(error) => {
+                        if !repo.worktree_setup {
+                            if open_repo(&repo_path, true).is_ok() {
+                                print_repo_error(
+                                    &repo.name,
+                                    "Repo already exists, but is using a worktree setup",
+                                );
+                            }
+                        } else {
+                            print_repo_error(
+                                &repo.name,
+                                &format!("Opening repository failed: {}", error),
+                            );
+                        }
+                        failures = true;
+                        continue;
+                    }
+                };
             } else if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().is_empty() {
                 print_repo_action(
                     &repo.name,
@@ -188,6 +203,7 @@ fn sync_trees(config: Config) {
                             &repo.name,
                             &format!("Repository failed during getting the remotes: {}", e),
                         );
+                        failures = true;
                         continue;
                     }
                 }
@@ -210,6 +226,7 @@ fn sync_trees(config: Config) {
                                 &repo.name,
                                 &format!("Repository failed during setting the remotes: {}", e),
                             );
+                            failures = true;
                             continue;
                         }
                     } else {
@@ -218,6 +235,7 @@ fn sync_trees(config: Config) {
                             Some(url) => url,
                             None => {
                                 print_repo_error(&repo.name, &format!("Repository failed during getting of the remote URL for remote \"{}\". This is most likely caused by a non-utf8 remote name", remote.name));
+                                failures = true;
                                 continue;
                             }
                         };
@@ -228,6 +246,7 @@ fn sync_trees(config: Config) {
                             );
                             if let Err(e) = repo_handle.remote_set_url(&remote.name, &remote.url) {
                                 print_repo_error(&repo.name, &format!("Repository failed during setting of the remote URL for remote \"{}\": {}", &remote.name, e));
+                                failures = true;
                                 continue;
                             };
                         }
@@ -248,6 +267,7 @@ fn sync_trees(config: Config) {
                                     &current_remote, e
                                 ),
                             );
+                            failures = true;
                             continue;
                         }
                     }
@@ -257,7 +277,15 @@ fn sync_trees(config: Config) {
             print_repo_success(&repo.name, "OK");
         }
 
-        let current_repos = find_repos_without_details(&root_path).unwrap();
+        let current_repos = match find_repos_without_details(&root_path) {
+            Ok(repos) => repos,
+            Err(error) => {
+                print_error(&error.to_string());
+                failures = true;
+                continue;
+            }
+        };
+
         for (repo, _) in current_repos {
             let name = path_as_string(repo.strip_prefix(&root_path).unwrap());
             if !repos.iter().any(|r| r.name == name) {
@@ -265,9 +293,11 @@ fn sync_trees(config: Config) {
             }
         }
     }
+
+    !failures
 }
 
-fn find_repos_without_details(path: &Path) -> Option<Vec<(PathBuf, bool)>> {
+fn find_repos_without_details(path: &Path) -> Result<Vec<(PathBuf, bool)>, String> {
     let mut repos: Vec<(PathBuf, bool)> = Vec::new();
 
     let git_dir = path.join(".git");
@@ -288,26 +318,34 @@ fn find_repos_without_details(path: &Path) -> Option<Vec<(PathBuf, bool)>> {
                                 continue;
                             }
                             if path.is_dir() {
-                                if let Some(mut r) = find_repos_without_details(&path) {
-                                    repos.append(&mut r);
-                                };
+                                match find_repos_without_details(&path) {
+                                    Ok(ref mut r) => repos.append(r),
+                                    Err(error) => return Err(error),
+                                }
                             }
                         }
                         Err(e) => {
-                            print_error(&format!("Error accessing directory: {}", e));
-                            continue;
+                            return Err(format!("Error accessing directory: {}", e));
                         }
                     };
                 }
             }
             Err(e) => {
-                print_error(&format!("Failed to open \"{}\": {}", &path.display(), &e));
-                return None;
+                return Err(format!(
+                    "Failed to open \"{}\": {}",
+                    &path.display(),
+                    match e.kind() {
+                        std::io::ErrorKind::NotADirectory =>
+                            String::from("directory expected, but path is not a directory"),
+                        std::io::ErrorKind::NotFound => String::from("not found"),
+                        _ => format!("{:?}", e.kind()),
+                    }
+                ));
             }
         };
     }
 
-    Some(repos)
+    Ok(repos)
 }
 
 fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
@@ -809,7 +847,9 @@ pub fn run() {
                         process::exit(1);
                     }
                 };
-                sync_trees(config);
+                if !sync_trees(config) {
+                    process::exit(1);
+                }
             }
             cmd::ReposAction::Status(args) => match &args.config {
                 Some(config_path) => {
@@ -949,10 +989,6 @@ pub fn run() {
                                 .set_upstream(Some(&upstream_branch_name))
                                 .unwrap();
                         } else {
-                            print_error(&format!(
-                                "Remote branch {} not found",
-                                &upstream_branch_name
-                            ));
                             let split_at = upstream_branch_name.find('/').unwrap_or(0);
                             if split_at == 0 || split_at >= upstream_branch_name.len() - 1 {
                                 print_error("Tracking branch needs to match the pattern <remote>/<branch_name>");
@@ -997,7 +1033,15 @@ pub fn run() {
                             );
                             remote
                                 .push(&[push_refspec], Some(&mut push_options))
-                                .unwrap();
+                                .unwrap_or_else(|error| {
+                                    print_error(&format!(
+                                        "Pushing to {} ({}) failed: {}",
+                                        remote_name,
+                                        remote.url().unwrap(),
+                                        error
+                                    ));
+                                    process::exit(1);
+                                });
 
                             target_branch
                                 .set_upstream(Some(&upstream_branch_name))

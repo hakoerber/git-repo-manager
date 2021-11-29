@@ -10,6 +10,7 @@ use crate::output::*;
 pub enum RemoteType {
     Ssh,
     Https,
+    File,
 }
 
 #[derive(Debug, PartialEq)]
@@ -128,6 +129,14 @@ mod tests {
     }
 
     #[test]
+    fn check_file_remote() {
+        assert_eq!(
+            detect_remote_type("file:///somedir"),
+            Some(RemoteType::File)
+        );
+    }
+
+    #[test]
     fn check_invalid_remotes() {
         assert_eq!(detect_remote_type("https//example.com"), None);
         assert_eq!(detect_remote_type("https:example.com"), None);
@@ -147,12 +156,6 @@ mod tests {
     fn check_unsupported_protocol_git() {
         detect_remote_type("git://example.com");
     }
-
-    #[test]
-    #[should_panic]
-    fn check_unsupported_protocol_file() {
-        detect_remote_type("file:///");
-    }
 }
 
 pub fn detect_remote_type(remote_url: &str) -> Option<RemoteType> {
@@ -166,14 +169,14 @@ pub fn detect_remote_type(remote_url: &str) -> Option<RemoteType> {
     if remote_url.starts_with("https://") {
         return Some(RemoteType::Https);
     }
+    if remote_url.starts_with("file://") {
+        return Some(RemoteType::File);
+    }
     if remote_url.starts_with("http://") {
         unimplemented!("Remotes using HTTP protocol are not supported");
     }
     if remote_url.starts_with("git://") {
         unimplemented!("Remotes using git protocol are not supported");
-    }
-    if remote_url.starts_with("file://") || remote_url.starts_with('/') {
-        unimplemented!("Remotes using local protocol are not supported");
     }
     None
 }
@@ -254,7 +257,7 @@ pub fn clone_repo(
         &remote.url
     ));
     match remote.remote_type {
-        RemoteType::Https => {
+        RemoteType::Https | RemoteType::File => {
             let mut builder = git2::build::RepoBuilder::new();
             builder.bare(is_worktree);
             builder.clone(&remote.url, &clone_target)?;
