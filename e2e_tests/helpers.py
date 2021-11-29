@@ -53,8 +53,35 @@ def checksum_directory(path):
         raise f"{path} not found"
 
     def get_stat_hash(path):
-        stat = bytes(str(os.stat(path).__hash__()), "ascii")
-        return stat
+        checksum = hashlib.md5()
+
+        # A note about bytes(). You may think that it converts something to
+        # bytes (akin to str()). But it actually creates a list of zero bytes
+        # with the length specified by the parameter.
+        #
+        # This is kinda couterintuitive to me:
+        #
+        # str(5)   => '5'
+        # bytes(5) => b'\x00\x00\x00\x00\x00'
+        def int_to_bytes(i):
+            return i.to_bytes((i.bit_length() + 7) // 8, byteorder="big")
+
+        # lstat() instead of stat() so symlinks are not followed. So symlinks
+        # are treated as-is and will also be checked for changes.
+        stat = os.lstat(path)
+
+        # Note that the list of attributes does not include any timings except
+        # mtime.
+        for s in [
+            stat.st_mode,  # type & permission bits
+            stat.st_ino,  # inode
+            stat.st_uid,
+            stat.st_gid,
+            # it's a float in seconds, so this gives us ~1us precision
+            int(stat.st_mtime * 1e6),
+        ]:
+            checksum.update(int_to_bytes(s))
+        return checksum.digest()
 
     for root, dirs, files in os.walk(path):
         for file in files:
