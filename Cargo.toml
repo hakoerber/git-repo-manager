@@ -32,7 +32,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "grm"
-path = "src/main.rs"
+path = "src/grm/main.rs"
 
 [dependencies]
 
