@@ -5,3 +5,4 @@
 - [Repository trees](./repos.md)
 - [Git Worktrees](./worktrees.md)
 - [FAQ](./faq.md)
+- [Contributing](./contributing.md)
