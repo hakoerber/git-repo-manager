@@ -363,8 +363,7 @@ fn find_repos(root: &Path) -> Option<(Vec<Repo>, bool)> {
         if path == root {
             repo_in_root = true;
         }
-        let repo = match open_repo(&path, is_worktree) {
-            Ok(r) => r,
+        match open_repo(&path, is_worktree) {
             Err(e) => {
                 print_error(&format!(
                     "Error opening repo {}{}: {}",
@@ -375,92 +374,93 @@ fn find_repos(root: &Path) -> Option<(Vec<Repo>, bool)> {
                     },
                     e
                 ));
-                return None;
             }
-        };
-
-        let remotes = match repo.remotes() {
-            Ok(remotes) => {
-                let mut results: Vec<Remote> = Vec::new();
-                for remote in remotes.iter() {
-                    match remote {
-                        Some(remote_name) => {
-                            match repo.find_remote(remote_name) {
-                                Ok(remote) => {
-                                    let name = match remote.name() {
-                                        Some(name) => name.to_string(),
-                                        None => {
-                                            print_repo_error(&path_as_string(&path), &format!("Falied getting name of remote \"{}\". This is most likely caused by a non-utf8 remote name", remote_name));
-                                            process::exit(1);
+            Ok(repo) => {
+                let remotes = match repo.remotes() {
+                    Ok(remotes) => {
+                        let mut results: Vec<Remote> = Vec::new();
+                        for remote in remotes.iter() {
+                            match remote {
+                                Some(remote_name) => {
+                                    match repo.find_remote(remote_name) {
+                                        Ok(remote) => {
+                                            let name = match remote.name() {
+                                                Some(name) => name.to_string(),
+                                                None => {
+                                                    print_repo_error(&path_as_string(&path), &format!("Falied getting name of remote \"{}\". This is most likely caused by a non-utf8 remote name", remote_name));
+                                                    process::exit(1);
+                                                }
+                                            };
+                                            let url = match remote.url() {
+                                                Some(url) => url.to_string(),
+                                                None => {
+                                                    print_repo_error(&path_as_string(&path), &format!("Falied getting URL of remote \"{}\". This is most likely caused by a non-utf8 URL", name));
+                                                    process::exit(1);
+                                                }
+                                            };
+                                            let remote_type = match detect_remote_type(&url) {
+                                                Some(t) => t,
+                                                None => {
+                                                    print_repo_error(
+                                                        &path_as_string(&path),
+                                                        &format!(
+                                                            "Could not detect remote type of \"{}\"",
+                                                            &url
+                                                        ),
+                                                    );
+                                                    process::exit(1);
+                                                }
+                                            };
+                                            results.push(Remote {
+                                                name,
+                                                url,
+                                                remote_type,
+                                            });
                                         }
-                                    };
-                                    let url = match remote.url() {
-                                        Some(url) => url.to_string(),
-                                        None => {
-                                            print_repo_error(&path_as_string(&path), &format!("Falied getting URL of remote \"{}\". This is most likely caused by a non-utf8 URL", name));
-                                            process::exit(1);
-                                        }
-                                    };
-                                    let remote_type = match detect_remote_type(&url) {
-                                        Some(t) => t,
-                                        None => {
+                                        Err(e) => {
                                             print_repo_error(
                                                 &path_as_string(&path),
                                                 &format!(
-                                                    "Could not detect remote type of \"{}\"",
-                                                    &url
+                                                    "Error getting remote {}: {}",
+                                                    remote_name, e
                                                 ),
                                             );
                                             process::exit(1);
                                         }
                                     };
-
-                                    results.push(Remote {
-                                        name,
-                                        url,
-                                        remote_type,
-                                    });
                                 }
-                                Err(e) => {
-                                    print_repo_error(
-                                        &path_as_string(&path),
-                                        &format!("Error getting remote {}: {}", remote_name, e),
-                                    );
+                                None => {
+                                    print_repo_error(&path_as_string(&path), "Error getting remote. This is most likely caused by a non-utf8 remote name");
                                     process::exit(1);
                                 }
                             };
                         }
-                        None => {
-                            print_repo_error(&path_as_string(&path), "Error getting remote. This is most likely caused by a non-utf8 remote name");
-                            process::exit(1);
+                        Some(results)
+                    }
+                    Err(e) => {
+                        print_repo_error(
+                            &path_as_string(&path),
+                            &format!("Error getting remotes: {}", e),
+                        );
+                        process::exit(1);
+                    }
+                };
+                repos.push(Repo {
+                    name: match path == root {
+                        true => match &root.parent() {
+                            Some(parent) => path_as_string(path.strip_prefix(parent).unwrap()),
+                            None => {
+                                print_error("Getting name of the search root failed. Do you have a git repository in \"/\"?");
+                                process::exit(1);
+                            },
                         }
-                    };
-                }
-                Some(results)
-            }
-            Err(e) => {
-                print_repo_error(
-                    &path_as_string(&path),
-                    &format!("Error getting remotes: {}", e),
-                );
-                process::exit(1);
+                        false => path_as_string(path.strip_prefix(&root).unwrap()),
+                    },
+                    remotes,
+                    worktree_setup: is_worktree,
+                });
             }
         };
-
-        repos.push(Repo {
-            name: match path == root {
-                true => match &root.parent() {
-                    Some(parent) => path_as_string(path.strip_prefix(parent).unwrap()),
-                    None => {
-                        print_error("Getting name of the search root failed. Do you have a git repository in \"/\"?");
-                        process::exit(1);
-                    },
-                }
-                false => path_as_string(path.strip_prefix(&root).unwrap()),
-            },
-            remotes,
-            worktree_setup: is_worktree,
-        });
     }
     Some((repos, repo_in_root))
 }
