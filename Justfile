@@ -30,7 +30,7 @@ e2e-venv:
 test-e2e: e2e-venv release
     cd ./e2e_tests \
     && . ./venv/bin/activate \
-    && TMPDIR=/dev/shm python -m pytest .
+    && TMPDIR=/dev/shm python -m pytest --color=yes .
 
 update-dependencies:
     @cd ./depcheck \
