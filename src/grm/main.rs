@@ -95,8 +95,8 @@ fn main() {
                     }
                 };
 
-                let found_repos = match grm::find_in_tree(&path) {
-                    Ok(repos) => repos,
+                let (found_repos, warnings) = match grm::find_in_tree(&path) {
+                    Ok((repos, warnings)) => (repos, warnings),
                     Err(error) => {
                         print_error(&error);
                         process::exit(1);
@@ -121,6 +121,9 @@ fn main() {
                     };
 
                     print!("{}", toml);
+                }
+                for warning in warnings {
+                    print_warning(&warning);
                 }
             }
         },

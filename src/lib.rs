@@ -323,9 +323,10 @@ fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
 ///
 /// The bool in the return value specifies whether there is a repository
 /// in root itself.
-fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, bool)>, String> {
+fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)>, String> {
     let mut repos: Vec<RepoConfig> = Vec::new();
     let mut repo_in_root = false;
+    let mut warnings = Vec::new();
 
     for path in find_repo_paths(root)? {
         let is_worktree = Repo::detect_worktree(&path);
@@ -335,7 +336,7 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, bool)>, String> {
 
         match Repo::open(&path, is_worktree) {
             Err(error) => {
-                return Err(format!(
+                warnings.push(format!(
                     "Error opening repo {}{}: {}",
                     path.display(),
                     match is_worktree {
@@ -343,12 +344,17 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, bool)>, String> {
                         false => "",
                     },
                     error
-                ))
+                ));
+                continue
             },
             Ok(repo) => {
-                let remotes = repo.remotes().map_err(|error| {
-                    format!("{}: Error getting remotes: {}", &path_as_string(&path), error)
-                })?;
+                let remotes = match repo.remotes() {
+                    Ok(remote) => remote,
+                    Err(error) => {
+                        warnings.push(format!("{}: Error getting remotes: {}", &path_as_string(&path), error));
+                        continue
+                    }
+                };
 
                 let mut results: Vec<Remote> = Vec::new();
                 for remote_name in remotes.iter() {
@@ -359,7 +365,8 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, bool)>, String> {
                             let remote_type = match detect_remote_type(&url) {
                                 Some(t) => t,
                                 None => {
-                                    return Err(format!("{}: Could not detect remote type of \"{}\"", &path_as_string(&path), &url));
+                                    warnings.push(format!("{}: Could not detect remote type of \"{}\"", &path_as_string(&path), &url));
+                                    continue
                                 }
                             };
 
@@ -370,7 +377,8 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, bool)>, String> {
                             });
                         }
                         None => {
-                            return Err(format!("{}: Remote {} not found", &path_as_string(&path), remote_name));
+                            warnings.push(format!("{}: Remote {} not found", &path_as_string(&path), remote_name));
+                            continue
                         }
                     };
                 }
@@ -381,8 +389,8 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, bool)>, String> {
                         true => match &root.parent() {
                             Some(parent) => path_as_string(path.strip_prefix(parent).unwrap()),
                             None => {
-                                print_error("Getting name of the search root failed. Do you have a git repository in \"/\"?");
-                                process::exit(1);
+                                warnings.push(String::from("Getting name of the search root failed. Do you have a git repository in \"/\"?"));
+                                continue
                             },
                         }
                         false => path_as_string(path.strip_prefix(&root).unwrap()),
@@ -394,12 +402,17 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, bool)>, String> {
         }
 
     }
-    Ok(Some((repos, repo_in_root)))
+    Ok(Some((repos, warnings, repo_in_root)))
 }
 
-pub fn find_in_tree(path: &Path) -> Result<Tree, String> {
+pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
+    let mut warnings = Vec::new();
+
     let (repos, repo_in_root): (Vec<RepoConfig>, bool) = match find_repos(path)? {
-        Some((vec, repo_in_root)) => (vec, repo_in_root),
+        Some((vec, mut repo_warnings, repo_in_root)) => {
+            warnings.append(&mut repo_warnings);
+            (vec, repo_in_root)
+        }
         None => (Vec::new(), false),
     };
 
@@ -424,10 +437,10 @@ pub fn find_in_tree(path: &Path) -> Result<Tree, String> {
         root = Path::new("~").join(root.strip_prefix(&home).unwrap());
     }
 
-    Ok(Tree {
+    Ok((Tree {
         root: root.into_os_string().into_string().unwrap(),
         repos: Some(repos),
-    })
+    }, warnings))
 }
 
 pub fn add_worktree(
