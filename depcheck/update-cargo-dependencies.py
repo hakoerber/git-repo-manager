@@ -85,5 +85,43 @@ for tier in ["dependencies", "dev-dependencies"]:
             )
 
 
+# This updates the crates.io index, see https://github.com/rust-lang/cargo/issues/3377
+subprocess.run(
+    ["cargo", "search", "--limit", "0"],
+    check=True,
+    capture_output=False,  # to get some git output
+)
+
+# Note that we have to restart this lookup every time, as later packages can depend
+# on former packages
+while True:
+    with open("../Cargo.lock", "r") as f:
+        cargo_lock = tomlkit.parse(f.read())
+    for package in cargo_lock['package']:
+        spec = f"{package['name']}:{package['version']}"
+        try:
+            cmd = subprocess.run(
+                ["cargo", "update", "-Z", "no-index-update", "--aggressive", "--package", spec],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            print(e.stdout)
+            print(e.stderr)
+            raise
+        if len(cmd.stderr) != 0:
+            update_necessary = True
+            message = "Cargo.lock: {}".format(cmd.stderr.split("\n")[0].strip())
+            print(message)
+            cmd = subprocess.run(
+                ["git", "commit", "--message", message, "../Cargo.lock"],
+                check=True,
+                capture_output=True
+            )
+            break
+    else:
+        break
+
 if update_necessary is False:
     print("Everything up to date")
