@@ -323,6 +323,7 @@ fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
 ///
 /// The bool in the return value specifies whether there is a repository
 /// in root itself.
+#[allow(clippy::type_complexity)]
 fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)>, String> {
     let mut repos: Vec<RepoConfig> = Vec::new();
     let mut repo_in_root = false;

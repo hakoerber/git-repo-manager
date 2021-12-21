@@ -140,8 +140,8 @@ fn main() {
                             let split = branch.split_once('/');
 
                             if split.is_none()
-                                || split.unwrap().0.len() == 0
-                                || split.unwrap().1.len() == 0
+                                || split.unwrap().0.is_empty()
+                                || split.unwrap().1.is_empty()
                             {
                                 print_error("Tracking branch needs to match the pattern <remote>/<branch_name>");
                                 process::exit(1);
