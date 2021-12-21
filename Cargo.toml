@@ -44,7 +44,7 @@ version = "=1.0.131"
 features = ["derive"]
 
 [dependencies.git2]
-version = "=0.13.24"
+version = "=0.13.25"
 
 [dependencies.shellexpand]
 version = "=2.1.0"
