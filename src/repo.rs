@@ -19,7 +19,7 @@ pub enum WorktreeRemoveFailureReason {
 }
 
 pub enum GitPushDefaultSetting {
-    Upstream
+    Upstream,
 }
 
 #[derive(Debug, PartialEq)]
@@ -327,10 +327,17 @@ impl Repo {
         Ok(())
     }
 
-    pub fn find_remote_branch(&self, remote_name: &str, branch_name: &str) -> Result<Branch, String> {
+    pub fn find_remote_branch(
+        &self,
+        remote_name: &str,
+        branch_name: &str,
+    ) -> Result<Branch, String> {
         Ok(Branch(
             self.0
-                .find_branch(&format!("{}/{}", remote_name, branch_name), git2::BranchType::Remote)
+                .find_branch(
+                    &format!("{}/{}", remote_name, branch_name),
+                    git2::BranchType::Remote,
+                )
                 .map_err(convert_libgit2_error)?,
         ))
     }
@@ -408,9 +415,12 @@ impl Repo {
         let mut config = self.config()?;
 
         config
-            .set_str(crate::GIT_CONFIG_PUSH_DEFAULT, match value {
-                GitPushDefaultSetting::Upstream => "upstream",
-            })
+            .set_str(
+                crate::GIT_CONFIG_PUSH_DEFAULT,
+                match value {
+                    GitPushDefaultSetting::Upstream => "upstream",
+                },
+            )
             .map_err(|error| {
                 format!(
                     "Could not set {}: {}",
@@ -602,8 +612,11 @@ impl Repo {
     pub fn find_remote(&self, remote_name: &str) -> Result<Option<RemoteHandle>, String> {
         let remotes = self.0.remotes().map_err(convert_libgit2_error)?;
 
-        if !remotes.iter().any(|remote| remote.expect("Remote name is invalid utf-8") == remote_name) {
-            return Ok(None)
+        if !remotes
+            .iter()
+            .any(|remote| remote.expect("Remote name is invalid utf-8") == remote_name)
+        {
+            return Ok(None);
         }
 
         Ok(Some(RemoteHandle(
@@ -760,7 +773,8 @@ impl Repo {
         let mut unmanaged_worktrees = Vec::new();
         for entry in std::fs::read_dir(&directory).map_err(|error| error.to_string())? {
             let dirname = crate::path_as_string(
-                &entry.map_err(|error| error.to_string())?
+                &entry
+                    .map_err(|error| error.to_string())?
                     .path()
                     .strip_prefix(&directory)
                     // that unwrap() is safe as each entry is

@@ -14,7 +14,7 @@ use output::*;
 
 use repo::{clone_repo, detect_remote_type, Remote, RepoConfig};
 
-pub use repo::{RemoteTrackingStatus, RepoErrorKind, Repo, WorktreeRemoveFailureReason};
+pub use repo::{RemoteTrackingStatus, Repo, RepoErrorKind, WorktreeRemoveFailureReason};
 
 const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 const BRANCH_NAMESPACE_SEPARATOR: &str = "/";
@@ -177,7 +177,7 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
                             return Err(format!("Repository failed during setting of the remote URL for remote \"{}\": {}", &remote.name, e));
                         };
                     }
-                },
+                }
                 None => {
                     print_repo_action(
                         &repo.name,
@@ -345,14 +345,18 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)
                     },
                     error
                 ));
-                continue
-            },
+                continue;
+            }
             Ok(repo) => {
                 let remotes = match repo.remotes() {
                     Ok(remote) => remote,
                     Err(error) => {
-                        warnings.push(format!("{}: Error getting remotes: {}", &path_as_string(&path), error));
-                        continue
+                        warnings.push(format!(
+                            "{}: Error getting remotes: {}",
+                            &path_as_string(&path),
+                            error
+                        ));
+                        continue;
                     }
                 };
 
@@ -365,8 +369,12 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)
                             let remote_type = match detect_remote_type(&url) {
                                 Some(t) => t,
                                 None => {
-                                    warnings.push(format!("{}: Could not detect remote type of \"{}\"", &path_as_string(&path), &url));
-                                    continue
+                                    warnings.push(format!(
+                                        "{}: Could not detect remote type of \"{}\"",
+                                        &path_as_string(&path),
+                                        &url
+                                    ));
+                                    continue;
                                 }
                             };
 
@@ -377,8 +385,12 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)
                             });
                         }
                         None => {
-                            warnings.push(format!("{}: Remote {} not found", &path_as_string(&path), remote_name));
-                            continue
+                            warnings.push(format!(
+                                "{}: Remote {} not found",
+                                &path_as_string(&path),
+                                remote_name
+                            ));
+                            continue;
                         }
                     };
                 }
@@ -400,7 +412,6 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)
                 });
             }
         }
-
     }
     Ok(Some((repos, warnings, repo_in_root)))
 }
@@ -437,10 +448,13 @@ pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
         root = Path::new("~").join(root.strip_prefix(&home).unwrap());
     }
 
-    Ok((Tree {
-        root: root.into_os_string().into_string().unwrap(),
-        repos: Some(repos),
-    }, warnings))
+    Ok((
+        Tree {
+            root: root.into_os_string().into_string().unwrap(),
+            repos: Some(repos),
+        },
+        warnings,
+    ))
 }
 
 pub fn add_worktree(

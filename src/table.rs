@@ -274,7 +274,9 @@ fn add_worktree_status(
     Ok(())
 }
 
-pub fn show_single_repo_status(path: &Path) -> Result<(impl std::fmt::Display, Vec<String>), String> {
+pub fn show_single_repo_status(
+    path: &Path,
+) -> Result<(impl std::fmt::Display, Vec<String>), String> {
     let mut table = Table::new();
     let mut warnings = Vec::new();
 
@@ -293,12 +295,18 @@ pub fn show_single_repo_status(path: &Path) -> Result<(impl std::fmt::Display, V
 
     let repo_name = match path.file_name() {
         None => {
-            warnings.push(format!("Cannot detect repo name for path {}. Are you working in /?", &path.display()));
+            warnings.push(format!(
+                "Cannot detect repo name for path {}. Are you working in /?",
+                &path.display()
+            ));
             String::from("unknown")
         }
         Some(file_name) => match file_name.to_str() {
             None => {
-                warnings.push(format!("Name of repo directory {} is not valid UTF-8", &path.display()));
+                warnings.push(format!(
+                    "Name of repo directory {} is not valid UTF-8",
+                    &path.display()
+                ));
                 String::from("invalid")
             }
             Some(name) => name.to_string(),

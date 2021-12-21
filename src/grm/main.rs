@@ -139,9 +139,10 @@ fn main() {
                         Some(branch) => {
                             let split = branch.split_once('/');
 
-                            if split.is_none() ||
-                                split.unwrap().0.len() == 0
-                                ||split.unwrap().1.len() == 0 {
+                            if split.is_none()
+                                || split.unwrap().0.len() == 0
+                                || split.unwrap().1.len() == 0
+                            {
                                 print_error("Tracking branch needs to match the pattern <remote>/<branch_name>");
                                 process::exit(1);
                             };
@@ -256,7 +257,7 @@ fn main() {
                             for warning in warnings {
                                 print_warning(&warning);
                             }
-                        },
+                        }
                         Err(error) => {
                             print_error(&format!("Worktree cleanup failed: {}", error));
                             process::exit(1);
