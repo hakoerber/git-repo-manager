@@ -10,6 +10,10 @@ import tomlkit
 
 INDEX_DIR = "crates.io-index"
 
+AUTOUPDATE_DISABLED = [
+    "clap",
+]
+
 if os.path.exists(INDEX_DIR):
     subprocess.run(
         ["git", "pull", "--depth=1", "origin"],
@@ -53,6 +57,13 @@ for tier in ["dependencies", "dev-dependencies"]:
                 latest_version = version
 
         if latest_version != current_version:
+            if name in AUTOUPDATE_DISABLED:
+                print(
+                    f"{name} {current_version}: There is a new version available "
+                    f"({latest_version}, current {current_version}), but autoupdating "
+                    f"is explictly disabled for {name}"
+                )
+                continue
             update_necessary = True
             if latest_version < current_version:
                 print(
