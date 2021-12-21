@@ -63,12 +63,16 @@ for tier in ["dependencies", "dev-dependencies"]:
                     f"{name}: New version found: {latest_version} (current {current_version})"
                 )
                 cargo[tier][name]["version"] = f"={str(latest_version)}"
+            with open("../Cargo.toml", "w") as cargo_config:
+                cargo_config.write(tomlkit.dumps(cargo))
+
+            message = f"dependencies: Update {name} to {latest_version}"
+            subprocess.run(
+                ["git", "commit", "--message", message, "../Cargo.toml"],
+                check=True,
+                capture_output=True
+            )
 
 
-if update_necessary is True:
-    with open("../Cargo.toml", "w") as cargo_config:
-        cargo_config.write(tomlkit.dumps(cargo))
-    sys.exit(1)
-else:
+if update_necessary is False:
     print("Everything up to date")
-    sys.exit(0)
