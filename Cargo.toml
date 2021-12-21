@@ -37,29 +37,29 @@ path = "src/grm/main.rs"
 [dependencies]
 
 [dependencies.toml]
-version = "0.5.8"
+version = "=0.5.8"
 
 [dependencies.serde]
-version = "1.0.130"
+version = "=1.0.130"
 features = ["derive"]
 
 [dependencies.git2]
-version = "0.13.24"
+version = "=0.13.24"
 
 [dependencies.shellexpand]
-version = "2.1.0"
+version = "=2.1.0"
 
 [dependencies.clap]
-version = "3.0.0-beta.5"
+version = "=3.0.0-beta.5"
 
 [dependencies.console]
-version = "0.15.0"
+version = "=0.15.0"
 
 [dependencies.regex]
-version = "1.5.4"
+version = "=1.5.4"
 
 [dependencies.comfy-table]
-version = "5.0.0"
+version = "=5.0.0"
 
 [dev-dependencies.tempdir]
-version = "0.3.7"
+version = "=0.3.7"

@@ -31,7 +31,7 @@ update_necessary = False
 
 for tier in ["dependencies", "dev-dependencies"]:
     for name, dependency in cargo[tier].items():
-        version = dependency["version"]
+        version = dependency["version"].lstrip("=")
         if len(name) >= 4:
             info_file = f"{INDEX_DIR}/{name[0:2]}/{name[2:4]}/{name}"
         elif len(name) == 3:
@@ -62,7 +62,7 @@ for tier in ["dependencies", "dev-dependencies"]:
                 print(
                     f"{name}: New version found: {latest_version} (current {current_version})"
                 )
-                cargo[tier][name]["version"] = str(latest_version)
+                cargo[tier][name]["version"] = f"={str(latest_version)}"
 
 
 if update_necessary is True:
