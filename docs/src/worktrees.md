@@ -71,6 +71,10 @@ Now, when you run a `grm sync`, you'll notice that the directory of the reposito
 is empty! Well, not totally, there is a hidden directory called `.git-main-working-tree`.
 This is where the repository actually "lives" (it's a bare checkout).
 
+Note that there are few specific things you can configure for a certain
+workspace.  This is all done in an optional `grm.toml` file right in the root
+of the worktree. More on that later.
+
 ### Creating a new worktree
 
 To actually work, you'll first have to create a new worktree checkout. All
@@ -194,6 +198,36 @@ $ grm wt clean
 
 Note that this will not delete the default branch of the repository. It can of
 course still be delete with `grm wt delete` if neccessary.
+
+### Persistent branches
+
+You most likely have a few branches that are "special", that you don't want to
+clean up and that are the usual target for feature branches to merge into. GRM
+calls them "persistent branches" and treats them a bit differently:
+
+* Their worktrees will never be deleted by `grm wt clean`
+* If the branches in other worktrees are merged into them, they will be cleaned
+  up, even though they may not be in line with their upstream. Same goes for
+  `grm wt delete`, which will not require a `--force` flag. Note that of
+  course, actual changes in the worktree will still block an automatic cleanup!
+* As soon as you enable persistent branches, non-persistent branches will only
+  ever cleaned up when merged into a persistent branch.
+
+To elaborate: This is mostly relevant for a feature-branch workflow. Whenever a
+feature branch is merged, it can usually be thrown away. As merging is usually
+done on some remote code management platform (GitHub, GitLab, ...), this means
+that you usually keep a branch around until it is merged into one of the "main"
+branches (`master`, `main`, `develop`, ...)
+
+Enable persistent branches by setting the following in the `grm.toml` in the
+worktree root:
+
+```toml
+persistent_branches = [
+    "master",
+    "develop",
+]
+```
 
 ### Converting an existing repository
 

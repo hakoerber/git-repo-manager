@@ -46,7 +46,7 @@ fn add_repo_status(
             }
             None => String::from("\u{2714}"),
         },
-        &repo_status
+        repo_status
             .branches
             .iter()
             .map(|(branch_name, remote_branch)| {
@@ -73,8 +73,7 @@ fn add_repo_status(
                 )
             })
             .collect::<String>()
-            .trim()
-            .to_string(),
+            .trim(),
         &match is_worktree {
             true => String::from(""),
             false => match repo_status.head {
@@ -82,13 +81,12 @@ fn add_repo_status(
                 None => String::from("Empty"),
             },
         },
-        &repo_status
+        repo_status
             .remotes
             .iter()
             .map(|r| format!("{}\n", r))
             .collect::<String>()
-            .trim()
-            .to_string(),
+            .trim(),
     ]);
 
     Ok(())
@@ -127,14 +125,13 @@ pub fn get_worktree_status_table(
     }
     for entry in std::fs::read_dir(&directory).map_err(|error| error.to_string())? {
         let dirname = crate::path_as_string(
-            &entry
+            entry
                 .map_err(|error| error.to_string())?
                 .path()
                 .strip_prefix(&directory)
                 // this unwrap is safe, as we can be sure that each subentry of
                 // &directory also has the prefix &dir
-                .unwrap()
-                .to_path_buf(),
+                .unwrap(),
         );
         if dirname == crate::GIT_MAIN_WORKTREE_DIRECTORY {
             continue;

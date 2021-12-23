@@ -3,6 +3,7 @@ use std::process;
 
 mod cmd;
 
+use grm::repo;
 use grm::config;
 use grm::output::*;
 
@@ -171,12 +172,21 @@ fn main() {
                 }
                 cmd::WorktreeAction::Delete(action_args) => {
                     let worktree_dir = cwd.join(&action_args.name);
+
+                    let worktree_config = match repo::read_worktree_root_config(&cwd) {
+                        Ok(config) => config,
+                        Err(error) => {
+                            print_error(&format!("Error getting worktree configuration: {}", error));
+                            process::exit(1);
+                        }
+                    };
+
                     let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
                         print_error(&format!("Error opening repository: {}", error));
                         process::exit(1);
                     });
 
-                    match repo.remove_worktree(&action_args.name, &worktree_dir, action_args.force)
+                    match repo.remove_worktree(&action_args.name, &worktree_dir, action_args.force, &worktree_config)
                     {
                         Ok(_) => print_success(&format!("Worktree {} deleted", &action_args.name)),
                         Err(error) => {
@@ -190,6 +200,9 @@ fn main() {
                                         "Changes in worktree: {}. Refusing to delete",
                                         changes
                                     ));
+                                }
+                                grm::WorktreeRemoveFailureReason::NotMerged(message) => {
+                                    print_warning(&message);
                                 }
                             }
                             process::exit(1);

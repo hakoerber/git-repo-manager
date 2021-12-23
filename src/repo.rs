@@ -5,6 +5,8 @@ use git2::{Cred, RemoteCallbacks, Repository};
 
 use crate::output::*;
 
+const WORKTREE_CONFIG_FILE_NAME: &str = "grm.toml";
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum RemoteType {
@@ -16,6 +18,7 @@ pub enum RemoteType {
 pub enum WorktreeRemoveFailureReason {
     Changes(String),
     Error(String),
+    NotMerged(String),
 }
 
 pub enum GitPushDefaultSetting {
@@ -37,6 +40,37 @@ impl RepoError {
     fn new(kind: RepoErrorKind) -> RepoError {
         RepoError { kind }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorktreeRootConfig {
+    pub persistent_branches: Option<Vec<String>>,
+}
+
+pub fn read_worktree_root_config(worktree_root: &Path) -> Result<Option<WorktreeRootConfig>, String> {
+    let path = worktree_root.join(WORKTREE_CONFIG_FILE_NAME);
+    let content = match std::fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(e) => {
+            match e.kind() {
+                std::io::ErrorKind::NotFound => return Ok(None),
+                _ => return Err(format!("Error reading configuration file \"{}\": {}", path.display(), e)),
+            }
+        }
+    };
+
+    let config: WorktreeRootConfig = match toml::from_str(&content) {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(format!(
+                "Error parsing configuration file \"{}\": {}",
+                path.display(), e
+            ))
+        }
+    };
+
+    Ok(Some(config))
 }
 
 impl std::error::Error for RepoError {}
@@ -237,10 +271,9 @@ impl Repo {
         // name exists
         let branch = self
             .find_local_branch(
-                &head
+                head
                     .shorthand()
-                    .expect("Branch name is not valid utf-8")
-                    .to_string(),
+                    .expect("Branch name is not valid utf-8"),
             )
             .unwrap();
         Ok(branch)
@@ -642,6 +675,7 @@ impl Repo {
         name: &str,
         worktree_dir: &Path,
         force: bool,
+        worktree_config: &Option<WorktreeRootConfig>,
     ) -> Result<(), WorktreeRemoveFailureReason> {
         if !worktree_dir.exists() {
             return Err(WorktreeRemoveFailureReason::Error(format!(
@@ -684,24 +718,54 @@ impl Repo {
                 )));
             }
 
-            match branch.upstream() {
-                Ok(remote_branch) => {
-                    let (ahead, behind) = worktree_repo
-                        .graph_ahead_behind(&branch, &remote_branch)
-                        .unwrap();
+            let mut is_merged_into_persistent_branch = false;
+            let mut has_persistent_branches = false;
+            if let Some(config) = worktree_config {
+                if let Some(branches) = &config.persistent_branches {
+                    has_persistent_branches = true;
+                    for persistent_branch in branches {
+                        let persistent_branch = worktree_repo
+                            .find_local_branch(persistent_branch)
+                            .map_err(WorktreeRemoveFailureReason::Error)?;
 
-                    if (ahead, behind) != (0, 0) {
+                        let (ahead, _behind) = worktree_repo
+                            .graph_ahead_behind(&branch, &persistent_branch)
+                            .unwrap();
+
+                        if ahead == 0 {
+                            is_merged_into_persistent_branch = true;
+                        }
+                    }
+                }
+            }
+
+            if has_persistent_branches && !is_merged_into_persistent_branch {
+                return Err(WorktreeRemoveFailureReason::NotMerged(format!(
+                    "Branch {} is not merged into any persistent branches",
+                    name
+                )));
+            }
+
+            if !has_persistent_branches {
+                match branch.upstream() {
+                    Ok(remote_branch) => {
+                        let (ahead, behind) = worktree_repo
+                            .graph_ahead_behind(&branch, &remote_branch)
+                            .unwrap();
+
+                        if (ahead, behind) != (0, 0) {
+                            return Err(WorktreeRemoveFailureReason::Changes(format!(
+                                "Branch {} is not in line with remote branch",
+                                name
+                            )));
+                        }
+                    }
+                    Err(_) => {
                         return Err(WorktreeRemoveFailureReason::Changes(format!(
-                            "Branch {} is not in line with remote branch",
+                            "No remote tracking branch for branch {} found",
                             name
                         )));
                     }
-                }
-                Err(_) => {
-                    return Err(WorktreeRemoveFailureReason::Changes(format!(
-                        "No remote tracking branch for branch {} found",
-                        name
-                    )));
                 }
             }
         }
@@ -737,13 +801,22 @@ impl Repo {
             .name()
             .map_err(|error| format!("Failed getting default branch name: {}", error))?;
 
+        let config = read_worktree_root_config(directory)?;
+
         for worktree in worktrees
             .iter()
             .filter(|worktree| *worktree != &default_branch_name)
+            .filter(|worktree| match &config {
+                None => true,
+                Some(config) => match &config.persistent_branches {
+                    None => true,
+                    Some(branches) => !branches.contains(worktree),
+                },
+            })
         {
             let repo_dir = &directory.join(&worktree);
             if repo_dir.exists() {
-                match self.remove_worktree(worktree, repo_dir, false) {
+                match self.remove_worktree(worktree, repo_dir, false, &config) {
                     Ok(_) => print_success(&format!("Worktree {} deleted", &worktree)),
                     Err(error) => match error {
                         WorktreeRemoveFailureReason::Changes(changes) => {
@@ -751,6 +824,10 @@ impl Repo {
                                 "Changes found in {}: {}, skipping",
                                 &worktree, &changes
                             ));
+                            continue;
+                        }
+                        WorktreeRemoveFailureReason::NotMerged(message) => {
+                            warnings.push(message);
                             continue;
                         }
                         WorktreeRemoveFailureReason::Error(error) => {
@@ -773,14 +850,13 @@ impl Repo {
         let mut unmanaged_worktrees = Vec::new();
         for entry in std::fs::read_dir(&directory).map_err(|error| error.to_string())? {
             let dirname = crate::path_as_string(
-                &entry
+                entry
                     .map_err(|error| error.to_string())?
                     .path()
                     .strip_prefix(&directory)
                     // that unwrap() is safe as each entry is
                     // guaranteed to be a subentry of &directory
-                    .unwrap()
-                    .to_path_buf(),
+                    .unwrap(),
             );
 
             let default_branch = self
@@ -792,6 +868,9 @@ impl Repo {
                 .map_err(|error| format!("Failed getting default branch name: {}", error))?;
 
             if dirname == crate::GIT_MAIN_WORKTREE_DIRECTORY {
+                continue;
+            }
+            if dirname == WORKTREE_CONFIG_FILE_NAME {
                 continue;
             }
             if dirname == default_branch_name {

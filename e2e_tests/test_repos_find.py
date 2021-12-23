@@ -159,6 +159,7 @@ def test_repos_find_in_root():
             assert set(origin.keys()) == {"name", "type", "url"}
             assert someremote["type"] == "file"
 
+
 def test_repos_find_with_invalid_repo():
     with tempfile.TemporaryDirectory() as tmpdir:
         shell(
