@@ -3,9 +3,9 @@ use std::process;
 
 mod cmd;
 
-use grm::repo;
 use grm::config;
 use grm::output::*;
+use grm::repo;
 
 fn main() {
     let opts = cmd::parse();
@@ -177,7 +177,10 @@ fn main() {
                     let worktree_config = match repo::read_worktree_root_config(&cwd) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&format!("Error getting worktree configuration: {}", error));
+                            print_error(&format!(
+                                "Error getting worktree configuration: {}",
+                                error
+                            ));
                             process::exit(1);
                         }
                     };
@@ -187,8 +190,12 @@ fn main() {
                         process::exit(1);
                     });
 
-                    match repo.remove_worktree(&action_args.name, &worktree_dir, action_args.force, &worktree_config)
-                    {
+                    match repo.remove_worktree(
+                        &action_args.name,
+                        &worktree_dir,
+                        action_args.force,
+                        &worktree_config,
+                    ) {
                         Ok(_) => print_success(&format!("Worktree {} deleted", &action_args.name)),
                         Err(error) => {
                             match error {

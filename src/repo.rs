@@ -58,16 +58,22 @@ pub struct WorktreeRootConfig {
     pub track: Option<TrackingConfig>,
 }
 
-pub fn read_worktree_root_config(worktree_root: &Path) -> Result<Option<WorktreeRootConfig>, String> {
+pub fn read_worktree_root_config(
+    worktree_root: &Path,
+) -> Result<Option<WorktreeRootConfig>, String> {
     let path = worktree_root.join(WORKTREE_CONFIG_FILE_NAME);
     let content = match std::fs::read_to_string(&path) {
         Ok(s) => s,
-        Err(e) => {
-            match e.kind() {
-                std::io::ErrorKind::NotFound => return Ok(None),
-                _ => return Err(format!("Error reading configuration file \"{}\": {}", path.display(), e)),
+        Err(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => return Ok(None),
+            _ => {
+                return Err(format!(
+                    "Error reading configuration file \"{}\": {}",
+                    path.display(),
+                    e
+                ))
             }
-        }
+        },
     };
 
     let config: WorktreeRootConfig = match toml::from_str(&content) {
@@ -75,7 +81,8 @@ pub fn read_worktree_root_config(worktree_root: &Path) -> Result<Option<Worktree
         Err(e) => {
             return Err(format!(
                 "Error parsing configuration file \"{}\": {}",
-                path.display(), e
+                path.display(),
+                e
             ))
         }
     };
@@ -280,11 +287,7 @@ impl Repo {
         // unwrap() is safe here, as we can be certain that a branch with that
         // name exists
         let branch = self
-            .find_local_branch(
-                head
-                    .shorthand()
-                    .expect("Branch name is not valid utf-8"),
-            )
+            .find_local_branch(head.shorthand().expect("Branch name is not valid utf-8"))
             .unwrap();
         Ok(branch)
     }
@@ -981,7 +984,8 @@ impl RemoteHandle<'_> {
     }
 
     pub fn is_pushable(&self) -> Result<bool, String> {
-        let remote_type = detect_remote_type(self.0.url().expect("Remote name is not valid utf-8")).ok_or_else(|| String::from("Could not detect remote type"))?;
+        let remote_type = detect_remote_type(self.0.url().expect("Remote name is not valid utf-8"))
+            .ok_or_else(|| String::from("Could not detect remote type"))?;
         Ok(matches!(remote_type, RemoteType::Ssh | RemoteType::File))
     }
 
@@ -1011,12 +1015,9 @@ impl RemoteHandle<'_> {
                 Some(username) => username,
                 None => panic!("Could not get username. This is a bug"),
             };
-            git2::Cred::ssh_key_from_agent(username).or_else(|_| git2::Cred::ssh_key(
-                    username,
-                    None,
-                    &crate::env_home().join(".ssh/id_rsa"),
-                    None,
-            ))
+            git2::Cred::ssh_key_from_agent(username).or_else(|_| {
+                git2::Cred::ssh_key(username, None, &crate::env_home().join(".ssh/id_rsa"), None)
+            })
         });
 
         let mut push_options = git2::PushOptions::new();

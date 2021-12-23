@@ -485,9 +485,7 @@ pub fn add_worktree(
 
     let mut remote_branch_exists = false;
 
-    let default_checkout = || {
-        repo.default_branch()?.to_commit()
-    };
+    let default_checkout = || repo.default_branch()?.to_commit();
 
     let checkout_commit;
     if no_track {
@@ -507,32 +505,29 @@ pub fn add_worktree(
                     }
                 }
             }
-            None => {
-                match &config {
+            None => match &config {
+                None => checkout_commit = default_checkout()?,
+                Some(config) => match &config.track {
                     None => checkout_commit = default_checkout()?,
-                    Some(config) => {
-                        match &config.track {
-                            None => checkout_commit = default_checkout()?,
-                            Some(track_config) => {
-                                if track_config.default {
-                                    let remote_branch = repo.find_remote_branch(&track_config.default_remote, name);
-                                    match remote_branch {
-                                        Ok(branch) => {
-                                            remote_branch_exists = true;
-                                            checkout_commit = branch.to_commit()?;
-                                        }
-                                        Err(_) => {
-                                            checkout_commit = default_checkout()?;
-                                        }
-                                    }
-                                } else {
+                    Some(track_config) => {
+                        if track_config.default {
+                            let remote_branch =
+                                repo.find_remote_branch(&track_config.default_remote, name);
+                            match remote_branch {
+                                Ok(branch) => {
+                                    remote_branch_exists = true;
+                                    checkout_commit = branch.to_commit()?;
+                                }
+                                Err(_) => {
                                     checkout_commit = default_checkout()?;
                                 }
                             }
+                        } else {
+                            checkout_commit = default_checkout()?;
                         }
                     }
-                }
-            }
+                },
+            },
         };
     }
 
@@ -541,9 +536,17 @@ pub fn add_worktree(
         Err(_) => repo.create_branch(&branch_name, &checkout_commit)?,
     };
 
-    fn push(remote: &mut repo::RemoteHandle, branch_name: &str, remote_branch_name: &str, repo: &repo::Repo) -> Result<(), String>{
+    fn push(
+        remote: &mut repo::RemoteHandle,
+        branch_name: &str,
+        remote_branch_name: &str,
+        repo: &repo::Repo,
+    ) -> Result<(), String> {
         if !remote.is_pushable()? {
-            return Err(format!("Cannot push to non-pushable remote {}", remote.url()));
+            return Err(format!(
+                "Cannot push to non-pushable remote {}",
+                remote.url()
+            ));
         }
         remote.push(branch_name, remote_branch_name, repo)
     }
@@ -558,7 +561,12 @@ pub fn add_worktree(
                     .map_err(|error| format!("Error getting remote {}: {}", remote_name, error))?
                     .ok_or_else(|| format!("Remote {} not found", remote_name))?;
 
-                push(&mut remote, &target_branch.name()?, remote_branch_name, &repo)?;
+                push(
+                    &mut remote,
+                    &target_branch.name()?,
+                    remote_branch_name,
+                    &repo,
+                )?;
 
                 target_branch.set_upstream(remote_name, remote_branch_name)?;
             }
@@ -570,19 +578,31 @@ pub fn add_worktree(
                         target_branch.set_upstream(&remote_name, name)?;
                     } else {
                         let remote_branch_name = match track_config.default_remote_prefix {
-                            Some(prefix) => format!("{}{}{}", &prefix, BRANCH_NAMESPACE_SEPARATOR, &name),
+                            Some(prefix) => {
+                                format!("{}{}{}", &prefix, BRANCH_NAMESPACE_SEPARATOR, &name)
+                            }
                             None => name.to_string(),
                         };
 
                         let mut remote = repo
                             .find_remote(&remote_name)
-                            .map_err(|error| format!("Error getting remote {}: {}", remote_name, error))?
+                            .map_err(|error| {
+                                format!("Error getting remote {}: {}", remote_name, error)
+                            })?
                             .ok_or_else(|| format!("Remote {} not found", remote_name))?;
 
                         if !remote.is_pushable()? {
-                            return Err(format!("Cannot push to non-pushable remote {}", remote.url()));
+                            return Err(format!(
+                                "Cannot push to non-pushable remote {}",
+                                remote.url()
+                            ));
                         }
-                        push(&mut remote, &target_branch.name()?, &remote_branch_name, &repo)?;
+                        push(
+                            &mut remote,
+                            &target_branch.name()?,
+                            &remote_branch_name,
+                            &repo,
+                        )?;
 
                         target_branch.set_upstream(&remote_name, &remote_branch_name)?;
                     }
