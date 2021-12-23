@@ -44,8 +44,18 @@ impl RepoError {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct TrackingConfig {
+    pub default: bool,
+    pub default_remote: String,
+    pub default_remote_prefix: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorktreeRootConfig {
     pub persistent_branches: Option<Vec<String>>,
+
+    pub track: Option<TrackingConfig>,
 }
 
 pub fn read_worktree_root_config(worktree_root: &Path) -> Result<Option<WorktreeRootConfig>, String> {

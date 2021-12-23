@@ -463,6 +463,7 @@ pub fn add_worktree(
     name: &str,
     branch_namespace: Option<&str>,
     track: Option<(&str, &str)>,
+    no_track: bool,
 ) -> Result<(), String> {
     let repo = Repo::open(directory, true).map_err(|error| match error.kind {
         RepoErrorKind::NotFound => {
@@ -470,6 +471,8 @@ pub fn add_worktree(
         }
         _ => format!("Error opening repo: {}", error),
     })?;
+
+    let config = repo::read_worktree_root_config(directory)?;
 
     if repo.find_worktree(name).is_ok() {
         return Err(format!("Worktree {} already exists", &name));
@@ -482,42 +485,101 @@ pub fn add_worktree(
 
     let mut remote_branch_exists = false;
 
-    let checkout_commit = match track {
-        Some((remote_name, remote_branch_name)) => {
-            let remote_branch = repo.find_remote_branch(remote_name, remote_branch_name);
-            match remote_branch {
-                Ok(branch) => {
-                    remote_branch_exists = true;
-                    branch.to_commit()?
-                }
-                Err(_) => {
-                    remote_branch_exists = false;
-                    repo.default_branch()?.to_commit()?
+    let default_checkout = || {
+        repo.default_branch()?.to_commit()
+    };
+
+    let checkout_commit;
+    if no_track {
+        checkout_commit = default_checkout()?;
+    } else {
+        match track {
+            Some((remote_name, remote_branch_name)) => {
+                let remote_branch = repo.find_remote_branch(remote_name, remote_branch_name);
+                match remote_branch {
+                    Ok(branch) => {
+                        remote_branch_exists = true;
+                        checkout_commit = branch.to_commit()?;
+                    }
+                    Err(_) => {
+                        remote_branch_exists = false;
+                        checkout_commit = default_checkout()?;
+                    }
                 }
             }
-        }
-        None => repo.default_branch()?.to_commit()?,
-    };
+            None => {
+                match &config {
+                    None => checkout_commit = default_checkout()?,
+                    Some(config) => {
+                        match &config.track {
+                            None => checkout_commit = default_checkout()?,
+                            Some(track_config) => {
+                                if track_config.default {
+                                    let remote_branch = repo.find_remote_branch(&track_config.default_remote, name);
+                                    match remote_branch {
+                                        Ok(branch) => {
+                                            remote_branch_exists = true;
+                                            checkout_commit = branch.to_commit()?;
+                                        }
+                                        Err(_) => {
+                                            checkout_commit = default_checkout()?;
+                                        }
+                                    }
+                                } else {
+                                    checkout_commit = default_checkout()?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    }
 
     let mut target_branch = match repo.find_local_branch(&branch_name) {
         Ok(branchref) => branchref,
         Err(_) => repo.create_branch(&branch_name, &checkout_commit)?,
     };
 
-    if let Some((remote_name, remote_branch_name)) = track {
-        if remote_branch_exists {
-            target_branch.set_upstream(remote_name, remote_branch_name)?;
-        } else {
-            let mut remote = repo
-                .find_remote(remote_name)
-                .map_err(|error| format!("Error getting remote {}: {}", remote_name, error))?
-                .ok_or_else(|| format!("Remote {} not found", remote_name))?;
+    if !no_track {
+        if let Some((remote_name, remote_branch_name)) = track {
+            if remote_branch_exists {
+                target_branch.set_upstream(remote_name, remote_branch_name)?;
+            } else {
+                let mut remote = repo
+                    .find_remote(remote_name)
+                    .map_err(|error| format!("Error getting remote {}: {}", remote_name, error))?
+                    .ok_or_else(|| format!("Remote {} not found", remote_name))?;
 
-            remote.push(&target_branch.name()?, remote_branch_name, &repo)?;
+                remote.push(&target_branch.name()?, remote_branch_name, &repo)?;
 
-            target_branch.set_upstream(remote_name, remote_branch_name)?;
+                target_branch.set_upstream(remote_name, remote_branch_name)?;
+            }
+        } else if let Some(config) = config {
+            if let Some(track_config) = config.track {
+                if track_config.default {
+                    let remote_name = track_config.default_remote;
+                    if remote_branch_exists {
+                        target_branch.set_upstream(&remote_name, name)?;
+                    } else {
+                        let remote_branch_name = match track_config.default_remote_prefix {
+                            Some(prefix) => format!("{}{}{}", &prefix, BRANCH_NAMESPACE_SEPARATOR, &name),
+                            None => name.to_string(),
+                        };
+
+                        let mut remote = repo
+                            .find_remote(&remote_name)
+                            .map_err(|error| format!("Error getting remote {}: {}", remote_name, error))?
+                            .ok_or_else(|| format!("Remote {} not found", remote_name))?;
+
+                        remote.push(&target_branch.name()?, &remote_branch_name, &repo)?;
+
+                        target_branch.set_upstream(&remote_name, &remote_branch_name)?;
+                    }
+                }
+            }
         }
-    };
+    }
 
     repo.new_worktree(name, &directory.join(&name), &target_branch)?;
 

@@ -134,6 +134,36 @@ The behaviour of `--track` differs depending on the existence of the remote bran
   new remote tracking branch, using the default branch (either `main` or `master`)
   as the base
 
+Often, you'll have a workflow that uses tracking branches by default. It would
+be quite tedious to add `--track` every single time. Luckily, the `grm.toml` file
+supports defaults for the tracking behaviour. See this for an example:
+
+```toml
+[track]
+default = true
+default_remote = "origin"
+```
+
+This will set up a tracking branch on `origin` that has the same name as the local
+branch.
+
+Sometimes, you might want to have a certain prefix for all your tracking branches.
+Maybe to prevent collissions with other contributors. You can simply set
+`default_remote_prefix` in `grm.toml`:
+
+```toml
+[track]
+default = true
+default_remote = "origin"
+default_remote_prefix = "myname"
+```
+
+When using branch `my-feature-branch`, the remote tracking branch would be
+`origin/myname/my-feature-branch` in this case.
+
+Note that `--track` overrides any configuration in `grm.toml`. If you want to
+disable tracking, use `--no-track`.
+
 ### Showing the status of your worktrees
 
 There is a handy little command that will show your an overview over all worktrees

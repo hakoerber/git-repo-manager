@@ -102,6 +102,9 @@ pub struct WorktreeAddArgs {
     pub branch_namespace: Option<String>,
     #[clap(short = 't', long = "track", about = "Remote branch to track")]
     pub track: Option<String>,
+
+    #[clap(long = "--no-track", about = "Disable tracking")]
+    pub no_track: bool,
 }
 #[derive(Parser)]
 pub struct WorktreeDeleteArgs {

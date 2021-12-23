@@ -162,6 +162,7 @@ fn main() {
                         &action_args.name,
                         action_args.branch_namespace.as_deref(),
                         track,
+                        action_args.no_track,
                     ) {
                         Ok(_) => print_success(&format!("Worktree {} created", &action_args.name)),
                         Err(error) => {
