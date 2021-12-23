@@ -1007,7 +1007,16 @@ impl RemoteHandle<'_> {
             Ok(())
         });
         callbacks.credentials(|_url, username_from_url, _allowed_types| {
-            git2::Cred::ssh_key_from_agent(username_from_url.unwrap())
+            let username = match username_from_url {
+                Some(username) => username,
+                None => panic!("Could not get username. This is a bug"),
+            };
+            git2::Cred::ssh_key_from_agent(username).or_else(|_| git2::Cred::ssh_key(
+                    username,
+                    None,
+                    &crate::env_home().join(".ssh/id_rsa"),
+                    None,
+            ))
         });
 
         let mut push_options = git2::PushOptions::new();
