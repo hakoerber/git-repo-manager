@@ -258,18 +258,22 @@ fn main() {
                         process::exit(1);
                     });
 
-                    let status = repo.status(false).unwrap_or_else(|error| {
-                        print_error(&format!("Failed getting repo changes: {}", error));
-                        process::exit(1);
-                    });
-                    if status.changes.is_some() {
-                        print_error("Changes found in repository, refusing to convert");
-                        process::exit(1);
-                    }
-
                     match repo.convert_to_worktree(&cwd) {
                         Ok(_) => print_success("Conversion done"),
-                        Err(error) => print_error(&format!("Error during conversion: {}", error)),
+                        Err(reason) => {
+                            match reason {
+                                repo::WorktreeConversionFailureReason::Changes => {
+                                    print_error("Changes found in repository, refusing to convert");
+                                }
+                                repo::WorktreeConversionFailureReason::Ignored => {
+                                    print_error("Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.");
+                                }
+                                repo::WorktreeConversionFailureReason::Error(error) => {
+                                    print_error(&format!("Error during conversion: {}", error));
+                                }
+                            }
+                            process::exit(1);
+                        }
                     }
                 }
                 cmd::WorktreeAction::Clean(_args) => {

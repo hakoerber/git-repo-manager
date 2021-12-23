@@ -21,6 +21,12 @@ pub enum WorktreeRemoveFailureReason {
     NotMerged(String),
 }
 
+pub enum WorktreeConversionFailureReason {
+    Changes,
+    Ignored,
+    Error(String),
+}
+
 pub enum GitPushDefaultSetting {
     Upstream,
 }
@@ -414,14 +420,40 @@ impl Repo {
             .map_err(|error| format!("Could not set {}: {}", crate::GIT_CONFIG_BARE_KEY, error))
     }
 
-    pub fn convert_to_worktree(&self, root_dir: &Path) -> Result<(), String> {
-        std::fs::rename(".git", crate::GIT_MAIN_WORKTREE_DIRECTORY)
-            .map_err(|error| format!("Error moving .git directory: {}", error))?;
+    pub fn convert_to_worktree(
+        &self,
+        root_dir: &Path,
+    ) -> Result<(), WorktreeConversionFailureReason> {
+        if self
+            .status(false)
+            .map_err(WorktreeConversionFailureReason::Error)?
+            .changes
+            .is_some()
+        {
+            return Err(WorktreeConversionFailureReason::Changes);
+        }
+
+        if self
+            .has_untracked_files(false)
+            .map_err(WorktreeConversionFailureReason::Error)?
+        {
+            return Err(WorktreeConversionFailureReason::Ignored);
+        }
+
+        std::fs::rename(".git", crate::GIT_MAIN_WORKTREE_DIRECTORY).map_err(|error| {
+            WorktreeConversionFailureReason::Error(format!(
+                "Error moving .git directory: {}",
+                error
+            ))
+        })?;
 
         for entry in match std::fs::read_dir(&root_dir) {
             Ok(iterator) => iterator,
             Err(error) => {
-                return Err(format!("Opening directory failed: {}", error));
+                return Err(WorktreeConversionFailureReason::Error(format!(
+                    "Opening directory failed: {}",
+                    error
+                )));
             }
         } {
             match entry {
@@ -433,28 +465,41 @@ impl Repo {
                     }
                     if path.is_file() || path.is_symlink() {
                         if let Err(error) = std::fs::remove_file(&path) {
-                            return Err(format!("Failed removing {}", error));
+                            return Err(WorktreeConversionFailureReason::Error(format!(
+                                "Failed removing {}",
+                                error
+                            )));
                         }
                     } else if let Err(error) = std::fs::remove_dir_all(&path) {
-                        return Err(format!("Failed removing {}", error));
+                        return Err(WorktreeConversionFailureReason::Error(format!(
+                            "Failed removing {}",
+                            error
+                        )));
                     }
                 }
                 Err(error) => {
-                    return Err(format!("Error getting directory entry: {}", error));
+                    return Err(WorktreeConversionFailureReason::Error(format!(
+                        "Error getting directory entry: {}",
+                        error
+                    )));
                 }
             }
         }
 
-        let worktree_repo = Repo::open(root_dir, true)
-            .map_err(|error| format!("Opening newly converted repository failed: {}", error))?;
+        let worktree_repo = Repo::open(root_dir, true).map_err(|error| {
+            WorktreeConversionFailureReason::Error(format!(
+                "Opening newly converted repository failed: {}",
+                error
+            ))
+        })?;
 
         worktree_repo
             .make_bare(true)
-            .map_err(|error| format!("Error: {}", error))?;
+            .map_err(|error| WorktreeConversionFailureReason::Error(format!("Error: {}", error)))?;
 
         worktree_repo
             .set_config_push(GitPushDefaultSetting::Upstream)
-            .map_err(|error| format!("Error: {}", error))?;
+            .map_err(|error| WorktreeConversionFailureReason::Error(format!("Error: {}", error)))?;
 
         Ok(())
     }
@@ -476,6 +521,33 @@ impl Repo {
                     error
                 )
             })
+    }
+
+    pub fn has_untracked_files(&self, is_worktree: bool) -> Result<bool, String> {
+        match is_worktree {
+            true => Err(String::from(
+                "Cannot get changes as this is a bare worktree repository",
+            )),
+            false => {
+                let statuses = self
+                    .0
+                    .statuses(Some(git2::StatusOptions::new().include_ignored(true)))
+                    .map_err(convert_libgit2_error)?;
+
+                match statuses.is_empty() {
+                    true => Ok(false),
+                    false => {
+                        for status in statuses.iter() {
+                            let status_bits = status.status();
+                            if status_bits.intersects(git2::Status::IGNORED) {
+                                return Ok(true);
+                            }
+                        }
+                        Ok(false)
+                    }
+                }
+            }
+        }
     }
 
     pub fn status(&self, is_worktree: bool) -> Result<RepoStatus, String> {
