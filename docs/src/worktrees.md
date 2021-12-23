@@ -259,6 +259,9 @@ persistent_branches = [
 ]
 ```
 
+Note that setting persistent branches will disable any detection of "default"
+branches. The first entry will be considered your repositories' default branch.
+
 ### Converting an existing repository
 
 It is possible to convert an existing directory to a worktree setup, using `grm

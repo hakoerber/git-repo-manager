@@ -880,15 +880,28 @@ impl Repo {
             .get_worktrees()
             .map_err(|error| format!("Getting worktrees failed: {}", error))?;
 
-        let default_branch = self
-            .default_branch()
-            .map_err(|error| format!("Failed getting default branch: {}", error))?;
-
-        let default_branch_name = default_branch
-            .name()
-            .map_err(|error| format!("Failed getting default branch name: {}", error))?;
-
         let config = read_worktree_root_config(directory)?;
+
+        let guess_default_branch = || {
+            self.default_branch()
+                .map_err(|_| "Could not determine default branch")?
+                .name()
+                .map_err(|error| format!("Failed getting default branch name: {}", error))
+        };
+
+        let default_branch_name = match &config {
+            None => guess_default_branch()?,
+            Some(config) => match &config.persistent_branches {
+                None => guess_default_branch()?,
+                Some(persistent_branches) => {
+                    if persistent_branches.is_empty() {
+                        guess_default_branch()?
+                    } else {
+                        persistent_branches[0].clone()
+                    }
+                }
+            },
+        };
 
         for worktree in worktrees
             .iter()
@@ -946,13 +959,28 @@ impl Repo {
                     .unwrap(),
             );
 
-            let default_branch = self
-                .default_branch()
-                .map_err(|error| format!("Failed getting default branch: {}", error))?;
+            let config = read_worktree_root_config(directory)?;
 
-            let default_branch_name = default_branch
-                .name()
-                .map_err(|error| format!("Failed getting default branch name: {}", error))?;
+            let guess_default_branch = || {
+                self.default_branch()
+                    .map_err(|error| format!("Failed getting default branch: {}", error))?
+                    .name()
+                    .map_err(|error| format!("Failed getting default branch name: {}", error))
+            };
+
+            let default_branch_name = match &config {
+                None => guess_default_branch()?,
+                Some(config) => match &config.persistent_branches {
+                    None => guess_default_branch()?,
+                    Some(persistent_branches) => {
+                        if persistent_branches.is_empty() {
+                            guess_default_branch()?
+                        } else {
+                            persistent_branches[0].clone()
+                        }
+                    }
+                },
+            };
 
             if dirname == crate::GIT_MAIN_WORKTREE_DIRECTORY {
                 continue;
