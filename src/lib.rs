@@ -461,7 +461,6 @@ pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
 pub fn add_worktree(
     directory: &Path,
     name: &str,
-    branch_namespace: Option<&str>,
     track: Option<(&str, &str)>,
     no_track: bool,
 ) -> Result<(), String> {
@@ -477,11 +476,6 @@ pub fn add_worktree(
     if repo.find_worktree(name).is_ok() {
         return Err(format!("Worktree {} already exists", &name));
     }
-
-    let branch_name = match branch_namespace {
-        Some(prefix) => format!("{}{}{}", &prefix, BRANCH_NAMESPACE_SEPARATOR, &name),
-        None => name.to_string(),
-    };
 
     let mut remote_branch_exists = false;
 
@@ -531,9 +525,9 @@ pub fn add_worktree(
         };
     }
 
-    let mut target_branch = match repo.find_local_branch(&branch_name) {
+    let mut target_branch = match repo.find_local_branch(name) {
         Ok(branchref) => branchref,
-        Err(_) => repo.create_branch(&branch_name, &checkout_commit)?,
+        Err(_) => repo.create_branch(name, &checkout_commit)?,
     };
 
     fn push(

@@ -94,12 +94,6 @@ pub struct WorktreeAddArgs {
     #[clap(about = "Name of the worktree")]
     pub name: String,
 
-    #[clap(
-        short = 'n',
-        long = "branch-namespace",
-        about = "Namespace of the branch"
-    )]
-    pub branch_namespace: Option<String>,
     #[clap(short = 't', long = "track", about = "Remote branch to track")]
     pub track: Option<String>,
 

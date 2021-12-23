@@ -157,13 +157,7 @@ fn main() {
                         None => None,
                     };
 
-                    match grm::add_worktree(
-                        &cwd,
-                        &action_args.name,
-                        action_args.branch_namespace.as_deref(),
-                        track,
-                        action_args.no_track,
-                    ) {
+                    match grm::add_worktree(&cwd, &action_args.name, track, action_args.no_track) {
                         Ok(_) => print_success(&format!("Worktree {} created", &action_args.name)),
                         Err(error) => {
                             print_error(&format!("Error creating worktree: {}", error));
