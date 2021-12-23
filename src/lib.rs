@@ -461,6 +461,7 @@ pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
 pub fn add_worktree(
     directory: &Path,
     name: &str,
+    subdirectory: Option<&Path>,
     track: Option<(&str, &str)>,
     no_track: bool,
 ) -> Result<(), String> {
@@ -473,7 +474,12 @@ pub fn add_worktree(
 
     let config = repo::read_worktree_root_config(directory)?;
 
-    if repo.find_worktree(name).is_ok() {
+    let path = match subdirectory {
+        Some(dir) => dir.join(name),
+        None => Path::new(name).to_path_buf(),
+    };
+
+    if repo.find_worktree(&path).is_ok() {
         return Err(format!("Worktree {} already exists", &name));
     }
 
@@ -605,7 +611,10 @@ pub fn add_worktree(
         }
     }
 
-    repo.new_worktree(name, &directory.join(&name), &target_branch)?;
+    if let Some(subdirectory) = subdirectory {
+        std::fs::create_dir_all(subdirectory).map_err(|error| error.to_string())?;
+    }
+    repo.new_worktree(name, &path, &target_branch)?;
 
     Ok(())
 }

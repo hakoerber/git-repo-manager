@@ -157,7 +157,22 @@ fn main() {
                         None => None,
                     };
 
-                    match grm::add_worktree(&cwd, &action_args.name, track, action_args.no_track) {
+                    let mut name: &str = &action_args.name;
+                    let subdirectory;
+                    let split = name.split_once('/');
+                    match split {
+                        None => subdirectory = None,
+                        Some(split) => {
+                            if split.0.is_empty() || split.1.is_empty() {
+                                print_error("Worktree name cannot start or end with a slash");
+                                process::exit(1);
+                            } else {
+                                (subdirectory, name) = (Some(Path::new(split.0)), split.1);
+                            }
+                        }
+                    }
+
+                    match grm::add_worktree(&cwd, name, subdirectory, track, action_args.no_track) {
                         Ok(_) => print_success(&format!("Worktree {} created", &action_args.name)),
                         Err(error) => {
                             print_error(&format!("Error creating worktree: {}", error));

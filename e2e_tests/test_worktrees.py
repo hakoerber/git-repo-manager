@@ -79,6 +79,36 @@ def test_worktree_add_simple():
                             assert repo.active_branch.tracking_branch() is None
 
 
+def test_worktree_add_into_subdirectory():
+    with TempGitRepositoryWorktree() as base_dir:
+        cmd = grm(["wt", "add", "dir/test"], cwd=base_dir)
+        assert cmd.returncode == 0
+
+        files = os.listdir(base_dir)
+        assert len(files) == 2
+        assert set(files) == {".git-main-working-tree", "dir"}
+
+        files = os.listdir(os.path.join(base_dir, "dir"))
+        assert set(files) == {"test"}
+
+        repo = git.Repo(os.path.join(base_dir, "dir", "test"))
+        assert not repo.bare
+        assert not repo.is_dirty()
+        assert repo.active_branch.tracking_branch() is None
+
+
+def test_worktree_add_into_invalid_subdirectory():
+    with TempGitRepositoryWorktree() as base_dir:
+        cmd = grm(["wt", "add", "/dir/test"], cwd=base_dir)
+        assert cmd.returncode == 1
+        assert "dir" not in os.listdir(base_dir)
+        assert "dir" not in os.listdir("/")
+
+        cmd = grm(["wt", "add", "dir/"], cwd=base_dir)
+        assert cmd.returncode == 1
+        assert "dir" not in os.listdir(base_dir)
+
+
 def test_worktree_add_with_tracking():
     for remote_branch_already_exists in (True, False):
         for has_config in (True, False):
