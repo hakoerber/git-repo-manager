@@ -66,7 +66,7 @@ pub fn path_as_string(path: &Path) -> String {
     path.to_path_buf().into_os_string().into_string().unwrap()
 }
 
-fn env_home() -> PathBuf {
+pub fn env_home() -> PathBuf {
     match std::env::var("HOME") {
         Ok(path) => Path::new(&path).to_path_buf(),
         Err(e) => {
@@ -541,6 +541,13 @@ pub fn add_worktree(
         Err(_) => repo.create_branch(&branch_name, &checkout_commit)?,
     };
 
+    fn push(remote: &mut repo::RemoteHandle, branch_name: &str, remote_branch_name: &str, repo: &repo::Repo) -> Result<(), String>{
+        if !remote.is_pushable()? {
+            return Err(format!("Cannot push to non-pushable remote {}", remote.url()));
+        }
+        remote.push(branch_name, remote_branch_name, repo)
+    }
+
     if !no_track {
         if let Some((remote_name, remote_branch_name)) = track {
             if remote_branch_exists {
@@ -551,7 +558,7 @@ pub fn add_worktree(
                     .map_err(|error| format!("Error getting remote {}: {}", remote_name, error))?
                     .ok_or_else(|| format!("Remote {} not found", remote_name))?;
 
-                remote.push(&target_branch.name()?, remote_branch_name, &repo)?;
+                push(&mut remote, &target_branch.name()?, remote_branch_name, &repo)?;
 
                 target_branch.set_upstream(remote_name, remote_branch_name)?;
             }
@@ -572,7 +579,10 @@ pub fn add_worktree(
                             .map_err(|error| format!("Error getting remote {}: {}", remote_name, error))?
                             .ok_or_else(|| format!("Remote {} not found", remote_name))?;
 
-                        remote.push(&target_branch.name()?, &remote_branch_name, &repo)?;
+                        if !remote.is_pushable()? {
+                            return Err(format!("Cannot push to non-pushable remote {}", remote.url()));
+                        }
+                        push(&mut remote, &target_branch.name()?, &remote_branch_name, &repo)?;
 
                         target_branch.set_upstream(&remote_name, &remote_branch_name)?;
                     }

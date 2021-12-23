@@ -980,12 +980,21 @@ impl RemoteHandle<'_> {
             .to_string()
     }
 
+    pub fn is_pushable(&self) -> Result<bool, String> {
+        let remote_type = detect_remote_type(self.0.url().expect("Remote name is not valid utf-8")).ok_or_else(|| String::from("Could not detect remote type"))?;
+        Ok(matches!(remote_type, RemoteType::Ssh | RemoteType::File))
+    }
+
     pub fn push(
         &mut self,
         local_branch_name: &str,
         remote_branch_name: &str,
         _repo: &Repo,
     ) -> Result<(), String> {
+        if !self.is_pushable()? {
+            return Err(String::from("Trying to push to a non-pushable remote"));
+        }
+
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.push_update_reference(|_, status| {
             if let Some(message) = status {
