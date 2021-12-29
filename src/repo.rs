@@ -166,6 +166,22 @@ pub struct RepoStatus {
     pub branches: Vec<(String, Option<(String, RemoteTrackingStatus)>)>,
 }
 
+pub struct Worktree {
+    name: String,
+}
+
+impl Worktree {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -746,14 +762,14 @@ impl Repo {
         )))
     }
 
-    pub fn get_worktrees(&self) -> Result<Vec<String>, String> {
+    pub fn get_worktrees(&self) -> Result<Vec<Worktree>, String> {
         Ok(self
             .0
             .worktrees()
             .map_err(convert_libgit2_error)?
             .iter()
             .map(|name| name.expect("Worktree name is invalid utf-8"))
-            .map(|name| name.to_string())
+            .map(Worktree::new)
             .collect())
     }
 
@@ -905,24 +921,25 @@ impl Repo {
 
         for worktree in worktrees
             .iter()
-            .filter(|worktree| *worktree != &default_branch_name)
+            .filter(|worktree| worktree.name() != default_branch_name)
             .filter(|worktree| match &config {
                 None => true,
                 Some(config) => match &config.persistent_branches {
                     None => true,
-                    Some(branches) => !branches.contains(worktree),
+                    Some(branches) => !branches.iter().any(|branch| branch == worktree.name()),
                 },
             })
         {
-            let repo_dir = &directory.join(&worktree);
+            let repo_dir = &directory.join(&worktree.name());
             if repo_dir.exists() {
-                match self.remove_worktree(worktree, repo_dir, false, &config) {
-                    Ok(_) => print_success(&format!("Worktree {} deleted", &worktree)),
+                match self.remove_worktree(worktree.name(), repo_dir, false, &config) {
+                    Ok(_) => print_success(&format!("Worktree {} deleted", &worktree.name())),
                     Err(error) => match error {
                         WorktreeRemoveFailureReason::Changes(changes) => {
                             warnings.push(format!(
                                 "Changes found in {}: {}, skipping",
-                                &worktree, &changes
+                                &worktree.name(),
+                                &changes
                             ));
                             continue;
                         }
@@ -936,7 +953,10 @@ impl Repo {
                     },
                 }
             } else {
-                warnings.push(format!("Worktree {} does not have a directory", &worktree));
+                warnings.push(format!(
+                    "Worktree {} does not have a directory",
+                    &worktree.name()
+                ));
             }
         }
         Ok(warnings)
@@ -991,7 +1011,7 @@ impl Repo {
             if dirname == default_branch_name {
                 continue;
             }
-            if !&worktrees.contains(&dirname) {
+            if !&worktrees.iter().any(|worktree| worktree.name() == dirname) {
                 unmanaged_worktrees.push(dirname);
             }
         }

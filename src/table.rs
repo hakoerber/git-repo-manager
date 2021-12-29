@@ -104,14 +104,15 @@ pub fn get_worktree_status_table(
 
     add_worktree_table_header(&mut table);
     for worktree in &worktrees {
-        let worktree_dir = &directory.join(&worktree);
+        let worktree_dir = &directory.join(&worktree.name());
         if worktree_dir.exists() {
             let repo = match crate::Repo::open(worktree_dir, false) {
                 Ok(repo) => repo,
                 Err(error) => {
                     errors.push(format!(
                         "Failed opening repo of worktree {}: {}",
-                        &worktree, &error
+                        &worktree.name(),
+                        &error
                     ));
                     continue;
                 }
@@ -120,7 +121,10 @@ pub fn get_worktree_status_table(
                 errors.push(error);
             }
         } else {
-            errors.push(format!("Worktree {} does not have a directory", &worktree));
+            errors.push(format!(
+                "Worktree {} does not have a directory",
+                &worktree.name()
+            ));
         }
     }
     for entry in std::fs::read_dir(&directory).map_err(|error| error.to_string())? {
@@ -136,7 +140,7 @@ pub fn get_worktree_status_table(
         if dirname == crate::GIT_MAIN_WORKTREE_DIRECTORY {
             continue;
         }
-        if !&worktrees.contains(&dirname) {
+        if !&worktrees.iter().any(|worktree| worktree.name() == dirname) {
             errors.push(format!(
                 "Found {}, which is not a valid worktree directory!",
                 &dirname
@@ -211,7 +215,7 @@ fn add_worktree_table_header(table: &mut Table) {
 
 fn add_worktree_status(
     table: &mut Table,
-    worktree_name: &str,
+    worktree: &crate::repo::Worktree,
     repo: &crate::Repo,
 ) -> Result<(), String> {
     let repo_status = repo.status(false)?;
@@ -245,7 +249,7 @@ fn add_worktree_status(
     };
 
     table.add_row(vec![
-        worktree_name,
+        worktree.name(),
         &match repo_status.changes {
             Some(changes) => {
                 let mut out = Vec::new();
