@@ -253,6 +253,17 @@ impl Worktree {
     }
 }
 
+impl RepoStatus {
+    fn clean(&self) -> bool {
+        match &self.changes {
+            None => true,
+            Some(changes) => {
+                changes.files_new == 0 && changes.files_deleted == 0 && changes.files_modified == 0
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
