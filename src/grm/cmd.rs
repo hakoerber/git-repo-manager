@@ -91,6 +91,8 @@ pub enum WorktreeAction {
     Fetch(WorktreeFetchArgs),
     #[clap(about = "Fetch refs from remotes and update local branches")]
     Pull(WorktreePullArgs),
+    #[clap(about = "Rebase worktree onto default branch")]
+    Rebase(WorktreeRebaseArgs),
 }
 
 #[derive(Parser)]
@@ -134,6 +136,14 @@ pub struct WorktreePullArgs {
         long = "--rebase",
         about = "Perform a rebase instead of a fast-forward"
     )]
+    pub rebase: bool,
+}
+
+#[derive(Parser)]
+pub struct WorktreeRebaseArgs {
+    #[clap(long = "--pull", about = "Perform a pull before rebasing")]
+    pub pull: bool,
+    #[clap(long = "--rebase", about = "Perform a rebase when doing a pull")]
     pub rebase: bool,
 }
 

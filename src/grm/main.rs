@@ -362,6 +362,76 @@ fn main() {
                         }
                     }
                 }
+                cmd::WorktreeAction::Rebase(args) => {
+                    if args.rebase && !args.pull {
+                        print_error("There is no point in using --rebase without --pull");
+                        process::exit(1);
+                    }
+                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                        if error.kind == grm::RepoErrorKind::NotFound {
+                            print_error("Directory does not contain a git repository");
+                        } else {
+                            print_error(&format!("Opening repository failed: {}", error));
+                        }
+                        process::exit(1);
+                    });
+
+                    if args.pull {
+                        repo.fetchall().unwrap_or_else(|error| {
+                            print_error(&format!("Error fetching remotes: {}", error));
+                            process::exit(1);
+                        });
+                    }
+
+                    let config =
+                        grm::repo::read_worktree_root_config(&cwd).unwrap_or_else(|error| {
+                            print_error(&format!(
+                                "Failed to read worktree configuration: {}",
+                                error
+                            ));
+                            process::exit(1);
+                        });
+
+                    let worktrees = repo.get_worktrees().unwrap_or_else(|error| {
+                        print_error(&format!("Error getting worktrees: {}", error));
+                        process::exit(1);
+                    });
+
+                    for worktree in &worktrees {
+                        if args.pull {
+                            if let Some(warning) = worktree
+                                .forward_branch(args.rebase)
+                                .unwrap_or_else(|error| {
+                                    print_error(&format!(
+                                        "Error updating worktree branch: {}",
+                                        error
+                                    ));
+                                    process::exit(1);
+                                })
+                            {
+                                print_warning(&format!("{}: {}", worktree.name(), warning));
+                            }
+                        }
+                    }
+
+                    for worktree in &worktrees {
+                        if let Some(warning) =
+                            worktree
+                                .rebase_onto_default(&config)
+                                .unwrap_or_else(|error| {
+                                    print_error(&format!(
+                                        "Error rebasing worktree branch: {}",
+                                        error
+                                    ));
+                                    process::exit(1);
+                                })
+                        {
+                            print_warning(&format!("{}: {}", worktree.name(), warning));
+                        } else {
+                            print_success(&format!("{}: Done", worktree.name()));
+                        }
+                    }
+                }
             }
         }
     }

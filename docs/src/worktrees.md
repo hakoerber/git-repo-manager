@@ -312,6 +312,40 @@ grm wt pull --rebase
 This will rebase your changes onto the upstream branch. This is mainly helpful
 for persistent branches that change on the remote side.
 
+There is a similar rebase feature that rebases onto the **default** branch instead:
+
+```
+grm wt rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+```
+
+This is super helpful for feature branches. If you want to incorporate changes
+made on the remote branches, use `grm wt rebase` and all your branches will
+be up to date. If you want to also update to remote tracking branches in one go,
+use the `--pull` flag, and `--rebase` if you want to rebase instead of aborting
+on non-fast-forwards:
+
+```
+grm wt rebase --pull --rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+```
+
+"So, what's the difference between `pull --rebase` and `rebase --pull`? Why the
+hell is there a `--rebase` flag in the `rebase` command?"
+
+Yes, it's kind of weird. Remember that `pull` only ever updates each worktree
+to their remote branch, if possible. `rebase` rabases onto the **default** branch
+instead. The switches to `rebase` are just convenience, so you do not have to
+run two commands.
+
+* `rebase --pull` is the same as `pull` && `rebase`
+* `rebase --pull --rebase` is the same as `pull --rebase` && `rebase`
+
+I understand that the UX is not the most intuitive. If you can think of an
+improvement, please let me know (e.g. via an GitHub issue)!
+
 ### Manual access
 
 GRM isn't doing any magic, it's just git under the hood. If you need to have access

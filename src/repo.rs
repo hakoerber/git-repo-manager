@@ -219,8 +219,16 @@ impl Worktree {
                         .map_err(convert_libgit2_error)?;
                     let committer = rebased_commit.committer();
 
-                    if rebase.commit(None, &committer, None).is_err() {
+                    // This is effectively adding all files to the index explicitly.
+                    // Normal files are already staged, but changed submodules are not.
+                    let mut index = repo.0.index().map_err(convert_libgit2_error)?;
+                    index
+                        .add_all(["."].iter(), git2::IndexAddOption::CHECK_PATHSPEC, None)
+                        .map_err(convert_libgit2_error)?;
+
+                    if let Err(error) = rebase.commit(None, &committer, None) {
                         rebase.abort().map_err(convert_libgit2_error)?;
+                        return Err(convert_libgit2_error(error));
                     }
                 }
 
@@ -249,6 +257,78 @@ impl Worktree {
         } else {
             return Ok(Some(String::from("No remote branch to rebase onto")));
         };
+        Ok(None)
+    }
+
+    pub fn rebase_onto_default(
+        &self,
+        config: &Option<WorktreeRootConfig>,
+    ) -> Result<Option<String>, String> {
+        let repo = Repo::open(Path::new(&self.name), false)
+            .map_err(|error| format!("Error opening worktree: {}", error))?;
+
+        let guess_default_branch = || {
+            repo.default_branch()
+                .map_err(|_| "Could not determine default branch")?
+                .name()
+                .map_err(|error| format!("Failed getting default branch name: {}", error))
+        };
+
+        let default_branch_name = match &config {
+            None => guess_default_branch()?,
+            Some(config) => match &config.persistent_branches {
+                None => guess_default_branch()?,
+                Some(persistent_branches) => {
+                    if persistent_branches.is_empty() {
+                        guess_default_branch()?
+                    } else {
+                        persistent_branches[0].clone()
+                    }
+                }
+            },
+        };
+
+        let base_branch = repo.find_local_branch(&default_branch_name)?;
+        let base_annotated_commit = repo
+            .0
+            .find_annotated_commit(base_branch.commit()?.id().0)
+            .map_err(convert_libgit2_error)?;
+
+        let mut rebase = repo
+            .0
+            .rebase(
+                None, // use HEAD
+                Some(&base_annotated_commit),
+                None, // figure out the base yourself, libgit2!
+                Some(&mut git2::RebaseOptions::new()),
+            )
+            .map_err(convert_libgit2_error)?;
+
+        while let Some(operation) = rebase.next() {
+            let operation = operation.map_err(convert_libgit2_error)?;
+
+            // This is required to preserve the commiter of the rebased
+            // commits, which is the expected behaviour.
+            let rebased_commit = repo
+                .0
+                .find_commit(operation.id())
+                .map_err(convert_libgit2_error)?;
+            let committer = rebased_commit.committer();
+
+            // This is effectively adding all files to the index explicitly.
+            // Normal files are already staged, but changed submodules are not.
+            let mut index = repo.0.index().map_err(convert_libgit2_error)?;
+            index
+                .add_all(["."].iter(), git2::IndexAddOption::CHECK_PATHSPEC, None)
+                .map_err(convert_libgit2_error)?;
+
+            if let Err(error) = rebase.commit(None, &committer, None) {
+                rebase.abort().map_err(convert_libgit2_error)?;
+                return Err(convert_libgit2_error(error));
+            }
+        }
+
+        rebase.finish(None).map_err(convert_libgit2_error)?;
         Ok(None)
     }
 }
