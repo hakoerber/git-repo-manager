@@ -30,10 +30,10 @@ e2e-venv:
     && pip --disable-pip-version-check install -r ./requirements.txt >/dev/null
 
 
-test-e2e: e2e-venv release
+test-e2e +tests=".": e2e-venv release
     cd ./e2e_tests \
     && . ./venv/bin/activate \
-    && TMPDIR=/dev/shm python -m pytest --color=yes .
+    && TMPDIR=/dev/shm python -m pytest --color=yes {{tests}}
 
 update-dependencies:
     @cd ./depcheck \
