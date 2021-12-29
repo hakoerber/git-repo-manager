@@ -180,6 +180,77 @@ impl Worktree {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn forward_branch(&self, rebase: bool) -> Result<Option<String>, String> {
+        let repo = Repo::open(Path::new(&self.name), false)
+            .map_err(|error| format!("Error opening worktree: {}", error))?;
+
+        if let Ok(remote_branch) = repo.find_local_branch(&self.name)?.upstream() {
+            let status = repo.status(false)?;
+
+            if !status.clean() {
+                return Ok(Some(String::from("Worktree contains changes")));
+            }
+
+            let remote_annotated_commit = repo
+                .0
+                .find_annotated_commit(remote_branch.commit()?.id().0)
+                .map_err(convert_libgit2_error)?;
+
+            if rebase {
+                let mut rebase = repo
+                    .0
+                    .rebase(
+                        None, // use HEAD
+                        Some(&remote_annotated_commit),
+                        None, // figure out the base yourself, libgit2!
+                        Some(&mut git2::RebaseOptions::new()),
+                    )
+                    .map_err(convert_libgit2_error)?;
+
+                while let Some(operation) = rebase.next() {
+                    let operation = operation.map_err(convert_libgit2_error)?;
+
+                    // This is required to preserve the commiter of the rebased
+                    // commits, which is the expected behaviour.
+                    let rebased_commit = repo
+                        .0
+                        .find_commit(operation.id())
+                        .map_err(convert_libgit2_error)?;
+                    let committer = rebased_commit.committer();
+
+                    if rebase.commit(None, &committer, None).is_err() {
+                        rebase.abort().map_err(convert_libgit2_error)?;
+                    }
+                }
+
+                rebase.finish(None).map_err(convert_libgit2_error)?;
+            } else {
+                let (analysis, _preference) = repo
+                    .0
+                    .merge_analysis(&[&remote_annotated_commit])
+                    .map_err(convert_libgit2_error)?;
+
+                if analysis.is_up_to_date() {
+                    return Ok(None);
+                }
+                if !analysis.is_fast_forward() {
+                    return Ok(Some(String::from("Worktree cannot be fast forwarded")));
+                }
+
+                repo.0
+                    .reset(
+                        remote_branch.commit()?.0.as_object(),
+                        git2::ResetType::Hard,
+                        Some(git2::build::CheckoutBuilder::new().safe()),
+                    )
+                    .map_err(convert_libgit2_error)?;
+            }
+        } else {
+            return Ok(Some(String::from("No remote branch to rebase onto")));
+        };
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
@@ -361,6 +432,42 @@ impl Repo {
 
     pub fn new_remote(&self, name: &str, url: &str) -> Result<(), String> {
         self.0.remote(name, url).map_err(convert_libgit2_error)?;
+        Ok(())
+    }
+
+    pub fn fetchall(&self) -> Result<(), String> {
+        for remote in self.remotes()? {
+            self.fetch(&remote)?;
+        }
+        Ok(())
+    }
+
+    pub fn local_branches(&self) -> Result<Vec<Branch>, String> {
+        self.0
+            .branches(Some(git2::BranchType::Local))
+            .map_err(convert_libgit2_error)?
+            .map(|branch| Ok(Branch(branch.map_err(convert_libgit2_error)?.0)))
+            .collect::<Result<Vec<Branch>, String>>()
+    }
+
+    pub fn fetch(&self, remote_name: &str) -> Result<(), String> {
+        let mut remote = self
+            .0
+            .find_remote(remote_name)
+            .map_err(convert_libgit2_error)?;
+
+        let mut fetch_options = git2::FetchOptions::new();
+        fetch_options.remote_callbacks(get_remote_callbacks());
+
+        for refspec in &remote.fetch_refspecs().map_err(convert_libgit2_error)? {
+            remote
+                .fetch(
+                    &[refspec.ok_or("Remote name is invalid utf-8")?],
+                    Some(&mut fetch_options),
+                    None,
+                )
+                .map_err(convert_libgit2_error)?;
+        }
         Ok(())
     }
 
@@ -1090,6 +1197,37 @@ impl Branch<'_> {
     }
 }
 
+fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.push_update_reference(|_, status| {
+        if let Some(message) = status {
+            return Err(git2::Error::new(
+                git2::ErrorCode::GenericError,
+                git2::ErrorClass::None,
+                message,
+            ));
+        }
+        Ok(())
+    });
+    callbacks.credentials(|_url, username_from_url, _allowed_types| {
+        let username = match username_from_url {
+            Some(username) => username,
+            None => panic!("Could not get username. This is a bug"),
+        };
+        git2::Cred::ssh_key_from_agent(username)
+    });
+
+    callbacks.credentials(|_url, username_from_url, _allowed_types| {
+        let username = match username_from_url {
+            Some(username) => username,
+            None => panic!("Could not get username. This is a bug"),
+        };
+        git2::Cred::ssh_key(username, None, &crate::env_home().join(".ssh/id_rsa"), None)
+    });
+
+    callbacks
+}
+
 impl RemoteHandle<'_> {
     pub fn url(&self) -> String {
         self.0
@@ -1121,29 +1259,8 @@ impl RemoteHandle<'_> {
             return Err(String::from("Trying to push to a non-pushable remote"));
         }
 
-        let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.push_update_reference(|_, status| {
-            if let Some(message) = status {
-                return Err(git2::Error::new(
-                    git2::ErrorCode::GenericError,
-                    git2::ErrorClass::None,
-                    message,
-                ));
-            }
-            Ok(())
-        });
-        callbacks.credentials(|_url, username_from_url, _allowed_types| {
-            let username = match username_from_url {
-                Some(username) => username,
-                None => panic!("Could not get username. This is a bug"),
-            };
-            git2::Cred::ssh_key_from_agent(username).or_else(|_| {
-                git2::Cred::ssh_key(username, None, &crate::env_home().join(".ssh/id_rsa"), None)
-            })
-        });
-
         let mut push_options = git2::PushOptions::new();
-        push_options.remote_callbacks(callbacks);
+        push_options.remote_callbacks(get_remote_callbacks());
 
         let push_refspec = format!(
             "+refs/heads/{}:refs/heads/{}",

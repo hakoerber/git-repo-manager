@@ -279,6 +279,39 @@ Commit them and try again!
 Afterwards, the directory is empty, as there are no worktrees checked out yet.
 Now you can use the usual commands to set up worktrees.
 
+### Working with remotes
+
+To fetch all remote references from all remotes in a worktree setup, you can
+use the following command:
+
+```
+grm wt fetch
+[✔] Fetched from all remotes
+```
+
+This is equivalent to running `git fetch --all` in any of the worktrees.
+
+Often, you may want to pull all remote changes into your worktrees. For this,
+use the `git pull` equivalent:
+
+```
+grm wt pull
+[✔] master: Done
+[✔] my-cool-branch: Done
+```
+
+This will refuse when there are local changes, or if the branch cannot be fast
+forwarded. If you want to rebase your local branches, use the `--rebase` switch:
+
+```
+grm wt pull --rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+```
+
+This will rebase your changes onto the upstream branch. This is mainly helpful
+for persistent branches that change on the remote side.
+
 ### Manual access
 
 GRM isn't doing any magic, it's just git under the hood. If you need to have access

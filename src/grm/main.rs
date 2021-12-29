@@ -310,6 +310,58 @@ fn main() {
                         ));
                     }
                 }
+                cmd::WorktreeAction::Fetch(_args) => {
+                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                        if error.kind == grm::RepoErrorKind::NotFound {
+                            print_error("Directory does not contain a git repository");
+                        } else {
+                            print_error(&format!("Opening repository failed: {}", error));
+                        }
+                        process::exit(1);
+                    });
+
+                    repo.fetchall().unwrap_or_else(|error| {
+                        print_error(&format!("Error fetching remotes: {}", error));
+                        process::exit(1);
+                    });
+                    print_success("Fetched from all remotes");
+                }
+                cmd::WorktreeAction::Pull(args) => {
+                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                        if error.kind == grm::RepoErrorKind::NotFound {
+                            print_error("Directory does not contain a git repository");
+                        } else {
+                            print_error(&format!("Opening repository failed: {}", error));
+                        }
+                        process::exit(1);
+                    });
+
+                    repo.fetchall().unwrap_or_else(|error| {
+                        print_error(&format!("Error fetching remotes: {}", error));
+                        process::exit(1);
+                    });
+
+                    for worktree in repo.get_worktrees().unwrap_or_else(|error| {
+                        print_error(&format!("Error getting worktrees: {}", error));
+                        process::exit(1);
+                    }) {
+                        if let Some(warning) =
+                            worktree
+                                .forward_branch(args.rebase)
+                                .unwrap_or_else(|error| {
+                                    print_error(&format!(
+                                        "Error updating worktree branch: {}",
+                                        error
+                                    ));
+                                    process::exit(1);
+                                })
+                        {
+                            print_warning(&format!("{}: {}", worktree.name(), warning));
+                        } else {
+                            print_success(&format!("{}: Done", worktree.name()));
+                        }
+                    }
+                }
             }
         }
     }

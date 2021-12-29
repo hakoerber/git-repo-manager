@@ -169,6 +169,7 @@ class TempGitRepositoryWorktree:
             git commit -m "commit2"
             git remote add origin file://{self.remote_1_dir.name}
             git remote add otherremote file://{self.remote_2_dir.name}
+            git push origin HEAD:master
             git ls-files | xargs rm -rf
             mv .git .git-main-working-tree
             git --git-dir .git-main-working-tree config core.bare true

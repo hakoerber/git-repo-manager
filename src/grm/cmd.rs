@@ -87,6 +87,10 @@ pub enum WorktreeAction {
     Convert(WorktreeConvertArgs),
     #[clap(about = "Clean all worktrees that do not contain uncommited/unpushed changes")]
     Clean(WorktreeCleanArgs),
+    #[clap(about = "Fetch refs from remotes")]
+    Fetch(WorktreeFetchArgs),
+    #[clap(about = "Fetch refs from remotes and update local branches")]
+    Pull(WorktreePullArgs),
 }
 
 #[derive(Parser)]
@@ -120,6 +124,18 @@ pub struct WorktreeConvertArgs {}
 
 #[derive(Parser)]
 pub struct WorktreeCleanArgs {}
+
+#[derive(Parser)]
+pub struct WorktreeFetchArgs {}
+
+#[derive(Parser)]
+pub struct WorktreePullArgs {
+    #[clap(
+        long = "--rebase",
+        about = "Perform a rebase instead of a fast-forward"
+    )]
+    pub rebase: bool,
+}
 
 pub fn parse() -> Opts {
     Opts::parse()
