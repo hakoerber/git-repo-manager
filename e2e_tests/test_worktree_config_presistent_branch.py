@@ -6,7 +6,7 @@ from helpers import *
 
 
 def test_worktree_never_clean_persistent_branches():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
             f.write(
                 """
@@ -33,7 +33,7 @@ def test_worktree_never_clean_persistent_branches():
 
 
 def test_worktree_clean_branch_merged_into_persistent():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
             f.write(
                 """
@@ -72,7 +72,7 @@ def test_worktree_clean_branch_merged_into_persistent():
 
 
 def test_worktree_no_clean_unmerged_branch():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
             f.write(
                 """
@@ -105,7 +105,7 @@ def test_worktree_no_clean_unmerged_branch():
 
 
 def test_worktree_delete_branch_merged_into_persistent():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
             f.write(
                 """

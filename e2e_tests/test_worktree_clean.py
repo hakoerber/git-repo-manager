@@ -6,7 +6,7 @@ from helpers import *
 
 
 def test_worktree_clean():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
         assert "test" in os.listdir(base_dir)
@@ -17,7 +17,7 @@ def test_worktree_clean():
 
 
 def test_worktree_clean_refusal_no_tracking_branch():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -31,7 +31,7 @@ def test_worktree_clean_refusal_no_tracking_branch():
 
 
 def test_worktree_clean_refusal_uncommited_changes_new_file():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -47,7 +47,7 @@ def test_worktree_clean_refusal_uncommited_changes_new_file():
 
 
 def test_worktree_clean_refusal_uncommited_changes_changed_file():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -63,7 +63,7 @@ def test_worktree_clean_refusal_uncommited_changes_changed_file():
 
 
 def test_worktree_clean_refusal_uncommited_changes_cleand_file():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -81,7 +81,7 @@ def test_worktree_clean_refusal_uncommited_changes_cleand_file():
 
 
 def test_worktree_clean_refusal_commited_changes():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -99,7 +99,7 @@ def test_worktree_clean_refusal_commited_changes():
 
 
 def test_worktree_clean_refusal_tracking_branch_mismatch():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -117,7 +117,7 @@ def test_worktree_clean_refusal_tracking_branch_mismatch():
 
 
 def test_worktree_clean_fail_from_subdir():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 

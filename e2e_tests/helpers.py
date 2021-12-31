@@ -174,7 +174,10 @@ class TempGitRepositoryWorktree:
             git --git-dir .git-main-working-tree config core.bare true
         """
         )
-        return self.tmpdir.name
+        commit = git.Repo(
+            f"{self.tmpdir.name}/.git-main-working-tree"
+        ).head.commit.hexsha
+        return (self.tmpdir.name, commit)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         del self.tmpdir

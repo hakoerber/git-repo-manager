@@ -23,7 +23,7 @@ def test_convert():
 
 
 def test_convert_already_worktree():
-    with TempGitRepositoryWorktree() as git_dir:
+    with TempGitRepositoryWorktree() as (git_dir, _commit):
         before = checksum_directory(git_dir)
 
         cmd = grm(["wt", "convert"], cwd=git_dir)
