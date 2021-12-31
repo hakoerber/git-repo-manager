@@ -122,9 +122,9 @@ class TempGitRepository:
             f"""
             cd {self.tmpdir.name}
             git init
-            echo test > test
-            git add test
-            git commit -m "commit1"
+            echo test > root-commit
+            git add root-commit
+            git commit -m "root-commit"
             git remote add origin file://{self.remote_1_dir.name}
             git remote add otherremote file://{self.remote_2_dir.name}
         """
@@ -161,12 +161,12 @@ class TempGitRepositoryWorktree:
             f"""
             cd {self.tmpdir.name}
             git init
-            echo test > test
-            git add test
-            git commit -m "commit1"
-            echo test > test2
-            git add test2
-            git commit -m "commit2"
+            echo test > root-commit-in-worktree-1
+            git add root-commit-in-worktree-1
+            git commit -m "root-commit-in-worktree-1"
+            echo test > root-commit-in-worktree-2
+            git add root-commit-in-worktree-2
+            git commit -m "root-commit-in-worktree-2"
             git remote add origin file://{self.remote_1_dir.name}
             git remote add otherremote file://{self.remote_2_dir.name}
             git push origin HEAD:master
@@ -228,12 +228,12 @@ class TempGitFileRemote:
             f"""
             cd {self.tmpdir.name}
             git init
-            echo test > test
-            git add test
-            git commit -m "commit1"
-            echo test > test2
-            git add test2
-            git commit -m "commit2"
+            echo test > root-commit-in-remote-1
+            git add root-commit-in-remote-1
+            git commit -m "root-commit-in-remote-1"
+            echo test > root-commit-in-remote-2
+            git add root-commit-in-remote-2
+            git commit -m "root-commit-in-remote-2"
             git ls-files | xargs rm -rf
             mv .git/* .
             git config core.bare true
