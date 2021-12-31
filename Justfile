@@ -1,4 +1,4 @@
-check: check-cargo-lock test
+check: check-cargo-lock check-pip-requirements test
     cargo check
     cargo fmt --check
     cargo clippy --no-deps -- -Dwarnings
@@ -41,3 +41,12 @@ update-dependencies:
     && . ./venv/bin/activate \
     && pip --disable-pip-version-check install -r ./requirements.txt > /dev/null \
     && ./update-cargo-dependencies.py
+
+update-pip-requirements: e2e-venv
+    @cd ./e2e_tests \
+    && ./update_requirementstxt.sh
+
+check-pip-requirements: e2e-venv
+    @cd ./e2e_tests \
+    && . ./venv/bin/activate \
+    && pip list --outdated | grep -q '.' && exit 1 || exit 0
