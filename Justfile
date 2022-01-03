@@ -35,7 +35,9 @@ test-e2e +tests=".": e2e-venv release
     && . ./venv/bin/activate \
     && TMPDIR=/dev/shm python -m pytest --color=yes {{tests}}
 
-update-dependencies:
+update-dependencies: update-cargo-dependencies update-pip-requirements
+
+update-cargo-dependencies:
     @cd ./depcheck \
     && python3 -m venv ./venv \
     && . ./venv/bin/activate \
