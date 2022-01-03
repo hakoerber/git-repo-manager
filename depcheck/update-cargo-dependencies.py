@@ -33,6 +33,13 @@ with open("../Cargo.toml", "r") as cargo_config:
 
 update_necessary = False
 
+# This updates the crates.io index, see https://github.com/rust-lang/cargo/issues/3377
+subprocess.run(
+    ["cargo", "search", "--limit", "0"],
+    check=True,
+    capture_output=False,  # to get some git output
+)
+
 for tier in ["dependencies", "dev-dependencies"]:
     for name, dependency in cargo[tier].items():
         version = dependency["version"].lstrip("=")
@@ -84,13 +91,6 @@ for tier in ["dependencies", "dev-dependencies"]:
                 capture_output=True
             )
 
-
-# This updates the crates.io index, see https://github.com/rust-lang/cargo/issues/3377
-subprocess.run(
-    ["cargo", "search", "--limit", "0"],
-    check=True,
-    capture_output=False,  # to get some git output
-)
 
 # Note that we have to restart this lookup every time, as later packages can depend
 # on former packages
