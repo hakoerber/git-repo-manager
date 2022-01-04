@@ -50,7 +50,10 @@ fn main() {
                                 print_error(&format!("Error: {}", error));
                             }
                         }
-                        Err(error) => print_error(&format!("Error getting status: {}", error)),
+                        Err(error) => {
+                            print_error(&format!("Error getting status: {}", error));
+                            process::exit(1);
+                        }
                     }
                 }
                 None => {
@@ -69,7 +72,10 @@ fn main() {
                                 print_warning(&warning);
                             }
                         }
-                        Err(error) => print_error(&format!("Error getting status: {}", error)),
+                        Err(error) => {
+                            print_error(&format!("Error getting status: {}", error));
+                            process::exit(1);
+                        }
                     }
                 }
             },
@@ -239,7 +245,10 @@ fn main() {
                                 print_error(&format!("Error: {}", error));
                             }
                         }
-                        Err(error) => print_error(&format!("Error getting status: {}", error)),
+                        Err(error) => {
+                            print_error(&format!("Error getting status: {}", error));
+                            process::exit(1);
+                        }
                     }
                 }
                 cmd::WorktreeAction::Convert(_args) => {
