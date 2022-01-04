@@ -790,11 +790,7 @@ impl Repo {
         };
 
         let changes = match is_worktree {
-            true => {
-                return Err(String::from(
-                    "Cannot get changes as this is a bare worktree repository",
-                ))
-            }
+            true => None,
             false => {
                 let statuses = self
                     .0

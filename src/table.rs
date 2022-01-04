@@ -30,21 +30,24 @@ fn add_repo_status(
             true => "\u{2714}",
             false => "",
         },
-        &match repo_status.changes {
-            Some(changes) => {
-                let mut out = Vec::new();
-                if changes.files_new > 0 {
-                    out.push(format!("New: {}\n", changes.files_new))
+        &match is_worktree {
+            true => String::from(""),
+            false => match repo_status.changes {
+                Some(changes) => {
+                    let mut out = Vec::new();
+                    if changes.files_new > 0 {
+                        out.push(format!("New: {}\n", changes.files_new))
+                    }
+                    if changes.files_modified > 0 {
+                        out.push(format!("Modified: {}\n", changes.files_modified))
+                    }
+                    if changes.files_deleted > 0 {
+                        out.push(format!("Deleted: {}\n", changes.files_deleted))
+                    }
+                    out.into_iter().collect::<String>().trim().to_string()
                 }
-                if changes.files_modified > 0 {
-                    out.push(format!("Modified: {}\n", changes.files_modified))
-                }
-                if changes.files_deleted > 0 {
-                    out.push(format!("Deleted: {}\n", changes.files_deleted))
-                }
-                out.into_iter().collect::<String>().trim().to_string()
-            }
-            None => String::from("\u{2714}"),
+                None => String::from("\u{2714}"),
+            },
         },
         repo_status
             .branches
