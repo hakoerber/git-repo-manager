@@ -186,6 +186,37 @@ class TempGitRepositoryWorktree:
         del self.remote_2_dir
 
 
+class RepoTree:
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        self.root = tempfile.TemporaryDirectory()
+        self.config = tempfile.NamedTemporaryFile()
+        with open(self.config.name, "w") as f:
+            f.write(
+                f"""
+                [[trees]]
+                root = "{self.root.name}"
+
+                [[trees.repos]]
+                name = "test"
+
+                [[trees.repos]]
+                name = "test_worktree"
+                worktree_setup = true
+            """
+            )
+
+        cmd = grm(["repos", "sync", "--config", self.config.name])
+        assert cmd.returncode == 0
+        return (self.root.name, self.config.name, ["test", "test_worktree"])
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        del self.root
+        del self.config
+
+
 class EmptyDir:
     def __init__(self):
         pass
