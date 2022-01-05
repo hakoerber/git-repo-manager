@@ -227,6 +227,9 @@ impl Worktree {
                         .map_err(convert_libgit2_error)?;
 
                     if let Err(error) = rebase.commit(None, &committer, None) {
+                        if error.code() == git2::ErrorCode::Applied {
+                            continue
+                        }
                         rebase.abort().map_err(convert_libgit2_error)?;
                         return Err(convert_libgit2_error(error));
                     }
@@ -323,6 +326,9 @@ impl Worktree {
                 .map_err(convert_libgit2_error)?;
 
             if let Err(error) = rebase.commit(None, &committer, None) {
+                if error.code() == git2::ErrorCode::Applied {
+                    continue
+                }
                 rebase.abort().map_err(convert_libgit2_error)?;
                 return Err(convert_libgit2_error(error));
             }
