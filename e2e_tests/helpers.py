@@ -53,8 +53,35 @@ def checksum_directory(path):
         raise f"{path} not found"
 
     def get_stat_hash(path):
-        stat = bytes(str(os.stat(path).__hash__()), "ascii")
-        return stat
+        checksum = hashlib.md5()
+
+        # A note about bytes(). You may think that it converts something to
+        # bytes (akin to str()). But it actually creates a list of zero bytes
+        # with the length specified by the parameter.
+        #
+        # This is kinda couterintuitive to me:
+        #
+        # str(5)   => '5'
+        # bytes(5) => b'\x00\x00\x00\x00\x00'
+        def int_to_bytes(i):
+            return i.to_bytes((i.bit_length() + 7) // 8, byteorder="big")
+
+        # lstat() instead of stat() so symlinks are not followed. So symlinks
+        # are treated as-is and will also be checked for changes.
+        stat = os.lstat(path)
+
+        # Note that the list of attributes does not include any timings except
+        # mtime.
+        for s in [
+            stat.st_mode,  # type & permission bits
+            stat.st_ino,  # inode
+            stat.st_uid,
+            stat.st_gid,
+            # it's a float in seconds, so this gives us ~1us precision
+            int(stat.st_mtime * 1e6),
+        ]:
+            checksum.update(int_to_bytes(s))
+        return checksum.digest()
 
     for root, dirs, files in os.walk(path):
         for file in files:
@@ -95,9 +122,9 @@ class TempGitRepository:
             f"""
             cd {self.tmpdir.name}
             git init
-            echo test > test
-            git add test
-            git commit -m "commit1"
+            echo test > root-commit
+            git add root-commit
+            git commit -m "root-commit"
             git remote add origin file://{self.remote_1_dir.name}
             git remote add otherremote file://{self.remote_2_dir.name}
         """
@@ -134,25 +161,60 @@ class TempGitRepositoryWorktree:
             f"""
             cd {self.tmpdir.name}
             git init
-            echo test > test
-            git add test
-            git commit -m "commit1"
-            echo test > test2
-            git add test2
-            git commit -m "commit2"
+            echo test > root-commit-in-worktree-1
+            git add root-commit-in-worktree-1
+            git commit -m "root-commit-in-worktree-1"
+            echo test > root-commit-in-worktree-2
+            git add root-commit-in-worktree-2
+            git commit -m "root-commit-in-worktree-2"
             git remote add origin file://{self.remote_1_dir.name}
             git remote add otherremote file://{self.remote_2_dir.name}
+            git push origin HEAD:master
             git ls-files | xargs rm -rf
             mv .git .git-main-working-tree
             git --git-dir .git-main-working-tree config core.bare true
         """
         )
-        return self.tmpdir.name
+        commit = git.Repo(
+            f"{self.tmpdir.name}/.git-main-working-tree"
+        ).head.commit.hexsha
+        return (self.tmpdir.name, commit)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         del self.tmpdir
         del self.remote_1_dir
         del self.remote_2_dir
+
+
+class RepoTree:
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        self.root = tempfile.TemporaryDirectory()
+        self.config = tempfile.NamedTemporaryFile()
+        with open(self.config.name, "w") as f:
+            f.write(
+                f"""
+                [[trees]]
+                root = "{self.root.name}"
+
+                [[trees.repos]]
+                name = "test"
+
+                [[trees.repos]]
+                name = "test_worktree"
+                worktree_setup = true
+            """
+            )
+
+        cmd = grm(["repos", "sync", "--config", self.config.name])
+        assert cmd.returncode == 0
+        return (self.root.name, self.config.name, ["test", "test_worktree"])
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        del self.root
+        del self.config
 
 
 class EmptyDir:
@@ -197,12 +259,12 @@ class TempGitFileRemote:
             f"""
             cd {self.tmpdir.name}
             git init
-            echo test > test
-            git add test
-            git commit -m "commit1"
-            echo test > test2
-            git add test2
-            git commit -m "commit2"
+            echo test > root-commit-in-remote-1
+            git add root-commit-in-remote-1
+            git commit -m "root-commit-in-remote-1"
+            echo test > root-commit-in-remote-2
+            git add root-commit-in-remote-2
+            git commit -m "root-commit-in-remote-2"
             git ls-files | xargs rm -rf
             mv .git/* .
             git config core.bare true

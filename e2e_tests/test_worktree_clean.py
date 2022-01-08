@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import pytest
+
 from helpers import *
 
 
 def test_worktree_clean():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
         assert "test" in os.listdir(base_dir)
@@ -15,9 +17,7 @@ def test_worktree_clean():
 
 
 def test_worktree_clean_refusal_no_tracking_branch():
-    with TempGitRepositoryWorktree() as base_dir:
-        before = checksum_directory(base_dir)
-
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -31,9 +31,7 @@ def test_worktree_clean_refusal_no_tracking_branch():
 
 
 def test_worktree_clean_refusal_uncommited_changes_new_file():
-    with TempGitRepositoryWorktree() as base_dir:
-        before = checksum_directory(base_dir)
-
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -49,9 +47,7 @@ def test_worktree_clean_refusal_uncommited_changes_new_file():
 
 
 def test_worktree_clean_refusal_uncommited_changes_changed_file():
-    with TempGitRepositoryWorktree() as base_dir:
-        before = checksum_directory(base_dir)
-
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -67,9 +63,7 @@ def test_worktree_clean_refusal_uncommited_changes_changed_file():
 
 
 def test_worktree_clean_refusal_uncommited_changes_cleand_file():
-    with TempGitRepositoryWorktree() as base_dir:
-        before = checksum_directory(base_dir)
-
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -87,9 +81,7 @@ def test_worktree_clean_refusal_uncommited_changes_cleand_file():
 
 
 def test_worktree_clean_refusal_commited_changes():
-    with TempGitRepositoryWorktree() as base_dir:
-        before = checksum_directory(base_dir)
-
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -107,9 +99,7 @@ def test_worktree_clean_refusal_commited_changes():
 
 
 def test_worktree_clean_refusal_tracking_branch_mismatch():
-    with TempGitRepositoryWorktree() as base_dir:
-        before = checksum_directory(base_dir)
-
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -127,7 +117,7 @@ def test_worktree_clean_refusal_tracking_branch_mismatch():
 
 
 def test_worktree_clean_fail_from_subdir():
-    with TempGitRepositoryWorktree() as base_dir:
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -151,3 +141,56 @@ def test_worktree_clean_non_git():
         assert cmd.returncode != 0
         assert len(cmd.stdout) == 0
         assert len(cmd.stderr) != 0
+
+
+@pytest.mark.parametrize("configure_default_branch", [True, False])
+@pytest.mark.parametrize("branch_list_empty", [True, False])
+def test_worktree_clean_configured_default_branch(
+    configure_default_branch, branch_list_empty
+):
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
+        if configure_default_branch:
+            with open(os.path.join(base_dir, "grm.toml"), "w") as f:
+                if branch_list_empty:
+                    f.write(
+                        f"""
+                        persistent_branches = []
+                    """
+                    )
+                else:
+                    f.write(
+                        f"""
+                        persistent_branches = [
+                            "mybranch"
+                        ]
+                    """
+                    )
+
+        cmd = grm(["wt", "add", "test"], cwd=base_dir)
+        assert cmd.returncode == 0
+
+        shell(
+            f"""
+            cd {base_dir}
+            (
+                cd ./test
+                touch change
+                git add change
+                git commit -m commit
+            )
+
+            git --git-dir ./.git-main-working-tree worktree add mybranch
+            (
+                cd ./mybranch
+                git merge --no-ff test
+            )
+            git --git-dir ./.git-main-working-tree worktree remove mybranch
+        """
+        )
+
+        cmd = grm(["wt", "clean"], cwd=base_dir)
+        assert cmd.returncode == 0
+        if configure_default_branch and not branch_list_empty:
+            assert "test" not in os.listdir(base_dir)
+        else:
+            assert "test" in os.listdir(base_dir)

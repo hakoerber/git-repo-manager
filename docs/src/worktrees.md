@@ -71,6 +71,10 @@ Now, when you run a `grm sync`, you'll notice that the directory of the reposito
 is empty! Well, not totally, there is a hidden directory called `.git-main-working-tree`.
 This is where the repository actually "lives" (it's a bare checkout).
 
+Note that there are few specific things you can configure for a certain
+workspace.  This is all done in an optional `grm.toml` file right in the root
+of the worktree. More on that later.
+
 ### Creating a new worktree
 
 To actually work, you'll first have to create a new worktree checkout. All
@@ -129,6 +133,36 @@ The behaviour of `--track` differs depending on the existence of the remote bran
 * If the remote branch does not exist (as in our example), `grm` will create a
   new remote tracking branch, using the default branch (either `main` or `master`)
   as the base
+
+Often, you'll have a workflow that uses tracking branches by default. It would
+be quite tedious to add `--track` every single time. Luckily, the `grm.toml` file
+supports defaults for the tracking behaviour. See this for an example:
+
+```toml
+[track]
+default = true
+default_remote = "origin"
+```
+
+This will set up a tracking branch on `origin` that has the same name as the local
+branch.
+
+Sometimes, you might want to have a certain prefix for all your tracking branches.
+Maybe to prevent collissions with other contributors. You can simply set
+`default_remote_prefix` in `grm.toml`:
+
+```toml
+[track]
+default = true
+default_remote = "origin"
+default_remote_prefix = "myname"
+```
+
+When using branch `my-feature-branch`, the remote tracking branch would be
+`origin/myname/my-feature-branch` in this case.
+
+Note that `--track` overrides any configuration in `grm.toml`. If you want to
+disable tracking, use `--no-track`.
 
 ### Showing the status of your worktrees
 
@@ -195,6 +229,39 @@ $ grm wt clean
 Note that this will not delete the default branch of the repository. It can of
 course still be delete with `grm wt delete` if neccessary.
 
+### Persistent branches
+
+You most likely have a few branches that are "special", that you don't want to
+clean up and that are the usual target for feature branches to merge into. GRM
+calls them "persistent branches" and treats them a bit differently:
+
+* Their worktrees will never be deleted by `grm wt clean`
+* If the branches in other worktrees are merged into them, they will be cleaned
+  up, even though they may not be in line with their upstream. Same goes for
+  `grm wt delete`, which will not require a `--force` flag. Note that of
+  course, actual changes in the worktree will still block an automatic cleanup!
+* As soon as you enable persistent branches, non-persistent branches will only
+  ever cleaned up when merged into a persistent branch.
+
+To elaborate: This is mostly relevant for a feature-branch workflow. Whenever a
+feature branch is merged, it can usually be thrown away. As merging is usually
+done on some remote code management platform (GitHub, GitLab, ...), this means
+that you usually keep a branch around until it is merged into one of the "main"
+branches (`master`, `main`, `develop`, ...)
+
+Enable persistent branches by setting the following in the `grm.toml` in the
+worktree root:
+
+```toml
+persistent_branches = [
+    "master",
+    "develop",
+]
+```
+
+Note that setting persistent branches will disable any detection of "default"
+branches. The first entry will be considered your repositories' default branch.
+
 ### Converting an existing repository
 
 It is possible to convert an existing directory to a worktree setup, using `grm
@@ -211,6 +278,73 @@ Commit them and try again!
 
 Afterwards, the directory is empty, as there are no worktrees checked out yet.
 Now you can use the usual commands to set up worktrees.
+
+### Working with remotes
+
+To fetch all remote references from all remotes in a worktree setup, you can
+use the following command:
+
+```
+grm wt fetch
+[✔] Fetched from all remotes
+```
+
+This is equivalent to running `git fetch --all` in any of the worktrees.
+
+Often, you may want to pull all remote changes into your worktrees. For this,
+use the `git pull` equivalent:
+
+```
+grm wt pull
+[✔] master: Done
+[✔] my-cool-branch: Done
+```
+
+This will refuse when there are local changes, or if the branch cannot be fast
+forwarded. If you want to rebase your local branches, use the `--rebase` switch:
+
+```
+grm wt pull --rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+```
+
+This will rebase your changes onto the upstream branch. This is mainly helpful
+for persistent branches that change on the remote side.
+
+There is a similar rebase feature that rebases onto the **default** branch instead:
+
+```
+grm wt rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+```
+
+This is super helpful for feature branches. If you want to incorporate changes
+made on the remote branches, use `grm wt rebase` and all your branches will
+be up to date. If you want to also update to remote tracking branches in one go,
+use the `--pull` flag, and `--rebase` if you want to rebase instead of aborting
+on non-fast-forwards:
+
+```
+grm wt rebase --pull --rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+```
+
+"So, what's the difference between `pull --rebase` and `rebase --pull`? Why the
+hell is there a `--rebase` flag in the `rebase` command?"
+
+Yes, it's kind of weird. Remember that `pull` only ever updates each worktree
+to their remote branch, if possible. `rebase` rabases onto the **default** branch
+instead. The switches to `rebase` are just convenience, so you do not have to
+run two commands.
+
+* `rebase --pull` is the same as `pull` && `rebase`
+* `rebase --pull --rebase` is the same as `pull --rebase` && `rebase`
+
+I understand that the UX is not the most intuitive. If you can think of an
+improvement, please let me know (e.g. via an GitHub issue)!
 
 ### Manual access
 
