@@ -84,9 +84,21 @@ for tier in ["dependencies", "dev-dependencies"]:
             with open("../Cargo.toml", "w") as cargo_config:
                 cargo_config.write(tomlkit.dumps(cargo))
 
+            try:
+                cmd = subprocess.run(
+                    ["cargo", "update", "-Z", "no-index-update", "--aggressive", "--package", name],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as e:
+                print(e.stdout)
+                print(e.stderr)
+                raise
+
             message = f"dependencies: Update {name} to {latest_version}"
             subprocess.run(
-                ["git", "commit", "--message", message, "../Cargo.toml"],
+                ["git", "commit", "--message", message, "../Cargo.toml", "../Cargo.lock"],
                 check=True,
                 capture_output=True
             )
