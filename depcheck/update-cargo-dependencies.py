@@ -10,9 +10,7 @@ import tomlkit
 
 INDEX_DIR = "crates.io-index"
 
-AUTOUPDATE_DISABLED = [
-    "clap",
-]
+AUTOUPDATE_DISABLED = []
 
 if os.path.exists(INDEX_DIR):
     subprocess.run(

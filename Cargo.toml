@@ -50,7 +50,8 @@ version = "=0.13.25"
 version = "=2.1.0"
 
 [dependencies.clap]
-version = "=3.0.0-beta.5"
+version = "=3.0.5"
+features = ["derive", "cargo"]
 
 [dependencies.console]
 version = "=0.15.0"

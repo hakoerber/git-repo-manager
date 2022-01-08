@@ -7,10 +7,8 @@ use clap::{AppSettings, Parser};
     author = clap::crate_authors!("\n"),
     about = clap::crate_description!(),
     long_version = clap::crate_version!(),
-    license = clap::crate_license!(),
     setting = AppSettings::DeriveDisplayOrder,
     setting = AppSettings::PropagateVersion,
-    setting = AppSettings::HelpRequired,
 )]
 pub struct Opts {
     #[clap(subcommand)]
@@ -51,7 +49,7 @@ pub struct Sync {
         short,
         long,
         default_value = "./config.toml",
-        about = "Path to the configuration file"
+        help = "Path to the configuration file"
     )]
     pub config: String,
 }
@@ -59,13 +57,13 @@ pub struct Sync {
 #[derive(Parser)]
 #[clap()]
 pub struct OptionalConfig {
-    #[clap(short, long, about = "Path to the configuration file")]
+    #[clap(short, long, help = "Path to the configuration file")]
     pub config: Option<String>,
 }
 
 #[derive(Parser)]
 pub struct Find {
-    #[clap(about = "The path to search through")]
+    #[clap(help = "The path to search through")]
     pub path: String,
 }
 
@@ -97,23 +95,23 @@ pub enum WorktreeAction {
 
 #[derive(Parser)]
 pub struct WorktreeAddArgs {
-    #[clap(about = "Name of the worktree")]
+    #[clap(help = "Name of the worktree")]
     pub name: String,
 
-    #[clap(short = 't', long = "track", about = "Remote branch to track")]
+    #[clap(short = 't', long = "track", help = "Remote branch to track")]
     pub track: Option<String>,
 
-    #[clap(long = "--no-track", about = "Disable tracking")]
+    #[clap(long = "--no-track", help = "Disable tracking")]
     pub no_track: bool,
 }
 #[derive(Parser)]
 pub struct WorktreeDeleteArgs {
-    #[clap(about = "Name of the worktree")]
+    #[clap(help = "Name of the worktree")]
     pub name: String,
 
     #[clap(
         long = "force",
-        about = "Force deletion, even when there are uncommitted/unpushed changes"
+        help = "Force deletion, even when there are uncommitted/unpushed changes"
     )]
     pub force: bool,
 }
@@ -132,18 +130,15 @@ pub struct WorktreeFetchArgs {}
 
 #[derive(Parser)]
 pub struct WorktreePullArgs {
-    #[clap(
-        long = "--rebase",
-        about = "Perform a rebase instead of a fast-forward"
-    )]
+    #[clap(long = "--rebase", help = "Perform a rebase instead of a fast-forward")]
     pub rebase: bool,
 }
 
 #[derive(Parser)]
 pub struct WorktreeRebaseArgs {
-    #[clap(long = "--pull", about = "Perform a pull before rebasing")]
+    #[clap(long = "--pull", help = "Perform a pull before rebasing")]
     pub pull: bool,
-    #[clap(long = "--rebase", about = "Perform a rebase when doing a pull")]
+    #[clap(long = "--rebase", help = "Perform a rebase when doing a pull")]
     pub rebase: bool,
 }
 
