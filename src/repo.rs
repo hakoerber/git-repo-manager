@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-use git2::{Cred, RemoteCallbacks, Repository};
+use git2::Repository;
 
 use crate::output::*;
 
@@ -1302,20 +1302,15 @@ fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
         }
         Ok(())
     });
-    callbacks.credentials(|_url, username_from_url, _allowed_types| {
-        let username = match username_from_url {
-            Some(username) => username,
-            None => panic!("Could not get username. This is a bug"),
-        };
-        git2::Cred::ssh_key_from_agent(username)
-    });
 
     callbacks.credentials(|_url, username_from_url, _allowed_types| {
         let username = match username_from_url {
             Some(username) => username,
             None => panic!("Could not get username. This is a bug"),
         };
-        git2::Cred::ssh_key(username, None, &crate::env_home().join(".ssh/id_rsa"), None)
+        git2::Cred::ssh_key_from_agent(username).or_else(|_| {
+            git2::Cred::ssh_key(username, None, &crate::env_home().join(".ssh/id_rsa"), None)
+        })
     });
 
     callbacks
@@ -1392,17 +1387,17 @@ pub fn clone_repo(
     match remote.remote_type {
         RemoteType::Https | RemoteType::File => {
             let mut builder = git2::build::RepoBuilder::new();
+
+            let fetchopts = git2::FetchOptions::new();
+
             builder.bare(is_worktree);
+            builder.fetch_options(fetchopts);
+
             builder.clone(&remote.url, &clone_target)?;
         }
         RemoteType::Ssh => {
-            let mut callbacks = RemoteCallbacks::new();
-            callbacks.credentials(|_url, username_from_url, _allowed_types| {
-                Cred::ssh_key_from_agent(username_from_url.unwrap())
-            });
-
             let mut fo = git2::FetchOptions::new();
-            fo.remote_callbacks(callbacks);
+            fo.remote_callbacks(get_remote_callbacks());
 
             let mut builder = git2::build::RepoBuilder::new();
             builder.bare(is_worktree);
