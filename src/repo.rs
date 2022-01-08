@@ -456,6 +456,21 @@ impl Repo {
         }
     }
 
+    pub fn rename_remote(&self, remote: &RemoteHandle, new_name: &str) -> Result<(), String> {
+        let failed_refspecs = self
+            .0
+            .remote_rename(&remote.name(), new_name)
+            .map_err(convert_libgit2_error)?;
+
+        if !failed_refspecs.is_empty() {
+            return Err(String::from(
+                "Some non-default refspecs could not be renamed",
+            ));
+        }
+
+        Ok(())
+    }
+
     pub fn graph_ahead_behind(
         &self,
         local_branch: &Branch,
@@ -1407,10 +1422,22 @@ pub fn clone_repo(
         }
     }
 
+    let repo = Repo::open(&clone_target, false)?;
+
     if is_worktree {
-        let repo = Repo::open(&clone_target, false)?;
         repo.set_config_push(GitPushDefaultSetting::Upstream)?;
     }
+
+    if remote.name != "origin" {
+        // unwrap() is safe here as the origin remote will always exist after a successful clone.
+        // Note that actual errors are handled in the Results Err variant, not in
+        // the Ok variant option
+        let origin = repo.find_remote("origin")?.unwrap();
+        repo.rename_remote(&origin, &remote.name)?;
+    }
+
+    let mut active_branch = repo.head_branch()?;
+    active_branch.set_upstream(&remote.name, &active_branch.name()?)?;
 
     Ok(())
 }
