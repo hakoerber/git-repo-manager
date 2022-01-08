@@ -52,3 +52,6 @@ check-pip-requirements: e2e-venv
     @cd ./e2e_tests \
     && . ./venv/bin/activate \
     && pip list --outdated | grep -q '.' && exit 1 || exit 0
+
+clean:
+    cargo clean
