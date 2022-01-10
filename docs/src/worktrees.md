@@ -309,6 +309,10 @@ grm wt pull --rebase
 [✔] my-cool-branch: Done
 ```
 
+As noted, this will fail if there are any local changes in your worktree. If you
+want to stash these changes automatically before the pull (and unstash them
+afterwards), use the `--stash` option.
+
 This will rebase your changes onto the upstream branch. This is mainly helpful
 for persistent branches that change on the remote side.
 
@@ -345,6 +349,10 @@ run two commands.
 
 I understand that the UX is not the most intuitive. If you can think of an
 improvement, please let me know (e.g. via an GitHub issue)!
+
+As with `pull`, `rebase` will also refuse to run when there are changes in your
+worktree. And you can also use the `--stash` option to stash/unstash changes
+automatically.
 
 ### Manual access
 

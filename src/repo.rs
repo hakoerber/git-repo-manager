@@ -181,16 +181,29 @@ impl Worktree {
         &self.name
     }
 
-    pub fn forward_branch(&self, rebase: bool) -> Result<Option<String>, String> {
+    pub fn forward_branch(&self, rebase: bool, stash: bool) -> Result<Option<String>, String> {
         let repo = Repo::open(Path::new(&self.name), false)
             .map_err(|error| format!("Error opening worktree: {}", error))?;
 
         if let Ok(remote_branch) = repo.find_local_branch(&self.name)?.upstream() {
             let status = repo.status(false)?;
+            let mut stashed_changes = false;
 
             if !status.clean() {
-                return Ok(Some(String::from("Worktree contains changes")));
+                if stash {
+                    repo.stash()?;
+                    stashed_changes = true;
+                } else {
+                    return Ok(Some(String::from("Worktree contains changes")));
+                }
             }
+
+            let unstash = || -> Result<(), String> {
+                if stashed_changes {
+                    repo.stash_pop()?;
+                }
+                Ok(())
+            };
 
             let remote_annotated_commit = repo
                 .0
@@ -231,6 +244,7 @@ impl Worktree {
                             continue;
                         }
                         rebase.abort().map_err(convert_libgit2_error)?;
+                        unstash()?;
                         return Err(convert_libgit2_error(error));
                     }
                 }
@@ -243,9 +257,11 @@ impl Worktree {
                     .map_err(convert_libgit2_error)?;
 
                 if analysis.is_up_to_date() {
+                    unstash()?;
                     return Ok(None);
                 }
                 if !analysis.is_fast_forward() {
+                    unstash()?;
                     return Ok(Some(String::from("Worktree cannot be fast forwarded")));
                 }
 
@@ -257,15 +273,18 @@ impl Worktree {
                     )
                     .map_err(convert_libgit2_error)?;
             }
+            unstash()?;
         } else {
             return Ok(Some(String::from("No remote branch to rebase onto")));
         };
+
         Ok(None)
     }
 
     pub fn rebase_onto_default(
         &self,
         config: &Option<WorktreeRootConfig>,
+        stash: bool,
     ) -> Result<Option<String>, String> {
         let repo = Repo::open(Path::new(&self.name), false)
             .map_err(|error| format!("Error opening worktree: {}", error))?;
@@ -289,6 +308,25 @@ impl Worktree {
                     }
                 }
             },
+        };
+
+        let status = repo.status(false)?;
+        let mut stashed_changes = false;
+
+        if !status.clean() {
+            if stash {
+                repo.stash()?;
+                stashed_changes = true;
+            } else {
+                return Ok(Some(String::from("Worktree contains changes")));
+            }
+        }
+
+        let unstash = || -> Result<(), String> {
+            if stashed_changes {
+                repo.stash_pop()?;
+            }
+            Ok(())
         };
 
         let base_branch = repo.find_local_branch(&default_branch_name)?;
@@ -330,11 +368,13 @@ impl Worktree {
                     continue;
                 }
                 rebase.abort().map_err(convert_libgit2_error)?;
+                unstash()?;
                 return Err(convert_libgit2_error(error));
             }
         }
 
         rebase.finish(None).map_err(convert_libgit2_error)?;
+        unstash()?;
         Ok(None)
     }
 }
@@ -454,6 +494,35 @@ impl Repo {
                 ))),
             },
         }
+    }
+
+    pub fn stash(&self) -> Result<(), String> {
+        let head_branch = self.head_branch()?;
+        let head = head_branch.commit()?;
+        let author = head.author();
+
+        // This is honestly quite horrible. The problem is that all stash operations expect a
+        // mutable reference (as they, well, mutate the repo after all). But we are heavily using
+        // immutable references a lot with this struct. I'm really not sure how to best solve this.
+        // Right now, we just open the repo AGAIN. It is safe, as we are only accessing the stash
+        // with the second reference, so there are no cross effects. But it just smells. Also,
+        // using `unwrap()` here as we are already sure that the repo is openable(?).
+        let mut repo = Repo::open(self.0.path(), false).unwrap();
+        repo.0
+            .stash_save2(&author, None, Some(git2::StashFlags::INCLUDE_UNTRACKED))
+            .map_err(convert_libgit2_error)?;
+        Ok(())
+    }
+
+    pub fn stash_pop(&self) -> Result<(), String> {
+        let mut repo = Repo::open(self.0.path(), false).unwrap();
+        repo.0
+            .stash_pop(
+                0,
+                Some(git2::StashApplyOptions::new().reinstantiate_index()),
+            )
+            .map_err(convert_libgit2_error)?;
+        Ok(())
     }
 
     pub fn rename_remote(&self, remote: &RemoteHandle, new_name: &str) -> Result<(), String> {
@@ -1252,6 +1321,10 @@ impl Oid {
 impl Commit<'_> {
     pub fn id(&self) -> Oid {
         Oid(self.0.id())
+    }
+
+    pub(self) fn author(&self) -> git2::Signature {
+        self.0.author()
     }
 }
 

@@ -132,6 +132,8 @@ pub struct WorktreeFetchArgs {}
 pub struct WorktreePullArgs {
     #[clap(long = "--rebase", help = "Perform a rebase instead of a fast-forward")]
     pub rebase: bool,
+    #[clap(long = "--stash", help = "Stash & unstash changes before & after pull")]
+    pub stash: bool,
 }
 
 #[derive(Parser)]
@@ -140,6 +142,11 @@ pub struct WorktreeRebaseArgs {
     pub pull: bool,
     #[clap(long = "--rebase", help = "Perform a rebase when doing a pull")]
     pub rebase: bool,
+    #[clap(
+        long = "--stash",
+        help = "Stash & unstash changes before & after rebase"
+    )]
+    pub stash: bool,
 }
 
 pub fn parse() -> Opts {
