@@ -1323,9 +1323,7 @@ fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
             Some(username) => username,
             None => panic!("Could not get username. This is a bug"),
         };
-        git2::Cred::ssh_key_from_agent(username).or_else(|_| {
-            git2::Cred::ssh_key(username, None, &crate::env_home().join(".ssh/id_rsa"), None)
-        })
+        git2::Cred::ssh_key_from_agent(username)
     });
 
     callbacks
