@@ -5,7 +5,8 @@ Manager](https://github.com/hakoerber/git-repo-manager/) (GRM for short), a
 tool that helps you manage git repositories.
 
 GRM helps you manage git repositories in a declarative way. Configure your
-repositories in a TOML file, GRM does the rest. Take a look at [the example
+repositories in a TOML or YAML file, GRM does the rest. Take a look at [the
+example
 configuration](https://github.com/hakoerber/git-repo-manager/blob/master/example.config.toml)
 to get a feel for the way you configure your repositories. See the [repository
 tree chapter](./repos.md) for details.

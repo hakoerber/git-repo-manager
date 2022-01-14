@@ -62,5 +62,8 @@ version = "=1.5.4"
 [dependencies.comfy-table]
 version = "=5.0.0"
 
+[dependencies.serde_yaml]
+version = "=0.8.23"
+
 [dev-dependencies.tempdir]
 version = "=0.3.7"

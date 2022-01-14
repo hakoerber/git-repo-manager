@@ -61,10 +61,25 @@ pub struct OptionalConfig {
     pub config: Option<String>,
 }
 
+#[derive(clap::ArgEnum, Clone)]
+pub enum ConfigFormat {
+    Yaml,
+    Toml,
+}
+
 #[derive(Parser)]
 pub struct Find {
     #[clap(help = "The path to search through")]
     pub path: String,
+
+    #[clap(
+        arg_enum,
+        short,
+        long,
+        help = "Format to produce",
+        default_value_t = ConfigFormat::Toml,
+    )]
+    pub format: ConfigFormat,
 }
 
 #[derive(Parser)]

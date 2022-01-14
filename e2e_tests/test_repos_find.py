@@ -3,6 +3,8 @@
 import tempfile
 
 import toml
+import pytest
+import yaml
 
 from helpers import *
 
@@ -30,6 +32,16 @@ def test_repos_find_empty():
         assert len(cmd.stderr) != 0
 
 
+def test_repos_find_invalid_format():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cmd = grm(
+            ["repos", "find", tmpdir, "--format", "invalidformat"], is_invalid=True
+        )
+        assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
+        assert "isn't a valid value" in cmd.stderr
+
+
 def test_repos_find_non_git_repos():
     with tempfile.TemporaryDirectory() as tmpdir:
         shell(
@@ -50,7 +62,9 @@ def test_repos_find_non_git_repos():
         assert len(cmd.stderr) != 0
 
 
-def test_repos_find():
+@pytest.mark.parametrize("default", [True, False])
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_find(configtype, default):
     with tempfile.TemporaryDirectory() as tmpdir:
         shell(
             f"""
@@ -83,11 +97,19 @@ def test_repos_find():
         """
         )
 
-        cmd = grm(["repos", "find", tmpdir])
+        args = ["repos", "find", tmpdir]
+        if not default:
+            args += ["--format", configtype]
+        cmd = grm(args)
         assert cmd.returncode == 0
         assert len(cmd.stderr) == 0
 
-        output = toml.loads(cmd.stdout)
+        if default or configtype == "toml":
+            output = toml.loads(cmd.stdout)
+        elif configtype == "yaml":
+            output = yaml.safe_load(cmd.stdout)
+        else:
+            raise NotImplementedError()
 
         assert isinstance(output, dict)
         assert set(output.keys()) == {"trees"}
@@ -125,14 +147,24 @@ def test_repos_find():
             assert origin["url"] == "https://example.com/repo2.git"
 
 
-def test_repos_find_in_root():
+@pytest.mark.parametrize("default", [True, False])
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_find_in_root(configtype, default):
     with TempGitRepository() as repo_dir:
 
-        cmd = grm(["repos", "find", repo_dir])
+        args = ["repos", "find", repo_dir]
+        if not default:
+            args += ["--format", configtype]
+        cmd = grm(args)
         assert cmd.returncode == 0
         assert len(cmd.stderr) == 0
 
-        output = toml.loads(cmd.stdout)
+        if default or configtype == "toml":
+            output = toml.loads(cmd.stdout)
+        elif configtype == "yaml":
+            output = yaml.safe_load(cmd.stdout)
+        else:
+            raise NotImplementedError()
 
         assert isinstance(output, dict)
         assert set(output.keys()) == {"trees"}
@@ -160,7 +192,9 @@ def test_repos_find_in_root():
             assert someremote["type"] == "file"
 
 
-def test_repos_find_with_invalid_repo():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+@pytest.mark.parametrize("default", [True, False])
+def test_repos_find_with_invalid_repo(configtype, default):
     with tempfile.TemporaryDirectory() as tmpdir:
         shell(
             f"""
@@ -193,11 +227,19 @@ def test_repos_find_with_invalid_repo():
         """
         )
 
-        cmd = grm(["repos", "find", tmpdir])
+        args = ["repos", "find", tmpdir]
+        if not default:
+            args += ["--format", configtype]
+        cmd = grm(args)
         assert cmd.returncode == 0
         assert "broken" in cmd.stderr
 
-        output = toml.loads(cmd.stdout)
+        if default or configtype == "toml":
+            output = toml.loads(cmd.stdout)
+        elif configtype == "yaml":
+            output = yaml.safe_load(cmd.stdout)
+        else:
+            raise NotImplementedError()
 
         assert isinstance(output, dict)
         assert set(output.keys()) == {"trees"}

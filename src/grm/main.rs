@@ -119,15 +119,34 @@ fn main() {
                 } else {
                     let config = trees.to_config();
 
-                    let toml = match config.as_toml() {
-                        Ok(toml) => toml,
-                        Err(error) => {
-                            print_error(&format!("Failed converting config to TOML: {}", &error));
-                            process::exit(1);
+                    match find.format {
+                        cmd::ConfigFormat::Toml => {
+                            let toml = match config.as_toml() {
+                                Ok(toml) => toml,
+                                Err(error) => {
+                                    print_error(&format!(
+                                        "Failed converting config to TOML: {}",
+                                        &error
+                                    ));
+                                    process::exit(1);
+                                }
+                            };
+                            print!("{}", toml);
                         }
-                    };
-
-                    print!("{}", toml);
+                        cmd::ConfigFormat::Yaml => {
+                            let yaml = match config.as_yaml() {
+                                Ok(yaml) => yaml,
+                                Err(error) => {
+                                    print_error(&format!(
+                                        "Failed converting config to YAML: {}",
+                                        &error
+                                    ));
+                                    process::exit(1);
+                                }
+                            };
+                            print!("{}", yaml);
+                        }
+                    }
                 }
                 for warning in warnings {
                     print_warning(&warning);

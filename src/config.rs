@@ -36,6 +36,10 @@ impl Config {
             Err(error) => Err(error.to_string()),
         }
     }
+
+    pub fn as_yaml(&self) -> Result<String, String> {
+        serde_yaml::to_string(self).map_err(|e| e.to_string())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -62,12 +66,15 @@ pub fn read_config(path: &str) -> Result<Config, String> {
 
     let config: Config = match toml::from_str(&content) {
         Ok(c) => c,
-        Err(e) => {
-            return Err(format!(
-                "Error parsing configuration file \"{}\": {}",
-                path, e
-            ))
-        }
+        Err(_) => match serde_yaml::from_str(&content) {
+            Ok(c) => c,
+            Err(e) => {
+                return Err(format!(
+                    "Error parsing configuration file \"{}\": {}",
+                    path, e
+                ))
+            }
+        },
     };
 
     Ok(config)
