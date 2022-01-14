@@ -14,7 +14,13 @@ AUTOUPDATE_DISABLED = []
 
 if os.path.exists(INDEX_DIR):
     subprocess.run(
-        ["git", "pull", "--depth=1", "origin"],
+        ["git", "fetch", "--depth=1", "origin"],
+        cwd=INDEX_DIR,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "reset", "--hard", "origin/master"],
         cwd=INDEX_DIR,
         check=True,
         capture_output=True,
