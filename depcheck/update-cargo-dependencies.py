@@ -39,7 +39,7 @@ update_necessary = False
 
 # This updates the crates.io index, see https://github.com/rust-lang/cargo/issues/3377
 subprocess.run(
-    ["cargo", "search", "--limit", "0"],
+    ["cargo", "update", "--dry-run"],
     check=True,
     capture_output=False,  # to get some git output
 )
