@@ -5,6 +5,7 @@ mod cmd;
 
 use grm::config;
 use grm::output::*;
+use grm::provider::Provider;
 use grm::repo;
 
 fn main() {
@@ -12,26 +13,88 @@ fn main() {
 
     match opts.subcmd {
         cmd::SubCommand::Repos(repos) => match repos.action {
-            cmd::ReposAction::Sync(sync) => {
-                let config = match config::read_config(&sync.config) {
-                    Ok(config) => config,
-                    Err(error) => {
-                        print_error(&error);
-                        process::exit(1);
-                    }
-                };
-                match grm::sync_trees(config) {
-                    Ok(success) => {
-                        if !success {
-                            process::exit(1)
+            cmd::ReposAction::Sync(sync) => match sync {
+                cmd::SyncAction::Config(args) => {
+                    let config = match config::read_config(&args.config) {
+                        Ok(config) => config,
+                        Err(error) => {
+                            print_error(&error);
+                            process::exit(1);
+                        }
+                    };
+                    match grm::sync_trees(config) {
+                        Ok(success) => {
+                            if !success {
+                                process::exit(1)
+                            }
+                        }
+                        Err(error) => {
+                            print_error(&format!("Error syncing trees: {}", error));
+                            process::exit(1);
                         }
                     }
-                    Err(error) => {
-                        print_error(&format!("Error syncing trees: {}", error));
-                        process::exit(1);
+                }
+                cmd::SyncAction::Remote(args) => {
+                    let users = if args.users.is_empty() {
+                        None
+                    } else {
+                        Some(args.users)
+                    };
+
+                    let groups = if args.groups.is_empty() {
+                        None
+                    } else {
+                        Some(args.groups)
+                    };
+
+                    let token_process = std::process::Command::new("/usr/bin/env")
+                        .arg("sh")
+                        .arg("-c")
+                        .arg(args.token_command)
+                        .output();
+
+                    let token: String = match token_process {
+                        Err(error) => {
+                            print_error(&format!("Failed to run token-command: {}", error));
+                            process::exit(1);
+                        }
+                        Ok(output) => {
+                            let stderr = String::from_utf8(output.stderr).unwrap();
+                            let stdout = String::from_utf8(output.stdout).unwrap();
+
+                            if !output.status.success() {
+                                if !stderr.is_empty() {
+                                    print_error(&format!("Token command failed: {}", stderr));
+                                } else {
+                                    print_error("Token command failed.");
+                                }
+                            }
+                            if !stderr.is_empty() {
+                                print_error(&format!("Token command produced stderr: {}", stderr));
+                            }
+
+                            if stdout.is_empty() {
+                                print_error("Token command did not produce output");
+                            }
+
+                            let token = stdout.split('\n').next().unwrap();
+
+                            token.to_string()
+                        }
+                    };
+
+                    let filter = grm::provider::Filter::new(users, groups, args.owner);
+                    let github = grm::provider::Github::new(filter, token);
+
+                    match github.get_repos() {
+                        Ok(repos) => println!("{:?}", repos),
+                        Err(error) => {
+                            print_error(&format!("Error: {}", error));
+                            process::exit(1);
+                        }
                     }
                 }
-            }
+            },
             cmd::ReposAction::Status(args) => match &args.config {
                 Some(config_path) => {
                     let config = match config::read_config(config_path) {
@@ -79,79 +142,187 @@ fn main() {
                     }
                 }
             },
-            cmd::ReposAction::Find(find) => {
-                let path = Path::new(&find.path);
-                if !path.exists() {
-                    print_error(&format!("Path \"{}\" does not exist", path.display()));
-                    process::exit(1);
-                }
-                if !path.is_dir() {
-                    print_error(&format!("Path \"{}\" is not a directory", path.display()));
-                    process::exit(1);
-                }
-
-                let path = match path.canonicalize() {
-                    Ok(path) => path,
-                    Err(error) => {
-                        print_error(&format!(
-                            "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
-                            &path.display(),
-                            error
-                        ));
+            cmd::ReposAction::Find(find) => match find {
+                cmd::FindAction::Local(args) => {
+                    let path = Path::new(&args.path);
+                    if !path.exists() {
+                        print_error(&format!("Path \"{}\" does not exist", path.display()));
                         process::exit(1);
                     }
-                };
-
-                let (found_repos, warnings) = match grm::find_in_tree(&path) {
-                    Ok((repos, warnings)) => (repos, warnings),
-                    Err(error) => {
-                        print_error(&error);
+                    if !path.is_dir() {
+                        print_error(&format!("Path \"{}\" is not a directory", path.display()));
                         process::exit(1);
                     }
-                };
 
-                let trees = grm::config::Trees::from_vec(vec![found_repos]);
-                if trees.as_vec_ref().iter().all(|t| match &t.repos {
-                    None => false,
-                    Some(r) => r.is_empty(),
-                }) {
-                    print_warning("No repositories found");
-                } else {
-                    let config = trees.to_config();
-
-                    match find.format {
-                        cmd::ConfigFormat::Toml => {
-                            let toml = match config.as_toml() {
-                                Ok(toml) => toml,
-                                Err(error) => {
-                                    print_error(&format!(
-                                        "Failed converting config to TOML: {}",
-                                        &error
-                                    ));
-                                    process::exit(1);
-                                }
-                            };
-                            print!("{}", toml);
+                    let path = match path.canonicalize() {
+                        Ok(path) => path,
+                        Err(error) => {
+                            print_error(&format!(
+                                    "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
+                                    &path.display(),
+                                    error
+                                ));
+                            process::exit(1);
                         }
-                        cmd::ConfigFormat::Yaml => {
-                            let yaml = match config.as_yaml() {
-                                Ok(yaml) => yaml,
-                                Err(error) => {
-                                    print_error(&format!(
-                                        "Failed converting config to YAML: {}",
-                                        &error
-                                    ));
-                                    process::exit(1);
+                    };
+
+                    let (found_repos, warnings) = match grm::find_in_tree(&path) {
+                        Ok((repos, warnings)) => (repos, warnings),
+                        Err(error) => {
+                            print_error(&error);
+                            process::exit(1);
+                        }
+                    };
+
+                    let trees = grm::config::Trees::from_vec(vec![found_repos]);
+                    if trees.as_vec_ref().iter().all(|t| match &t.repos {
+                        None => false,
+                        Some(r) => r.is_empty(),
+                    }) {
+                        print_warning("No repositories found");
+                    } else {
+                        let config = trees.to_config();
+
+                        match args.format {
+                            cmd::ConfigFormat::Toml => {
+                                let toml = match config.as_toml() {
+                                    Ok(toml) => toml,
+                                    Err(error) => {
+                                        print_error(&format!(
+                                            "Failed converting config to TOML: {}",
+                                            &error
+                                        ));
+                                        process::exit(1);
+                                    }
+                                };
+                                print!("{}", toml);
+                            }
+                            cmd::ConfigFormat::Yaml => {
+                                let yaml = match config.as_yaml() {
+                                    Ok(yaml) => yaml,
+                                    Err(error) => {
+                                        print_error(&format!(
+                                            "Failed converting config to YAML: {}",
+                                            &error
+                                        ));
+                                        process::exit(1);
+                                    }
+                                };
+                                print!("{}", yaml);
+                            }
+                        }
+                    }
+                    for warning in warnings {
+                        print_warning(&warning);
+                    }
+                }
+                cmd::FindAction::Remote(args) => {
+                    let users = if args.users.is_empty() {
+                        None
+                    } else {
+                        Some(args.users)
+                    };
+
+                    let groups = if args.groups.is_empty() {
+                        None
+                    } else {
+                        Some(args.groups)
+                    };
+
+                    let token_process = std::process::Command::new("/usr/bin/env")
+                        .arg("sh")
+                        .arg("-c")
+                        .arg(args.token_command)
+                        .output();
+
+                    let token: String = match token_process {
+                        Err(error) => {
+                            print_error(&format!("Failed to run token-command: {}", error));
+                            process::exit(1);
+                        }
+                        Ok(output) => {
+                            let stderr = String::from_utf8(output.stderr).unwrap();
+                            let stdout = String::from_utf8(output.stdout).unwrap();
+
+                            if !output.status.success() {
+                                if !stderr.is_empty() {
+                                    print_error(&format!("Token command failed: {}", stderr));
+                                } else {
+                                    print_error("Token command failed.");
                                 }
+                            }
+                            if !stderr.is_empty() {
+                                print_error(&format!("Token command produced stderr: {}", stderr));
+                            }
+
+                            if stdout.is_empty() {
+                                print_error("Token command did not produce output");
+                            }
+
+                            let token = stdout.split('\n').next().unwrap();
+
+                            token.to_string()
+                        }
+                    };
+
+                    let filter = grm::provider::Filter::new(users, groups, args.owner);
+                    let github = grm::provider::Github::new(filter, token);
+
+                    match github.get_repos() {
+                        Ok(repos) => {
+                            let mut trees: Vec<config::Tree> = vec![];
+
+                            for (namespace, repolist) in repos {
+                                let tree = config::Tree {
+                                    root: Path::new(&args.root)
+                                        .join(namespace)
+                                        .display()
+                                        .to_string(),
+                                    repos: Some(repolist),
+                                };
+                                trees.push(tree);
+                            }
+
+                            let config = config::Config {
+                                trees: config::Trees::from_vec(trees),
                             };
-                            print!("{}", yaml);
+
+                            match args.format {
+                                cmd::ConfigFormat::Toml => {
+                                    let toml = match config.as_toml() {
+                                        Ok(toml) => toml,
+                                        Err(error) => {
+                                            print_error(&format!(
+                                                "Failed converting config to TOML: {}",
+                                                &error
+                                            ));
+                                            process::exit(1);
+                                        }
+                                    };
+                                    print!("{}", toml);
+                                }
+                                cmd::ConfigFormat::Yaml => {
+                                    let yaml = match config.as_yaml() {
+                                        Ok(yaml) => yaml,
+                                        Err(error) => {
+                                            print_error(&format!(
+                                                "Failed converting config to YAML: {}",
+                                                &error
+                                            ));
+                                            process::exit(1);
+                                        }
+                                    };
+                                    print!("{}", yaml);
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            print_error(&format!("Error: {}", error));
+                            process::exit(1);
                         }
                     }
                 }
-                for warning in warnings {
-                    print_warning(&warning);
-                }
-            }
+            },
         },
         cmd::SubCommand::Worktree(args) => {
             let cwd = std::env::current_dir().unwrap_or_else(|error| {

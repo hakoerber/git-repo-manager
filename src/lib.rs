@@ -6,13 +6,14 @@ use std::process;
 
 pub mod config;
 pub mod output;
+pub mod provider;
 pub mod repo;
 pub mod table;
 
 use config::{Config, Tree};
 use output::*;
 
-use repo::{clone_repo, detect_remote_type, Remote, RepoConfig};
+use repo::{clone_repo, detect_remote_type, Remote, RemoteType, RepoConfig};
 
 pub use repo::{RemoteTrackingStatus, Repo, RepoErrorKind, WorktreeRemoveFailureReason};
 
