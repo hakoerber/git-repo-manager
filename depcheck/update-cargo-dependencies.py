@@ -14,7 +14,13 @@ AUTOUPDATE_DISABLED = []
 
 if os.path.exists(INDEX_DIR):
     subprocess.run(
-        ["git", "pull", "--depth=1", "origin"],
+        ["git", "fetch", "--depth=1", "origin"],
+        cwd=INDEX_DIR,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "reset", "--hard", "origin/master"],
         cwd=INDEX_DIR,
         check=True,
         capture_output=True,
@@ -33,7 +39,7 @@ update_necessary = False
 
 # This updates the crates.io index, see https://github.com/rust-lang/cargo/issues/3377
 subprocess.run(
-    ["cargo", "search", "--limit", "0"],
+    ["cargo", "update", "--dry-run"],
     check=True,
     capture_output=False,  # to get some git output
 )

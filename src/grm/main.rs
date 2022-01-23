@@ -119,15 +119,34 @@ fn main() {
                 } else {
                     let config = trees.to_config();
 
-                    let toml = match config.as_toml() {
-                        Ok(toml) => toml,
-                        Err(error) => {
-                            print_error(&format!("Failed converting config to TOML: {}", &error));
-                            process::exit(1);
+                    match find.format {
+                        cmd::ConfigFormat::Toml => {
+                            let toml = match config.as_toml() {
+                                Ok(toml) => toml,
+                                Err(error) => {
+                                    print_error(&format!(
+                                        "Failed converting config to TOML: {}",
+                                        &error
+                                    ));
+                                    process::exit(1);
+                                }
+                            };
+                            print!("{}", toml);
                         }
-                    };
-
-                    print!("{}", toml);
+                        cmd::ConfigFormat::Yaml => {
+                            let yaml = match config.as_yaml() {
+                                Ok(yaml) => yaml,
+                                Err(error) => {
+                                    print_error(&format!(
+                                        "Failed converting config to YAML: {}",
+                                        &error
+                                    ));
+                                    process::exit(1);
+                                }
+                            };
+                            print!("{}", yaml);
+                        }
+                    }
                 }
                 for warning in warnings {
                     print_warning(&warning);
@@ -350,25 +369,26 @@ fn main() {
                         process::exit(1);
                     });
 
+                    let mut failures = false;
                     for worktree in repo.get_worktrees().unwrap_or_else(|error| {
                         print_error(&format!("Error getting worktrees: {}", error));
                         process::exit(1);
                     }) {
-                        if let Some(warning) =
-                            worktree
-                                .forward_branch(args.rebase)
-                                .unwrap_or_else(|error| {
-                                    print_error(&format!(
-                                        "Error updating worktree branch: {}",
-                                        error
-                                    ));
-                                    process::exit(1);
-                                })
+                        if let Some(warning) = worktree
+                            .forward_branch(args.rebase, args.stash)
+                            .unwrap_or_else(|error| {
+                                print_error(&format!("Error updating worktree branch: {}", error));
+                                process::exit(1);
+                            })
                         {
                             print_warning(&format!("{}: {}", worktree.name(), warning));
+                            failures = true;
                         } else {
                             print_success(&format!("{}: Done", worktree.name()));
                         }
+                    }
+                    if failures {
+                        process::exit(1);
                     }
                 }
                 cmd::WorktreeAction::Rebase(args) => {
@@ -406,10 +426,12 @@ fn main() {
                         process::exit(1);
                     });
 
+                    let mut failures = false;
+
                     for worktree in &worktrees {
                         if args.pull {
                             if let Some(warning) = worktree
-                                .forward_branch(args.rebase)
+                                .forward_branch(args.rebase, args.stash)
                                 .unwrap_or_else(|error| {
                                     print_error(&format!(
                                         "Error updating worktree branch: {}",
@@ -418,27 +440,28 @@ fn main() {
                                     process::exit(1);
                                 })
                             {
+                                failures = true;
                                 print_warning(&format!("{}: {}", worktree.name(), warning));
                             }
                         }
                     }
 
                     for worktree in &worktrees {
-                        if let Some(warning) =
-                            worktree
-                                .rebase_onto_default(&config)
-                                .unwrap_or_else(|error| {
-                                    print_error(&format!(
-                                        "Error rebasing worktree branch: {}",
-                                        error
-                                    ));
-                                    process::exit(1);
-                                })
+                        if let Some(warning) = worktree
+                            .rebase_onto_default(&config, args.stash)
+                            .unwrap_or_else(|error| {
+                                print_error(&format!("Error rebasing worktree branch: {}", error));
+                                process::exit(1);
+                            })
                         {
+                            failures = true;
                             print_warning(&format!("{}: {}", worktree.name(), warning));
                         } else {
                             print_success(&format!("{}: Done", worktree.name()));
                         }
+                    }
+                    if failures {
+                        process::exit(1);
                     }
                 }
             }

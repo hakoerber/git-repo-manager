@@ -74,3 +74,9 @@ $ grm repos status
 ╰──────────┴──────────┴────────┴──────────┴───────┴─────────╯
 ```
 
+## YAML
+
+By default, the repo configuration uses TOML. If you prefer YAML, just give it
+a YAML file instead (file ending does not matter, `grm` will figure out the format
+itself). For generating a configuration, pass `--format yaml` to `grm repo find`
+to generate YAML instead of TOML.

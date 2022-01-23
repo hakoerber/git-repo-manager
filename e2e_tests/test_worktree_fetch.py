@@ -2,6 +2,8 @@
 
 from helpers import *
 
+import re
+
 import pytest
 import git
 
@@ -51,7 +53,9 @@ def test_worktree_fetch():
 
 @pytest.mark.parametrize("rebase", [True, False])
 @pytest.mark.parametrize("ffable", [True, False])
-def test_worktree_pull(rebase, ffable):
+@pytest.mark.parametrize("has_changes", [True, False])
+@pytest.mark.parametrize("stash", [True, False])
+def test_worktree_pull(rebase, ffable, has_changes, stash):
     with TempGitRepositoryWorktree() as (base_dir, root_commit):
         with TempGitFileRemote() as (remote_path, _remote_sha):
             shell(
@@ -94,51 +98,79 @@ def test_worktree_pull(rebase, ffable):
                     """
                     )
 
+                if has_changes:
+                    shell(
+                        f"""
+                        cd {base_dir}/master
+                        echo change >> root-commit-in-worktree-1
+                        echo uncommitedchange > uncommitedchange
+                    """
+                    )
+
                 args = ["wt", "pull"]
                 if rebase:
                     args += ["--rebase"]
+                if stash:
+                    args += ["--stash"]
                 cmd = grm(args, cwd=base_dir)
-                assert cmd.returncode == 0
-
-                assert repo.commit("upstream/master").hexsha == remote_commit
-                assert repo.commit("origin/master").hexsha == root_commit
-                assert (
-                    repo.commit("master").hexsha != repo.commit("origin/master").hexsha
-                )
-
-                if not rebase:
-                    if ffable:
-                        assert (
-                            repo.commit("master").hexsha
-                            != repo.commit("origin/master").hexsha
-                        )
-                        assert (
-                            repo.commit("master").hexsha
-                            == repo.commit("upstream/master").hexsha
-                        )
-                        assert repo.commit("upstream/master").hexsha == remote_commit
-                    else:
-                        assert "cannot be fast forwarded" in cmd.stderr
-                        assert (
-                            repo.commit("master").hexsha
-                            != repo.commit("origin/master").hexsha
-                        )
-                        assert repo.commit("master").hexsha != remote_commit
-                        assert repo.commit("upstream/master").hexsha == remote_commit
+                if has_changes and not stash:
+                    assert cmd.returncode != 0
+                    assert re.match(r".*master.*contains changes.*", cmd.stderr)
                 else:
-                    if ffable:
-                        assert (
-                            repo.commit("master").hexsha
-                            != repo.commit("origin/master").hexsha
-                        )
-                        assert (
-                            repo.commit("master").hexsha
-                            == repo.commit("upstream/master").hexsha
-                        )
-                        assert repo.commit("upstream/master").hexsha == remote_commit
+                    assert repo.commit("upstream/master").hexsha == remote_commit
+                    assert repo.commit("origin/master").hexsha == root_commit
+                    assert (
+                        repo.commit("master").hexsha
+                        != repo.commit("origin/master").hexsha
+                    )
+                    if has_changes:
+                        assert ["uncommitedchange"] == repo.untracked_files
+                        assert repo.is_dirty()
                     else:
-                        assert (
-                            repo.commit("master").message.strip()
-                            == "local-commit-in-master"
-                        )
-                        assert repo.commit("master~1").hexsha == remote_commit
+                        assert not repo.is_dirty()
+
+                    if not rebase:
+                        if ffable:
+                            assert cmd.returncode == 0
+                            assert (
+                                repo.commit("master").hexsha
+                                != repo.commit("origin/master").hexsha
+                            )
+                            assert (
+                                repo.commit("master").hexsha
+                                == repo.commit("upstream/master").hexsha
+                            )
+                            assert (
+                                repo.commit("upstream/master").hexsha == remote_commit
+                            )
+                        else:
+                            assert cmd.returncode != 0
+                            assert "cannot be fast forwarded" in cmd.stderr
+                            assert (
+                                repo.commit("master").hexsha
+                                != repo.commit("origin/master").hexsha
+                            )
+                            assert repo.commit("master").hexsha != remote_commit
+                            assert (
+                                repo.commit("upstream/master").hexsha == remote_commit
+                            )
+                    else:
+                        assert cmd.returncode == 0
+                        if ffable:
+                            assert (
+                                repo.commit("master").hexsha
+                                != repo.commit("origin/master").hexsha
+                            )
+                            assert (
+                                repo.commit("master").hexsha
+                                == repo.commit("upstream/master").hexsha
+                            )
+                            assert (
+                                repo.commit("upstream/master").hexsha == remote_commit
+                            )
+                        else:
+                            assert (
+                                repo.commit("master").message.strip()
+                                == "local-commit-in-master"
+                            )
+                            assert repo.commit("master~1").hexsha == remote_commit

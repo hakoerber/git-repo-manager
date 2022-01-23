@@ -61,10 +61,25 @@ pub struct OptionalConfig {
     pub config: Option<String>,
 }
 
+#[derive(clap::ArgEnum, Clone)]
+pub enum ConfigFormat {
+    Yaml,
+    Toml,
+}
+
 #[derive(Parser)]
 pub struct Find {
     #[clap(help = "The path to search through")]
     pub path: String,
+
+    #[clap(
+        arg_enum,
+        short,
+        long,
+        help = "Format to produce",
+        default_value_t = ConfigFormat::Toml,
+    )]
+    pub format: ConfigFormat,
 }
 
 #[derive(Parser)]
@@ -132,6 +147,8 @@ pub struct WorktreeFetchArgs {}
 pub struct WorktreePullArgs {
     #[clap(long = "--rebase", help = "Perform a rebase instead of a fast-forward")]
     pub rebase: bool,
+    #[clap(long = "--stash", help = "Stash & unstash changes before & after pull")]
+    pub stash: bool,
 }
 
 #[derive(Parser)]
@@ -140,6 +157,11 @@ pub struct WorktreeRebaseArgs {
     pub pull: bool,
     #[clap(long = "--rebase", help = "Perform a rebase when doing a pull")]
     pub rebase: bool,
+    #[clap(
+        long = "--stash",
+        help = "Stash & unstash changes before & after rebase"
+    )]
+    pub stash: bool,
 }
 
 pub fn parse() -> Opts {

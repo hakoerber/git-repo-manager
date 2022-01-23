@@ -2,15 +2,18 @@
 
 from helpers import *
 
-import pytest
+import re
 
+import pytest
 import git
 
 
 @pytest.mark.parametrize("pull", [True, False])
 @pytest.mark.parametrize("rebase", [True, False])
 @pytest.mark.parametrize("ffable", [True, False])
-def test_worktree_rebase(pull, rebase, ffable):
+@pytest.mark.parametrize("has_changes", [True, False])
+@pytest.mark.parametrize("stash", [True, False])
+def test_worktree_rebase(pull, rebase, ffable, has_changes, stash):
     with TempGitRepositoryWorktree() as (base_dir, _root_commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
             f.write('persistent_branches = ["mybasebranch"]')
@@ -83,6 +86,14 @@ def test_worktree_rebase(pull, rebase, ffable):
             """
             )
 
+        if has_changes:
+            shell(
+                f"""
+                cd {base_dir}/myfeatbranch
+                echo uncommitedchange > uncommitedchange
+            """
+            )
+
         grm(["wt", "delete", "--force", "tmp"], cwd=base_dir)
 
         repo = git.Repo(f"{base_dir}/.git-main-working-tree")
@@ -133,17 +144,23 @@ def test_worktree_rebase(pull, rebase, ffable):
             args += ["--pull"]
         if rebase:
             args += ["--rebase"]
+        if stash:
+            args += ["--stash"]
         cmd = grm(args, cwd=base_dir)
 
-        print(args)
         if rebase and not pull:
             assert cmd.returncode != 0
             assert len(cmd.stderr) != 0
+        elif has_changes and not stash:
+            assert cmd.returncode != 0
+            assert re.match(r".*myfeatbranch.*contains changes.*", cmd.stderr)
         else:
-            assert cmd.returncode == 0
             repo = git.Repo(f"{base_dir}/myfeatbranch")
+            if has_changes:
+                assert ["uncommitedchange"] == repo.untracked_files
             if pull:
                 if rebase:
+                    assert cmd.returncode == 0
                     if ffable:
                         assert (
                             repo.commit("HEAD").message.strip()
@@ -190,6 +207,7 @@ def test_worktree_rebase(pull, rebase, ffable):
                         assert repo.commit("HEAD~6").message.strip() == "commit-root"
                 else:
                     if ffable:
+                        assert cmd.returncode == 0
                         assert (
                             repo.commit("HEAD").message.strip()
                             == "commit-in-feat-remote"
@@ -208,6 +226,7 @@ def test_worktree_rebase(pull, rebase, ffable):
                         )
                         assert repo.commit("HEAD~4").message.strip() == "commit-root"
                     else:
+                        assert cmd.returncode != 0
                         assert (
                             repo.commit("HEAD").message.strip()
                             == "commit-in-feat-local-no-ff"
@@ -226,6 +245,7 @@ def test_worktree_rebase(pull, rebase, ffable):
                         )
                         assert repo.commit("HEAD~4").message.strip() == "commit-root"
             else:
+                assert cmd.returncode == 0
                 if ffable:
                     assert repo.commit("HEAD").message.strip() == "commit-in-feat-local"
                     assert (

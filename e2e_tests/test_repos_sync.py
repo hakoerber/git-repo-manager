@@ -2,6 +2,7 @@
 
 import tempfile
 import re
+import textwrap
 
 import pytest
 import toml
@@ -9,8 +10,134 @@ import git
 
 from helpers import *
 
+templates = {
+    "repo_simple": {
+        "toml": """
+            [[trees]]
+            root = "{root}"
 
-def test_repos_sync_config_is_valid_symlink():
+            [[trees.repos]]
+            name = "test"
+        """,
+        "yaml": """
+            trees:
+            - root: "{root}"
+              repos:
+              - name: "test"
+        """,
+    },
+    "repo_with_remote": {
+        "toml": """
+            [[trees]]
+            root = "{root}"
+
+            [[trees.repos]]
+            name = "test"
+
+            [[trees.repos.remotes]]
+            name = "{remotename}"
+            url = "file://{remote}"
+            type = "file"
+        """,
+        "yaml": textwrap.dedent(
+            """
+            trees:
+            - root: "{root}"
+              repos:
+              - name: test
+                remotes:
+                - name: "{remotename}"
+                  url: "file://{remote}"
+                  type: "file"
+        """
+        ),
+    },
+    "repo_with_two_remotes": {
+        "toml": """
+            [[trees]]
+            root = "{root}"
+
+            [[trees.repos]]
+            name = "test"
+
+            [[trees.repos.remotes]]
+            name = "origin"
+            url = "file://{remote1}"
+            type = "file"
+
+            [[trees.repos.remotes]]
+            name = "origin2"
+            url = "file://{remote2}"
+            type = "file"
+        """,
+        "yaml": textwrap.dedent(
+            """
+            trees:
+            - root: "{root}"
+              repos:
+              - name: "test"
+                remotes:
+                - name: "origin"
+                  url: "file://{remote1}"
+                  type: "file"
+                - name: "origin2"
+                  url: "file://{remote2}"
+                  type: "file"
+        """
+        ),
+    },
+    "worktree_repo_simple": {
+        "toml": """
+            [[trees]]
+            root = "{root}"
+
+            [[trees.repos]]
+            name = "test"
+            worktree_setup = true
+        """,
+        "yaml": textwrap.dedent(
+            """
+            trees:
+            - root: "{root}"
+              repos:
+              - name: test
+                worktree_setup: true
+        """
+        ),
+    },
+    "worktree_repo_with_remote": {
+        "toml": """
+            [[trees]]
+            root = "{root}"
+
+            [[trees.repos]]
+            name = "test"
+            worktree_setup = true
+
+            [[trees.repos.remotes]]
+            name = "origin"
+            url = "file://{remote}"
+            type = "file"
+        """,
+        "yaml": textwrap.dedent(
+            """
+            trees:
+            - root: "{root}"
+              repos:
+              - name: test
+                worktree_setup: true
+                remotes:
+                - name: origin
+                  url: "file://{remote}"
+                  type: "file"
+        """
+        ),
+    },
+}
+
+
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_config_is_valid_symlink(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote, head_commit_sha):
             with tempfile.NamedTemporaryFile() as config:
@@ -20,19 +147,12 @@ def test_repos_sync_config_is_valid_symlink():
 
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote, remotename="origin"
+                            )
                         )
+
+                    subprocess.run(["cat", config.name])
 
                     cmd = grm(["repos", "sync", "--config", config_symlink])
                     assert cmd.returncode == 0
@@ -85,20 +205,13 @@ def test_repos_sync_config_is_unreadable():
         assert "permission denied" in cmd.stderr.lower()
 
 
-def test_repos_sync_unmanaged_repos():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_unmanaged_repos(configtype):
     with tempfile.TemporaryDirectory() as root:
         with TempGitRepository(dir=root) as unmanaged_repo:
             with tempfile.NamedTemporaryFile() as config:
                 with open(config.name, "w") as f:
-                    f.write(
-                        f"""
-                        [[trees]]
-                        root = "{root}"
-
-                        [[trees.repos]]
-                        name = "test"
-                    """
-                    )
+                    f.write(templates["repo_simple"][configtype].format(root=root))
 
                 cmd = grm(["repos", "sync", "--config", config.name])
                 assert cmd.returncode == 0
@@ -112,19 +225,12 @@ def test_repos_sync_unmanaged_repos():
                 assert any([re.match(regex, l) for l in cmd.stderr.lower().split("\n")])
 
 
-def test_repos_sync_root_is_file():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_root_is_file(configtype):
     with tempfile.NamedTemporaryFile() as target:
         with tempfile.NamedTemporaryFile() as config:
             with open(config.name, "w") as f:
-                f.write(
-                    f"""
-                    [[trees]]
-                    root = "{target.name}"
-
-                    [[trees.repos]]
-                    name = "test"
-                """
-                )
+                f.write(templates["repo_simple"][configtype].format(root=target.name))
 
             cmd = grm(["repos", "sync", "--config", config.name])
             assert cmd.returncode != 0
@@ -132,30 +238,17 @@ def test_repos_sync_root_is_file():
             assert "not a directory" in cmd.stderr.lower()
 
 
-def test_repos_sync_normal_clone():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_normal_clone(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
             with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-
-                            [[trees.repos.remotes]]
-                            name = "origin2"
-                            url = "file://{remote2}"
-                            type = "file"
-                        """
+                            templates["repo_with_two_remotes"][configtype].format(
+                                root=target, remote1=remote1, remote2=remote2
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -183,19 +276,12 @@ def test_repos_sync_normal_clone():
                         assert urls[0] == f"file://{remote2}"
 
 
-def test_repos_sync_normal_init():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_normal_init(configtype):
     with tempfile.TemporaryDirectory() as target:
         with tempfile.NamedTemporaryFile() as config:
             with open(config.name, "w") as f:
-                f.write(
-                    f"""
-                    [[trees]]
-                    root = "{target}"
-
-                    [[trees.repos]]
-                    name = "test"
-                """
-                )
+                f.write(templates["repo_simple"][configtype].format(root=target))
 
             cmd = grm(["repos", "sync", "--config", config.name])
             assert cmd.returncode == 0
@@ -210,25 +296,17 @@ def test_repos_sync_normal_init():
                 assert not repo.head.is_valid()
 
 
-def test_repos_sync_normal_add_remote():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_normal_add_remote(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
             with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote1, remotename="origin"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -246,23 +324,9 @@ def test_repos_sync_normal_add_remote():
 
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-
-                            [[trees.repos.remotes]]
-                            name = "origin2"
-                            url = "file://{remote2}"
-                            type = "file"
-                        """
+                            templates["repo_with_two_remotes"][configtype].format(
+                                root=target, remote1=remote1, remote2=remote2
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -282,30 +346,17 @@ def test_repos_sync_normal_add_remote():
                         assert urls[0] == f"file://{remote2}"
 
 
-def test_repos_sync_normal_remove_remote():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_normal_remove_remote(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
             with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-
-                            [[trees.repos.remotes]]
-                            name = "origin2"
-                            url = "file://{remote2}"
-                            type = "file"
-                        """
+                            templates["repo_with_two_remotes"][configtype].format(
+                                root=target, remote1=remote1, remote2=remote2
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -326,18 +377,9 @@ def test_repos_sync_normal_remove_remote():
 
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin2"
-                            url = "file://{remote2}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote2, remotename="origin2"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -369,25 +411,17 @@ def test_repos_sync_normal_remove_remote():
                         assert urls[0] == f"file://{remote2}"
 
 
-def test_repos_sync_normal_change_remote_url():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_normal_change_remote_url(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
             with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote1, remotename="origin"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -405,18 +439,9 @@ def test_repos_sync_normal_change_remote_url():
 
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote2}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote2, remotename="origin"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -429,25 +454,17 @@ def test_repos_sync_normal_change_remote_url():
                         assert urls[0] == f"file://{remote2}"
 
 
-def test_repos_sync_normal_change_remote_name():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_normal_change_remote_name(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
             with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote1, remotename="origin"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -465,18 +482,9 @@ def test_repos_sync_normal_change_remote_name():
 
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin2"
-                            url = "file://{remote1}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote1, remotename="origin2"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -492,25 +500,16 @@ def test_repos_sync_normal_change_remote_name():
                         assert urls[0] == f"file://{remote1}"
 
 
-def test_repos_sync_worktree_clone():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_worktree_clone(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote, head_commit_sha):
             with tempfile.NamedTemporaryFile() as config:
                 with open(config.name, "w") as f:
                     f.write(
-                        f"""
-                        [[trees]]
-                        root = "{target}"
-
-                        [[trees.repos]]
-                        name = "test"
-                        worktree_setup = true
-
-                        [[trees.repos.remotes]]
-                        name = "origin"
-                        url = "file://{remote}"
-                        type = "file"
-                    """
+                        templates["worktree_repo_with_remote"][configtype].format(
+                            root=target, remote=remote, remotename="origin"
+                        )
                     )
 
                 cmd = grm(["repos", "sync", "--config", config.name])
@@ -530,19 +529,13 @@ def test_repos_sync_worktree_clone():
                     assert str(repo.head.commit) == head_commit_sha
 
 
-def test_repos_sync_worktree_init():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_worktree_init(configtype):
     with tempfile.TemporaryDirectory() as target:
         with tempfile.NamedTemporaryFile() as config:
             with open(config.name, "w") as f:
                 f.write(
-                    f"""
-                    [[trees]]
-                    root = "{target}"
-
-                    [[trees.repos]]
-                    name = "test"
-                    worktree_setup = true
-                """
+                    templates["worktree_repo_simple"][configtype].format(root=target)
                 )
 
             cmd = grm(["repos", "sync", "--config", config.name])
@@ -559,43 +552,42 @@ def test_repos_sync_worktree_init():
                 assert not repo.head.is_valid()
 
 
-def test_repos_sync_invalid_toml():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_invalid_syntax(configtype):
     with tempfile.NamedTemporaryFile() as config:
         with open(config.name, "w") as f:
-            f.write(
-                f"""
-                [[trees]]
-                root = invalid as there are no quotes ;)
-            """
-            )
+            if configtype == "toml":
+                f.write(
+                    f"""
+                    [[trees]]
+                    root = invalid as there are no quotes ;)
+                """
+                )
+            elif configtype == "yaml":
+                f.write(
+                    f"""
+                    trees:
+                    wrong:
+                    indentation:
+                """
+                )
+            else:
+                raise NotImplementedError()
             cmd = grm(["repos", "sync", "--config", config.name])
             assert cmd.returncode != 0
 
 
-def test_repos_sync_unchanged():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_unchanged(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
             with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-
-                            [[trees.repos.remotes]]
-                            name = "origin2"
-                            url = "file://{remote2}"
-                            type = "file"
-                        """
+                            templates["repo_with_two_remotes"][configtype].format(
+                                root=target, remote1=remote1, remote2=remote2
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -609,25 +601,17 @@ def test_repos_sync_unchanged():
                     assert before == after
 
 
-def test_repos_sync_normal_change_to_worktree():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_normal_change_to_worktree(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
             with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote1, remotename="origin"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -637,19 +621,9 @@ def test_repos_sync_normal_change_to_worktree():
 
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-                            worktree_setup = true
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-                        """
+                            templates["worktree_repo_with_remote"][configtype].format(
+                                root=target, remote=remote1, remotename="origin"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -658,26 +632,17 @@ def test_repos_sync_normal_change_to_worktree():
                     assert "not using a worktree setup" in cmd.stderr
 
 
-def test_repos_sync_worktree_change_to_normal():
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_worktree_change_to_normal(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
             with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-                            worktree_setup = true
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-                        """
+                            templates["worktree_repo_with_remote"][configtype].format(
+                                root=target, remote=remote1, remotename="origin"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])
@@ -687,18 +652,9 @@ def test_repos_sync_worktree_change_to_normal():
 
                     with open(config.name, "w") as f:
                         f.write(
-                            f"""
-                            [[trees]]
-                            root = "{target}"
-
-                            [[trees.repos]]
-                            name = "test"
-
-                            [[trees.repos.remotes]]
-                            name = "origin"
-                            url = "file://{remote1}"
-                            type = "file"
-                        """
+                            templates["repo_with_remote"][configtype].format(
+                                root=target, remote=remote1, remotename="origin"
+                            )
                         )
 
                     cmd = grm(["repos", "sync", "--config", config.name])

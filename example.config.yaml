@@ -1,0 +1,16 @@
+trees:
+- root: "~/example-projects/"
+  repos:
+  - name: "git-repo-manager"
+    remotes:
+    - name: "origin"
+      url: "https://code.hkoerber.de/hannes/git-repo-manager.git"
+      type: "https"
+    - name: "github"
+      url: "https://github.com/hakoerber/git-repo-manager.git"
+      type: "https"
+  - name: "dotfiles"
+    remotes:
+    - name: "origin"
+      url: "https://github.com/hakoerber/dotfiles.git"
+      type: "https"
