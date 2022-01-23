@@ -142,7 +142,8 @@
 Manager</a> (GRM for short), a
 tool that helps you manage git repositories.</p>
 <p>GRM helps you manage git repositories in a declarative way. Configure your
-repositories in a TOML file, GRM does the rest. Take a look at <a href="https://github.com/hakoerber/git-repo-manager/blob/master/example.config.toml">the example
+repositories in a TOML or YAML file, GRM does the rest. Take a look at <a href="https://github.com/hakoerber/git-repo-manager/blob/master/example.config.toml">the
+example
 configuration</a>
 to get a feel for the way you configure your repositories. See the <a href="./repos.html">repository
 tree chapter</a> for details.</p>
@@ -231,6 +232,11 @@ $ grm repos status
 │ dotfiles ┆          ┆ ✔      ┆          ┆ Empty ┆ origin  │
 ╰──────────┴──────────┴────────┴──────────┴───────┴─────────╯
 </code></pre>
+<h2 id="yaml"><a class="header" href="#yaml">YAML</a></h2>
+<p>By default, the repo configuration uses TOML. If you prefer YAML, just give it
+a YAML file instead (file ending does not matter, <code>grm</code> will figure out the format
+itself). For generating a configuration, pass <code>--format yaml</code> to <code>grm repo find</code>
+to generate YAML instead of TOML.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="git-worktrees"><a class="header" href="#git-worktrees">Git Worktrees</a></h1>
 <h2 id="why"><a class="header" href="#why">Why?</a></h2>
 <p>The default workflow when using git is having your repository in a single directory.
@@ -450,6 +456,9 @@ forwarded. If you want to rebase your local branches, use the <code>--rebase</co
 [✔] master: Done
 [✔] my-cool-branch: Done
 </code></pre>
+<p>As noted, this will fail if there are any local changes in your worktree. If you
+want to stash these changes automatically before the pull (and unstash them
+afterwards), use the <code>--stash</code> option.</p>
 <p>This will rebase your changes onto the upstream branch. This is mainly helpful
 for persistent branches that change on the remote side.</p>
 <p>There is a similar rebase feature that rebases onto the <strong>default</strong> branch instead:</p>
@@ -478,6 +487,9 @@ run two commands.</p>
 </ul>
 <p>I understand that the UX is not the most intuitive. If you can think of an
 improvement, please let me know (e.g. via an GitHub issue)!</p>
+<p>As with <code>pull</code>, <code>rebase</code> will also refuse to run when there are changes in your
+worktree. And you can also use the <code>--stash</code> option to stash/unstash changes
+automatically.</p>
 <h3 id="manual-access"><a class="header" href="#manual-access">Manual access</a></h3>
 <p>GRM isn't doing any magic, it's just git under the hood. If you need to have access
 to the underlying git repository, you can always do this:</p>

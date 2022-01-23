@@ -355,6 +355,9 @@ forwarded. If you want to rebase your local branches, use the <code>--rebase</co
 [✔] master: Done
 [✔] my-cool-branch: Done
 </code></pre>
+<p>As noted, this will fail if there are any local changes in your worktree. If you
+want to stash these changes automatically before the pull (and unstash them
+afterwards), use the <code>--stash</code> option.</p>
 <p>This will rebase your changes onto the upstream branch. This is mainly helpful
 for persistent branches that change on the remote side.</p>
 <p>There is a similar rebase feature that rebases onto the <strong>default</strong> branch instead:</p>
@@ -383,6 +386,9 @@ run two commands.</p>
 </ul>
 <p>I understand that the UX is not the most intuitive. If you can think of an
 improvement, please let me know (e.g. via an GitHub issue)!</p>
+<p>As with <code>pull</code>, <code>rebase</code> will also refuse to run when there are changes in your
+worktree. And you can also use the <code>--stash</code> option to stash/unstash changes
+automatically.</p>
 <h3 id="manual-access"><a class="header" href="#manual-access">Manual access</a></h3>
 <p>GRM isn't doing any magic, it's just git under the hood. If you need to have access
 to the underlying git repository, you can always do this:</p>
