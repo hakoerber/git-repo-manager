@@ -1507,8 +1507,11 @@ pub fn clone_repo(
         repo.rename_remote(&origin, &remote.name)?;
     }
 
-    let mut active_branch = repo.head_branch()?;
-    active_branch.set_upstream(&remote.name, &active_branch.name()?)?;
+    // If there is no head_branch, we most likely cloned an empty repository and
+    // there is no point in setting any upstreams.
+    if let Ok(mut active_branch) = repo.head_branch() {
+        active_branch.set_upstream(&remote.name, &active_branch.name()?)?;
+    };
 
     Ok(())
 }
