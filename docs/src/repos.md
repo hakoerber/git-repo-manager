@@ -17,7 +17,7 @@ Then, you're ready to run the first sync. This will clone all configured reposit
 and set up the remotes.
 
 ```bash
-$ grm repos sync --config example.config.toml
+$ grm repos sync config --config example.config.toml
 [⚙] Cloning into "/home/me/projects/git-repo-manager" from "https://code.hkoerber.de/hannes/git-repo-manager.git"
 [✔] git-repo-manager: Repository successfully cloned
 [⚙] git-repo-manager: Setting up new remote "github" to "https://github.com/hakoerber/git-repo-manager.git"
@@ -30,7 +30,7 @@ $ grm repos sync --config example.config.toml
 If you run it again, it will report no changes:
 
 ```
-$ grm repos sync --config example.config.toml
+$ grm repos sync config -c example.config.toml
 [✔] git-repo-manager: OK
 [✔] dotfiles: OK
 ```
@@ -42,7 +42,7 @@ a configuration from scratch. Luckily, GRM has a way to generate a configuration
 from an existing file tree:
 
 ```bash
-$ grm repos find ~/your/project/root > config.toml
+$ grm repos find local ~/your/project/root > config.toml
 ```
 
 This will detect all repositories and remotes and write them to `config.toml`.

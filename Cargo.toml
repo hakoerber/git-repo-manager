@@ -26,6 +26,9 @@ rust-version = "1.57"
 
 license = "GPL-3.0-only"
 
+[profile.e2e-tests]
+inherits = "release"
+
 [lib]
 name = "grm"
 path = "src/lib.rs"
@@ -64,6 +67,16 @@ version = "=5.0.1"
 
 [dependencies.serde_yaml]
 version = "=0.8.24"
+
+[dependencies.serde_json]
+version = "=1.0.59"
+
+[dependencies.isahc]
+version = "=1.7.1"
+features = ["json"]
+
+[dependencies.parse_link_header]
+version = "=0.3.2"
 
 [dev-dependencies.tempdir]
 version = "=0.3.7"

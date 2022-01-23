@@ -154,7 +154,7 @@ def test_repos_sync_config_is_valid_symlink(configtype):
 
                     subprocess.run(["cat", config.name])
 
-                    cmd = grm(["repos", "sync", "--config", config_symlink])
+                    cmd = grm(["repos", "sync", "config", "--config", config_symlink])
                     assert cmd.returncode == 0
 
                     git_dir = os.path.join(target, "test")
@@ -174,7 +174,7 @@ def test_repos_sync_config_is_invalid_symlink():
                 config_symlink = os.path.join(config_dir, "cfglink")
                 os.symlink(nonexistent_dir, config_symlink)
 
-                cmd = grm(["repos", "sync", "--config", config_symlink])
+                cmd = grm(["repos", "sync", "config", "--config", config_symlink])
 
                 assert cmd.returncode != 0
                 assert len(cmd.stdout) == 0
@@ -185,7 +185,7 @@ def test_repos_sync_config_is_invalid_symlink():
 
 def test_repos_sync_config_is_directory():
     with tempfile.TemporaryDirectory() as config:
-        cmd = grm(["repos", "sync", "--config", config])
+        cmd = grm(["repos", "sync", "config", "--config", config])
 
         assert cmd.returncode != 0
         assert len(cmd.stdout) == 0
@@ -197,12 +197,11 @@ def test_repos_sync_config_is_unreadable():
         config_path = os.path.join(config_dir, "cfg")
         open(config_path, "w")
         os.chmod(config_path, 0o0000)
-        cmd = grm(["repos", "sync", "--config", config_path])
+        cmd = grm(["repos", "sync", "config", "--config", config_path])
 
         assert os.path.exists(config_path)
         assert cmd.returncode != 0
         assert len(cmd.stdout) == 0
-        assert "permission denied" in cmd.stderr.lower()
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
@@ -213,7 +212,7 @@ def test_repos_sync_unmanaged_repos(configtype):
                 with open(config.name, "w") as f:
                     f.write(templates["repo_simple"][configtype].format(root=root))
 
-                cmd = grm(["repos", "sync", "--config", config.name])
+                cmd = grm(["repos", "sync", "config", "--config", config.name])
                 assert cmd.returncode == 0
 
                 git_dir = os.path.join(root, "test")
@@ -232,7 +231,7 @@ def test_repos_sync_root_is_file(configtype):
             with open(config.name, "w") as f:
                 f.write(templates["repo_simple"][configtype].format(root=target.name))
 
-            cmd = grm(["repos", "sync", "--config", config.name])
+            cmd = grm(["repos", "sync", "config", "--config", config.name])
             assert cmd.returncode != 0
             assert len(cmd.stdout) == 0
             assert "not a directory" in cmd.stderr.lower()
@@ -251,7 +250,7 @@ def test_repos_sync_normal_clone(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
                     git_dir = os.path.join(target, "test")
@@ -283,7 +282,7 @@ def test_repos_sync_normal_init(configtype):
             with open(config.name, "w") as f:
                 f.write(templates["repo_simple"][configtype].format(root=target))
 
-            cmd = grm(["repos", "sync", "--config", config.name])
+            cmd = grm(["repos", "sync", "config", "--config", config.name])
             assert cmd.returncode == 0
 
             git_dir = os.path.join(target, "test")
@@ -309,7 +308,7 @@ def test_repos_sync_normal_add_remote(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
                     git_dir = os.path.join(target, "test")
@@ -329,7 +328,7 @@ def test_repos_sync_normal_add_remote(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
                     with git.Repo(git_dir) as repo:
                         assert set([str(r) for r in repo.remotes]) == {
@@ -359,7 +358,7 @@ def test_repos_sync_normal_remove_remote(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
                     git_dir = os.path.join(target, "test")
@@ -382,7 +381,7 @@ def test_repos_sync_normal_remove_remote(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
                     shell(f"cd {git_dir} && git remote -v")
                     with git.Repo(git_dir) as repo:
@@ -424,7 +423,7 @@ def test_repos_sync_normal_change_remote_url(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
                     git_dir = os.path.join(target, "test")
@@ -444,7 +443,7 @@ def test_repos_sync_normal_change_remote_url(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
                     with git.Repo(git_dir) as repo:
                         assert set([str(r) for r in repo.remotes]) == {"origin"}
@@ -467,7 +466,7 @@ def test_repos_sync_normal_change_remote_name(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
                     git_dir = os.path.join(target, "test")
@@ -487,7 +486,7 @@ def test_repos_sync_normal_change_remote_name(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
                     with git.Repo(git_dir) as repo:
                         # See the note in `test_repos_sync_normal_remove_remote()`
@@ -512,7 +511,7 @@ def test_repos_sync_worktree_clone(configtype):
                         )
                     )
 
-                cmd = grm(["repos", "sync", "--config", config.name])
+                cmd = grm(["repos", "sync", "config", "--config", config.name])
                 assert cmd.returncode == 0
 
                 worktree_dir = f"{target}/test"
@@ -538,7 +537,7 @@ def test_repos_sync_worktree_init(configtype):
                     templates["worktree_repo_simple"][configtype].format(root=target)
                 )
 
-            cmd = grm(["repos", "sync", "--config", config.name])
+            cmd = grm(["repos", "sync", "config", "--config", config.name])
             assert cmd.returncode == 0
 
             worktree_dir = f"{target}/test"
@@ -573,7 +572,7 @@ def test_repos_sync_invalid_syntax(configtype):
                 )
             else:
                 raise NotImplementedError()
-            cmd = grm(["repos", "sync", "--config", config.name])
+            cmd = grm(["repos", "sync", "config", "--config", config.name])
             assert cmd.returncode != 0
 
 
@@ -590,11 +589,11 @@ def test_repos_sync_unchanged(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
                     before = checksum_directory(target)
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     after = checksum_directory(target)
                     assert cmd.returncode == 0
 
@@ -614,7 +613,7 @@ def test_repos_sync_normal_change_to_worktree(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
                     git_dir = os.path.join(target, "test")
@@ -626,7 +625,7 @@ def test_repos_sync_normal_change_to_worktree(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode != 0
                     assert "already exists" in cmd.stderr
                     assert "not using a worktree setup" in cmd.stderr
@@ -645,7 +644,7 @@ def test_repos_sync_worktree_change_to_normal(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
                     git_dir = os.path.join(target, "test")
@@ -657,7 +656,7 @@ def test_repos_sync_worktree_change_to_normal(configtype):
                             )
                         )
 
-                    cmd = grm(["repos", "sync", "--config", config.name])
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode != 0
                     assert "already exists" in cmd.stderr
                     assert "using a worktree setup" in cmd.stderr

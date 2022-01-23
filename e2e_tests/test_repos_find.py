@@ -11,7 +11,7 @@ from helpers import *
 
 def test_repos_find_nonexistent():
     with NonExistentPath() as nonexistent_dir:
-        cmd = grm(["repos", "find", nonexistent_dir])
+        cmd = grm(["repos", "find", "local", nonexistent_dir])
         assert "does not exist" in cmd.stderr.lower()
         assert cmd.returncode != 0
         assert not os.path.exists(nonexistent_dir)
@@ -19,14 +19,14 @@ def test_repos_find_nonexistent():
 
 def test_repos_find_file():
     with tempfile.NamedTemporaryFile() as tmpfile:
-        cmd = grm(["repos", "find", tmpfile.name])
+        cmd = grm(["repos", "find", "local", tmpfile.name])
         assert "not a directory" in cmd.stderr.lower()
         assert cmd.returncode != 0
 
 
 def test_repos_find_empty():
     with tempfile.TemporaryDirectory() as tmpdir:
-        cmd = grm(["repos", "find", tmpdir])
+        cmd = grm(["repos", "find", "local", tmpdir])
         assert cmd.returncode == 0
         assert len(cmd.stdout) == 0
         assert len(cmd.stderr) != 0
@@ -35,7 +35,8 @@ def test_repos_find_empty():
 def test_repos_find_invalid_format():
     with tempfile.TemporaryDirectory() as tmpdir:
         cmd = grm(
-            ["repos", "find", tmpdir, "--format", "invalidformat"], is_invalid=True
+            ["repos", "find", "local", tmpdir, "--format", "invalidformat"],
+            is_invalid=True,
         )
         assert cmd.returncode != 0
         assert len(cmd.stdout) == 0
@@ -55,7 +56,7 @@ def test_repos_find_non_git_repos():
         """
         )
 
-        cmd = grm(["repos", "find", tmpdir])
+        cmd = grm(["repos", "find", "local", tmpdir])
 
         assert cmd.returncode == 0
         assert len(cmd.stdout) == 0
@@ -83,7 +84,7 @@ def test_repos_find(configtype, default):
             (
                 cd ./repo2
                 git init
-                git co -b main
+                git checkout -b main
                 echo test > test
                 git add test
                 git commit -m "commit1"
@@ -97,7 +98,7 @@ def test_repos_find(configtype, default):
         """
         )
 
-        args = ["repos", "find", tmpdir]
+        args = ["repos", "find", "local", tmpdir]
         if not default:
             args += ["--format", configtype]
         cmd = grm(args)
@@ -152,7 +153,7 @@ def test_repos_find(configtype, default):
 def test_repos_find_in_root(configtype, default):
     with TempGitRepository() as repo_dir:
 
-        args = ["repos", "find", repo_dir]
+        args = ["repos", "find", "local", repo_dir]
         if not default:
             args += ["--format", configtype]
         cmd = grm(args)
@@ -213,7 +214,7 @@ def test_repos_find_with_invalid_repo(configtype, default):
             (
                 cd ./repo2
                 git init
-                git co -b main
+                git checkout -b main
                 echo test > test
                 git add test
                 git commit -m "commit1"
@@ -227,7 +228,7 @@ def test_repos_find_with_invalid_repo(configtype, default):
         """
         )
 
-        args = ["repos", "find", tmpdir]
+        args = ["repos", "find", "local", tmpdir]
         if not default:
             args += ["--format", configtype]
         cmd = grm(args)

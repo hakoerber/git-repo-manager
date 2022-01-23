@@ -1,0 +1,34 @@
+version: "3.7"
+
+services:
+  pytest:
+    build: ./docker
+    volumes:
+      - type: bind
+        source: ./
+        target: /tests
+        read_only: true
+      - type: tmpfs
+        target: /tmp
+    environment:
+      TMPDIR: /tmp
+    depends_on:
+      - rest
+    command:
+      - "true"
+    networks:
+      main:
+
+  rest:
+    build: ./docker-rest/
+    expose:
+      - "5000"
+    ports:
+      - "5000:5000"
+    networks:
+      main:
+        aliases:
+          - alternate-rest
+
+networks:
+  main:

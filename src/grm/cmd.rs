@@ -31,20 +31,53 @@ pub struct Repos {
 
 #[derive(Parser)]
 pub enum ReposAction {
-    #[clap(
-        visible_alias = "run",
-        about = "Synchronize the repositories to the configured values"
-    )]
-    Sync(Sync),
-    #[clap(about = "Generate a repository configuration from an existing file tree")]
-    Find(Find),
+    #[clap(subcommand)]
+    Sync(SyncAction),
+    #[clap(subcommand)]
+    Find(FindAction),
     #[clap(about = "Show status of configured repositories")]
     Status(OptionalConfig),
 }
 
 #[derive(Parser)]
-#[clap()]
-pub struct Sync {
+#[clap(about = "Sync local repositories with a configured list")]
+pub enum SyncAction {
+    #[clap(
+        about = "Synchronize the repositories to the configured values"
+    )]
+    Config(Config),
+    #[clap(about = "Synchronize the repositories from a remote provider")]
+    Remote(SyncRemoteArgs),
+}
+
+#[derive(Parser)]
+#[clap(about = "Generate a repository configuration from existing repositories")]
+pub enum FindAction {
+    #[clap(about = "Find local repositories")]
+    Local(FindLocalArgs),
+    #[clap(about = "Find repositories on remote provider")]
+    Remote(FindRemoteArgs),
+    #[clap(about = "Find repositories as defined in the configuration file")]
+    Config(FindConfigArgs),
+}
+
+#[derive(Parser)]
+pub struct FindLocalArgs {
+    #[clap(help = "The path to search through")]
+    pub path: String,
+
+    #[clap(
+        arg_enum,
+        short,
+        long,
+        help = "Format to produce",
+        default_value_t = ConfigFormat::Toml,
+    )]
+    pub format: ConfigFormat,
+}
+
+#[derive(Parser)]
+pub struct FindConfigArgs {
     #[clap(
         short,
         long,
@@ -52,6 +85,145 @@ pub struct Sync {
         help = "Path to the configuration file"
     )]
     pub config: String,
+
+    #[clap(
+        arg_enum,
+        short,
+        long,
+        help = "Format to produce",
+        default_value_t = ConfigFormat::Toml,
+    )]
+    pub format: ConfigFormat,
+}
+
+#[derive(Parser)]
+#[clap()]
+pub struct FindRemoteArgs {
+    #[clap(short, long, help = "Path to the configuration file")]
+    pub config: Option<String>,
+
+    #[clap(arg_enum, short, long, help = "Remote provider to use")]
+    pub provider: RemoteProvider,
+
+    #[clap(
+        multiple_occurrences = true,
+        name = "user",
+        long,
+        help = "Users to get repositories from"
+    )]
+    pub users: Vec<String>,
+
+    #[clap(
+        multiple_occurrences = true,
+        name = "group",
+        long,
+        help = "Groups to get repositories from"
+    )]
+    pub groups: Vec<String>,
+
+    #[clap(long, help = "Get repositories that belong to the requesting user")]
+    pub owner: bool,
+
+    #[clap(long, help = "Get repositories that the requesting user has access to")]
+    pub access: bool,
+
+    #[clap(long, help = "Always use SSH, even for public repositories")]
+    pub force_ssh: bool,
+
+    #[clap(long, help = "Command to get API token")]
+    pub token_command: String,
+
+    #[clap(long, help = "Root of the repo tree to produce")]
+    pub root: String,
+
+    #[clap(
+        arg_enum,
+        short,
+        long,
+        help = "Format to produce",
+        default_value_t = ConfigFormat::Toml,
+    )]
+    pub format: ConfigFormat,
+
+    #[clap(
+        long,
+        help = "Use worktree setup for repositories",
+        possible_values = &["true", "false"],
+        default_value = "false",
+        default_missing_value = "true",
+        min_values = 0,
+        max_values = 1,
+    )]
+    pub worktree: String,
+
+    #[clap(long, help = "Base URL for the API")]
+    pub api_url: Option<String>,
+}
+
+#[derive(Parser)]
+#[clap()]
+pub struct Config {
+    #[clap(
+        short,
+        long,
+        default_value = "./config.toml",
+        help = "Path to the configuration file"
+    )]
+    pub config: String,
+}
+
+pub type RemoteProvider = grm::provider::RemoteProvider;
+
+#[derive(Parser)]
+#[clap()]
+pub struct SyncRemoteArgs {
+    #[clap(arg_enum, short, long, help = "Remote provider to use")]
+    pub provider: RemoteProvider,
+
+    #[clap(
+        multiple_occurrences = true,
+        name = "user",
+        long,
+        help = "Users to get repositories from"
+    )]
+    pub users: Vec<String>,
+
+    #[clap(
+        multiple_occurrences = true,
+        name = "group",
+        long,
+        help = "Groups to get repositories from"
+    )]
+    pub groups: Vec<String>,
+
+    #[clap(long, help = "Get repositories that belong to the requesting user")]
+    pub owner: bool,
+
+    #[clap(long, help = "Get repositories that the requesting user has access to")]
+    pub access: bool,
+
+    #[clap(long, help = "Always use SSH, even for public repositories")]
+    pub force_ssh: bool,
+
+    #[clap(long, help = "Command to get API token")]
+    pub token_command: String,
+
+    #[clap(long, help = "Root of the repo tree to produce")]
+    pub root: String,
+
+    #[clap(
+        long,
+        help = "Use worktree setup for repositories",
+        possible_values = &["true", "false"],
+        default_value = "false",
+        default_missing_value = "true",
+        min_values = 0,
+        max_values = 1,
+    )]
+    pub worktree: String,
+
+    #[clap(long, help = "Base URL for the API")]
+    pub api_url: Option<String>,
 }
 
 #[derive(Parser)]
@@ -65,21 +237,6 @@ pub struct OptionalConfig {
 pub enum ConfigFormat {
     Yaml,
     Toml,
-}
-
-#[derive(Parser)]
-pub struct Find {
-    #[clap(help = "The path to search through")]
-    pub path: String,
-
-    #[clap(
-        arg_enum,
-        short,
-        long,
-        help = "Format to produce",
-        default_value_t = ConfigFormat::Toml,
-    )]
-    pub format: ConfigFormat,
 }
 
 #[derive(Parser)]

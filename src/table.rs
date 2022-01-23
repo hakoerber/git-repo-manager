@@ -144,7 +144,7 @@ pub fn get_worktree_status_table(
 pub fn get_status_table(config: crate::Config) -> Result<(Vec<Table>, Vec<String>), String> {
     let mut errors = Vec::new();
     let mut tables = Vec::new();
-    for tree in config.trees.as_vec() {
+    for tree in config.trees()?.as_vec() {
         let repos = tree.repos.unwrap_or_default();
 
         let root_path = crate::expand_path(Path::new(&tree.root));

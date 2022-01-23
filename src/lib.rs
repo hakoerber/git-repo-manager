@@ -1,4 +1,5 @@
 #![feature(io_error_more)]
+#![feature(const_option_ext)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -6,13 +7,14 @@ use std::process;
 
 pub mod config;
 pub mod output;
+pub mod provider;
 pub mod repo;
 pub mod table;
 
 use config::{Config, Tree};
 use output::*;
 
-use repo::{clone_repo, detect_remote_type, Remote, RepoConfig};
+use repo::{clone_repo, detect_remote_type, Remote, RemoteType, RepoConfig};
 
 pub use repo::{RemoteTrackingStatus, Repo, RepoErrorKind, WorktreeRemoveFailureReason};
 
@@ -102,36 +104,57 @@ fn expand_path(path: &Path) -> PathBuf {
     Path::new(&expanded_path).to_path_buf()
 }
 
+pub fn get_token_from_command(command: &str) -> Result<String, String> {
+    let output = std::process::Command::new("/usr/bin/env")
+        .arg("sh")
+        .arg("-c")
+        .arg(command)
+        .output()
+        .map_err(|error| format!("Failed to run token-command: {}", error))?;
+
+    let stderr = String::from_utf8(output.stderr).map_err(|error| error.to_string())?;
+    let stdout = String::from_utf8(output.stdout).map_err(|error| error.to_string())?;
+
+    if !output.status.success() {
+        if !stderr.is_empty() {
+            return Err(format!("Token command failed: {}", stderr));
+        } else {
+            return Err(String::from("Token command failed."));
+        }
+    }
+
+    if !stderr.is_empty() {
+        return Err(format!("Token command produced stderr: {}", stderr));
+    }
+
+    if stdout.is_empty() {
+        return Err(String::from("Token command did not produce output"));
+    }
+
+    let token = stdout
+        .split('\n')
+        .next()
+        .ok_or_else(|| String::from("Output did not contain any newline"))?;
+
+    Ok(token.to_string())
+}
+
 fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
     let repo_path = root_path.join(&repo.name);
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
-
-    let mut repo_handle = None;
 
     if repo_path.exists() {
         if repo.worktree_setup && !actual_git_directory.exists() {
             return Err(String::from(
                 "Repo already exists, but is not using a worktree setup",
             ));
-        }
-        repo_handle = match Repo::open(&repo_path, repo.worktree_setup) {
-            Ok(repo) => Some(repo),
-            Err(error) => {
-                if !repo.worktree_setup && Repo::open(&repo_path, true).is_ok() {
-                    return Err(String::from(
-                        "Repo already exists, but is using a worktree setup",
-                    ));
-                } else {
-                    return Err(format!("Opening repository failed: {}", error));
-                }
-            }
         };
     } else if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().is_empty() {
         print_repo_action(
             &repo.name,
             "Repository does not have remotes configured, initializing new",
         );
-        repo_handle = match Repo::init(&repo_path, repo.worktree_setup) {
+        match Repo::init(&repo_path, repo.worktree_setup) {
             Ok(r) => {
                 print_repo_success(&repo.name, "Repository created");
                 Some(r)
@@ -139,7 +162,7 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
             Err(e) => {
                 return Err(format!("Repository failed during init: {}", e));
             }
-        }
+        };
     } else {
         let first = repo.remotes.as_ref().unwrap().first().unwrap();
 
@@ -152,11 +175,32 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
             }
         };
     }
-    if let Some(remotes) = &repo.remotes {
-        let repo_handle = repo_handle.unwrap_or_else(|| {
-            Repo::open(&repo_path, repo.worktree_setup).unwrap_or_else(|_| process::exit(1))
-        });
 
+    let repo_handle = match Repo::open(&repo_path, repo.worktree_setup) {
+        Ok(repo) => repo,
+        Err(error) => {
+            if !repo.worktree_setup && Repo::open(&repo_path, true).is_ok() {
+                return Err(String::from(
+                        "Repo already exists, but is using a worktree setup",
+                        ));
+            } else {
+                return Err(format!("Opening repository failed: {}", error));
+            }
+        }
+    };
+
+    if repo.worktree_setup {
+        match repo_handle.default_branch() {
+            Ok(branch) => {
+                add_worktree(&repo_path, &branch.name()?, None, None, false)?;
+            }
+            Err(_error) => print_repo_error(
+                &repo.name,
+                "Could not determine default branch, skipping worktree initializtion",
+            ),
+        }
+    }
+    if let Some(remotes) = &repo.remotes {
         let current_remotes: Vec<String> = repo_handle
             .remotes()
             .map_err(|error| format!("Repository failed during getting the remotes: {}", error))?;
@@ -231,7 +275,7 @@ pub fn find_unmanaged_repos(
 
 pub fn sync_trees(config: Config) -> Result<bool, String> {
     let mut failures = false;
-    for tree in config.trees.as_vec() {
+    for tree in config.trees()?.as_vec() {
         let repos = tree.repos.unwrap_or_default();
 
         let root_path = expand_path(Path::new(&tree.root));
