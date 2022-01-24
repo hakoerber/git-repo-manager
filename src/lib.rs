@@ -139,7 +139,7 @@ pub fn get_token_from_command(command: &str) -> Result<String, String> {
     Ok(token.to_string())
 }
 
-fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
+fn sync_repo(root_path: &Path, repo: &RepoConfig, init_worktree: bool) -> Result<(), String> {
     let repo_path = root_path.join(&repo.name);
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
@@ -189,7 +189,7 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
         }
     };
 
-    if repo.worktree_setup {
+    if repo.worktree_setup && init_worktree {
         match repo_handle.default_branch() {
             Ok(branch) => {
                 add_worktree(&repo_path, &branch.name()?, None, None, false)?;
@@ -273,7 +273,7 @@ pub fn find_unmanaged_repos(
     Ok(unmanaged_repos)
 }
 
-pub fn sync_trees(config: Config) -> Result<bool, String> {
+pub fn sync_trees(config: Config, init_worktree: bool) -> Result<bool, String> {
     let mut failures = false;
     for tree in config.trees()?.as_vec() {
         let repos = tree.repos.unwrap_or_default();
@@ -281,7 +281,7 @@ pub fn sync_trees(config: Config) -> Result<bool, String> {
         let root_path = expand_path(Path::new(&tree.root));
 
         for repo in &repos {
-            match sync_repo(&root_path, repo) {
+            match sync_repo(&root_path, repo, init_worktree) {
                 Ok(_) => print_repo_success(&repo.name, "OK"),
                 Err(error) => {
                     print_repo_error(&repo.name, &error);

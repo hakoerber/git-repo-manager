@@ -170,6 +170,17 @@ pub struct Config {
         help = "Path to the configuration file"
     )]
     pub config: String,
+
+    #[clap(
+        long,
+        help = "Check out the default worktree after clone",
+        possible_values = &["true", "false"],
+        default_value = "true",
+        default_missing_value = "true",
+        min_values = 0,
+        max_values = 1,
+    )]
+    pub init_worktree: String,
 }
 
 pub type RemoteProvider = grm::provider::RemoteProvider;
@@ -224,6 +235,17 @@ pub struct SyncRemoteArgs {
 
     #[clap(long, help = "Base URL for the API")]
     pub api_url: Option<String>,
+
+    #[clap(
+        long,
+        help = "Check out the default worktree after clone",
+        possible_values = &["true", "false"],
+        default_value = "true",
+        default_missing_value = "true",
+        min_values = 0,
+        max_values = 1,
+    )]
+    pub init_worktree: String,
 }
 
 #[derive(Parser)]

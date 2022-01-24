@@ -23,7 +23,7 @@ fn main() {
                             process::exit(1);
                         }
                     };
-                    match grm::sync_trees(config) {
+                    match grm::sync_trees(config, args.init_worktree == "true") {
                         Ok(success) => {
                             if !success {
                                 process::exit(1)
@@ -93,7 +93,7 @@ fn main() {
 
                             let config = config::Config::from_trees(trees);
 
-                            match grm::sync_trees(config) {
+                            match grm::sync_trees(config, args.init_worktree == "true") {
                                 Ok(success) => {
                                     if !success {
                                         process::exit(1)
