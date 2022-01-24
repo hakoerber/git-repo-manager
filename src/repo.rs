@@ -672,9 +672,9 @@ impl Repo {
         self.0.config().map_err(convert_libgit2_error)
     }
 
-    pub fn find_worktree(&self, path: &Path) -> Result<(), String> {
+    pub fn find_worktree(&self, name: &str) -> Result<(), String> {
         self.0
-            .find_worktree(path.to_str().expect("Worktree path is not valid utf-8"))
+            .find_worktree(&name)
             .map_err(convert_libgit2_error)?;
         Ok(())
     }
