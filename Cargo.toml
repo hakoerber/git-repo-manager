@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 authors = [
   "Hannes Körber <hannes@hkoerber.de>",
@@ -40,7 +40,7 @@ path = "src/grm/main.rs"
 version = "=0.5.8"
 
 [dependencies.serde]
-version = "=1.0.135"
+version = "=1.0.136"
 features = ["derive"]
 
 [dependencies.git2]
@@ -50,7 +50,7 @@ version = "=0.13.25"
 version = "=2.1.0"
 
 [dependencies.clap]
-version = "=3.0.10"
+version = "=3.1.1"
 features = ["derive", "cargo"]
 
 [dependencies.console]
@@ -60,7 +60,7 @@ version = "=0.15.0"
 version = "=1.5.4"
 
 [dependencies.comfy-table]
-version = "=5.0.0"
+version = "=5.0.1"
 
 [dependencies.serde_yaml]
 version = "=0.8.23"
