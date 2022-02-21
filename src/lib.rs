@@ -579,6 +579,12 @@ pub fn add_worktree(
                     } else {
                         let remote_branch_name = match track_config.default_remote_prefix {
                             Some(prefix) => {
+                                repo.set_config_push(GitPushDefaultSetting::Upstream)?;
+
+                                if repo.remotes()?.len() > 1 {
+                                    println!("Warning: You are using branch prefixes together with multiple remotes. This will have a few unexpected effects. When pushing to your non-default remote, you will always have to add a refspec explicitly, like so: git push myremote master. See TODO DOCLINK for more details")
+
+                                }
                                 format!("{}{}{}", &prefix, BRANCH_NAMESPACE_SEPARATOR, &name)
                             }
                             None => name.to_string(),
