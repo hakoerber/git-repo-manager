@@ -1,0 +1,439 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Git Worktrees - Git Repo Manager</title>
+        <!-- Custom HTML head -->
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">1.</strong> Overview</a></li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting started</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Repository trees</a></li><li class="chapter-item expanded "><a href="worktrees.html" class="active"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contributing.html"><strong aria-hidden="true">6.</strong> Contributing</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Git Repo Manager</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="git-worktrees"><a class="header" href="#git-worktrees">Git Worktrees</a></h1>
+<h2 id="why"><a class="header" href="#why">Why?</a></h2>
+<p>The default workflow when using git is having your repository in a single directory.
+Then, you can check out a certain reference (usually a branch), which will update
+the files in the directory to match the state of that reference. Most of the time,
+this is exactly what you need and works perfectly. But especially when you're using
+with branches a lot, you may notice that there is a lot of work required to make
+everything run smootly.</p>
+<p>Maybe you experienced the following: You're working on a feature branch. Then,
+for some reason, you have to change branches (maybe to investigate some issue).
+But you get the following:</p>
+<pre><code>error: Your local changes to the following files would be overwritten by checkout
+</code></pre>
+<p>Now you can create a temporary commit or stash your changes. In any case, you have
+some mental overhead before you can work on something else. Especially with stashes,
+you'll have to remember to do a <code>git stash pop</code> before resuming your work (I
+cannot count the number of times where is &quot;rediscovered&quot; some code hidden in some
+old stash I forgot about.</p>
+<p>And even worse: If you're currently in the process of resolving merge conflicts or an
+interactive rebase, there is just no way to &quot;pause&quot; this work to check out a
+different branch.</p>
+<p>Sometimes, it's crucial to have an unchanging state of your repository until some
+long-running process finishes. I'm thinking of Ansible and Terraform runs. I'd
+rather not change to a different branch while ansible or Terraform are running as
+I have no idea how those tools would behave (and I'm not too eager to find out).</p>
+<p>In any case, Git Worktrees are here for the rescue:</p>
+<h2 id="what-are-git-worktrees"><a class="header" href="#what-are-git-worktrees">What are git worktrees?</a></h2>
+<p><a href="https://git-scm.com/docs/git-worktree">Git Worktrees</a> allow you to have multiple
+independent checkouts of your repository on different directories. You can have
+multiple directories that correspond to different references in your repository.
+Each worktree has it's independent working tree (duh) and index, so there is no
+to run into conflicts. Changing to a different branch is just a <code>cd</code> away (if
+the worktree is already set up).</p>
+<h2 id="worktrees-in-grm"><a class="header" href="#worktrees-in-grm">Worktrees in GRM</a></h2>
+<p>GRM exposes an opinionated way to use worktrees in your repositories. Opinionated,
+because there is a single invariant that makes reasoning about your worktree
+setup quite easy:</p>
+<p><strong>The branch inside the worktree is always the same as the directory name of the worktree.</strong></p>
+<p>In other words: If you're checking out branch <code>mybranch</code> into a new worktree, the
+worktree directory will be named <code>mybranch</code>.</p>
+<p>GRM can be used with both &quot;normal&quot; and worktree-enabled repositories. But note
+that a single repository can be either the former or the latter. You'll have to
+decide during the initial setup which way you want to go for that repository.</p>
+<p>If you want to clone your repository in a worktree-enabled way, specify
+<code>worktree_setup = true</code> for the repository in your <code>config.toml</code>:</p>
+<pre><code class="language-toml">[[trees.repos]]
+name = &quot;git-repo-manager&quot;
+worktree_setup = true
+</code></pre>
+<p>Now, when you run a <code>grm sync</code>, you'll notice that the directory of the repository
+is empty! Well, not totally, there is a hidden directory called <code>.git-main-working-tree</code>.
+This is where the repository actually &quot;lives&quot; (it's a bare checkout).</p>
+<p>Note that there are few specific things you can configure for a certain
+workspace.  This is all done in an optional <code>grm.toml</code> file right in the root
+of the worktree. More on that later.</p>
+<h3 id="creating-a-new-worktree"><a class="header" href="#creating-a-new-worktree">Creating a new worktree</a></h3>
+<p>To actually work, you'll first have to create a new worktree checkout. All
+worktree-related commands are available as subcommands of <code>grm worktree</code> (or
+<code>grm wt</code> for short):</p>
+<pre><code>$ grm wt add mybranch
+[✔] Worktree mybranch created
+</code></pre>
+<p>You'll see that there is now a directory called <code>mybranch</code> that contains a checkout
+of your repository, using the branch <code>mybranch</code></p>
+<pre><code class="language-bash">$ cd ./mybranch &amp;&amp; git status
+On branch mybranch
+nothing to commit, working tree clean
+</code></pre>
+<p>You can work in this repository as usual. Make changes, commit them, revert them,
+whatever you're up to :)</p>
+<p>Just note that you <em>should</em> not change the branch inside the worktree
+directory.  There is nothing preventing you from doing so, but you will notice
+that you'll run into problems when trying to remove a worktree (more on that
+later). It may also lead to confusing behaviour, as there can be no two
+worktrees that have the same branch checked out. So if you decide to use the
+worktree setup, go all in, let <code>grm</code> manage your branches and bury <code>git branch</code>
+(and <code>git checkout -b</code>).</p>
+<p>You will notice that there is no tracking branch set up for the new branch. You
+can of course set up one manually after creating the worktree, but there is an
+easier way, using the <code>--track</code> flag during creation. Let's create another
+worktree. Go back to the root of the repository, and run:</p>
+<pre><code class="language-bash">$ grm wt add mybranch2 --track origin/mybranch2
+[✔] Worktree mybranch2 created
+</code></pre>
+<p>You'll see that this branch is now tracking <code>mybranch</code> on the <code>origin</code> remote:</p>
+<pre><code class="language-bash">$ cd ./mybranch2 &amp;&amp; git status
+On branch mybranch
+
+Your branch is up to date with 'origin/mybranch2'.
+nothing to commit, working tree clean
+</code></pre>
+<p>The behaviour of <code>--track</code> differs depending on the existence of the remote branch:</p>
+<ul>
+<li>If the remote branch already exists, <code>grm</code> uses it as the base of the new
+local branch.</li>
+<li>If the remote branch does not exist (as in our example), <code>grm</code> will create a
+new remote tracking branch, using the default branch (either <code>main</code> or <code>master</code>)
+as the base</li>
+</ul>
+<p>Often, you'll have a workflow that uses tracking branches by default. It would
+be quite tedious to add <code>--track</code> every single time. Luckily, the <code>grm.toml</code> file
+supports defaults for the tracking behaviour. See this for an example:</p>
+<pre><code class="language-toml">[track]
+default = true
+default_remote = &quot;origin&quot;
+</code></pre>
+<p>This will set up a tracking branch on <code>origin</code> that has the same name as the local
+branch.</p>
+<p>Sometimes, you might want to have a certain prefix for all your tracking branches.
+Maybe to prevent collissions with other contributors. You can simply set
+<code>default_remote_prefix</code> in <code>grm.toml</code>:</p>
+<pre><code class="language-toml">[track]
+default = true
+default_remote = &quot;origin&quot;
+default_remote_prefix = &quot;myname&quot;
+</code></pre>
+<p>When using branch <code>my-feature-branch</code>, the remote tracking branch would be
+<code>origin/myname/my-feature-branch</code> in this case.</p>
+<p>Note that <code>--track</code> overrides any configuration in <code>grm.toml</code>. If you want to
+disable tracking, use <code>--no-track</code>.</p>
+<h3 id="showing-the-status-of-your-worktrees"><a class="header" href="#showing-the-status-of-your-worktrees">Showing the status of your worktrees</a></h3>
+<p>There is a handy little command that will show your an overview over all worktrees
+in a repository, including their status (i.e. changes files). Just run the following
+in the root of your repository:</p>
+<pre><code>$ grm wt status
+╭───────────┬────────┬──────────┬──────────────────╮
+│ Worktree  ┆ Status ┆ Branch   ┆ Remote branch    │
+╞═══════════╪════════╪══════════╪══════════════════╡
+│ mybranch  ┆ ✔      ┆ mybranch ┆                  │
+│ mybranch2 ┆ ✔      ┆ mybranch ┆ origin/mybranch2 │
+╰───────────┴────────┴──────────┴──────────────────╯
+</code></pre>
+<p>The &quot;Status&quot; column would show any uncommitted changes (new / modified / deleted
+files) and the &quot;Remote branch&quot; would show differences to the remote branch (e.g.
+if there are new pushes to the remote branch that are not yet incorporated into
+your local branch).</p>
+<h3 id="deleting-worktrees"><a class="header" href="#deleting-worktrees">Deleting worktrees</a></h3>
+<p>If you're done with your worktrees, use <code>grm wt delete</code> to delete them. Let's
+start with <code>mybranch2</code>:</p>
+<pre><code>$ grm wt delete mybranch2
+[✔] Worktree mybranch2 deleted
+</code></pre>
+<p>Easy. On to <code>mybranch</code>:</p>
+<pre><code>$ grm wt delete mybranch
+[!] Changes in worktree: No remote tracking branch for branch mybranch found. Refusing to delete
+</code></pre>
+<p>Hmmm. <code>grm</code> tells you:</p>
+<p>&quot;Hey, there is no remote branch that you could have pushed
+your changes to. I'd rather not delete work that you cannot recover.&quot;</p>
+<p>Note that <code>grm</code> is very cautious here. As your repository will not be deleted,
+you could still recover the commits via <a href="https://git-scm.com/docs/git-reflog"><code>git-reflog</code></a>.
+But better safe then sorry! Note that you'd get a similar error message if your
+worktree had any uncommitted files, for the same reason. Now you can either
+commit &amp; push your changes, or your tell <code>grm</code> that you know what you're doing:</p>
+<pre><code>$ grm wt delete mybranch --force
+[✔] Worktree mybranch deleted
+</code></pre>
+<p>If you just want to delete all worktrees that do not contain any changes, you
+can also use the following:</p>
+<pre><code>$ grm wt clean
+</code></pre>
+<p>Note that this will not delete the default branch of the repository. It can of
+course still be delete with <code>grm wt delete</code> if neccessary.</p>
+<h3 id="persistent-branches"><a class="header" href="#persistent-branches">Persistent branches</a></h3>
+<p>You most likely have a few branches that are &quot;special&quot;, that you don't want to
+clean up and that are the usual target for feature branches to merge into. GRM
+calls them &quot;persistent branches&quot; and treats them a bit differently:</p>
+<ul>
+<li>Their worktrees will never be deleted by <code>grm wt clean</code></li>
+<li>If the branches in other worktrees are merged into them, they will be cleaned
+up, even though they may not be in line with their upstream. Same goes for
+<code>grm wt delete</code>, which will not require a <code>--force</code> flag. Note that of
+course, actual changes in the worktree will still block an automatic cleanup!</li>
+<li>As soon as you enable persistent branches, non-persistent branches will only
+ever cleaned up when merged into a persistent branch.</li>
+</ul>
+<p>To elaborate: This is mostly relevant for a feature-branch workflow. Whenever a
+feature branch is merged, it can usually be thrown away. As merging is usually
+done on some remote code management platform (GitHub, GitLab, ...), this means
+that you usually keep a branch around until it is merged into one of the &quot;main&quot;
+branches (<code>master</code>, <code>main</code>, <code>develop</code>, ...)</p>
+<p>Enable persistent branches by setting the following in the <code>grm.toml</code> in the
+worktree root:</p>
+<pre><code class="language-toml">persistent_branches = [
+    &quot;master&quot;,
+    &quot;develop&quot;,
+]
+</code></pre>
+<p>Note that setting persistent branches will disable any detection of &quot;default&quot;
+branches. The first entry will be considered your repositories' default branch.</p>
+<h3 id="converting-an-existing-repository"><a class="header" href="#converting-an-existing-repository">Converting an existing repository</a></h3>
+<p>It is possible to convert an existing directory to a worktree setup, using <code>grm wt convert</code>. This command has to be run in the root of the repository you want
+to convert:</p>
+<pre><code>grm wt convert
+[✔] Conversion successful
+</code></pre>
+<p>This command will refuse to run if you have any changes in your repository.
+Commit them and try again!</p>
+<p>Afterwards, the directory is empty, as there are no worktrees checked out yet.
+Now you can use the usual commands to set up worktrees.</p>
+<h3 id="working-with-remotes"><a class="header" href="#working-with-remotes">Working with remotes</a></h3>
+<p>To fetch all remote references from all remotes in a worktree setup, you can
+use the following command:</p>
+<pre><code>grm wt fetch
+[✔] Fetched from all remotes
+</code></pre>
+<p>This is equivalent to running <code>git fetch --all</code> in any of the worktrees.</p>
+<p>Often, you may want to pull all remote changes into your worktrees. For this,
+use the <code>git pull</code> equivalent:</p>
+<pre><code>grm wt pull
+[✔] master: Done
+[✔] my-cool-branch: Done
+</code></pre>
+<p>This will refuse when there are local changes, or if the branch cannot be fast
+forwarded. If you want to rebase your local branches, use the <code>--rebase</code> switch:</p>
+<pre><code>grm wt pull --rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+</code></pre>
+<p>As noted, this will fail if there are any local changes in your worktree. If you
+want to stash these changes automatically before the pull (and unstash them
+afterwards), use the <code>--stash</code> option.</p>
+<p>This will rebase your changes onto the upstream branch. This is mainly helpful
+for persistent branches that change on the remote side.</p>
+<p>There is a similar rebase feature that rebases onto the <strong>default</strong> branch instead:</p>
+<pre><code>grm wt rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+</code></pre>
+<p>This is super helpful for feature branches. If you want to incorporate changes
+made on the remote branches, use <code>grm wt rebase</code> and all your branches will
+be up to date. If you want to also update to remote tracking branches in one go,
+use the <code>--pull</code> flag, and <code>--rebase</code> if you want to rebase instead of aborting
+on non-fast-forwards:</p>
+<pre><code>grm wt rebase --pull --rebase
+[✔] master: Done
+[✔] my-cool-branch: Done
+</code></pre>
+<p>&quot;So, what's the difference between <code>pull --rebase</code> and <code>rebase --pull</code>? Why the
+hell is there a <code>--rebase</code> flag in the <code>rebase</code> command?&quot;</p>
+<p>Yes, it's kind of weird. Remember that <code>pull</code> only ever updates each worktree
+to their remote branch, if possible. <code>rebase</code> rabases onto the <strong>default</strong> branch
+instead. The switches to <code>rebase</code> are just convenience, so you do not have to
+run two commands.</p>
+<ul>
+<li><code>rebase --pull</code> is the same as <code>pull</code> &amp;&amp; <code>rebase</code></li>
+<li><code>rebase --pull --rebase</code> is the same as <code>pull --rebase</code> &amp;&amp; <code>rebase</code></li>
+</ul>
+<p>I understand that the UX is not the most intuitive. If you can think of an
+improvement, please let me know (e.g. via an GitHub issue)!</p>
+<p>As with <code>pull</code>, <code>rebase</code> will also refuse to run when there are changes in your
+worktree. And you can also use the <code>--stash</code> option to stash/unstash changes
+automatically.</p>
+<h3 id="manual-access"><a class="header" href="#manual-access">Manual access</a></h3>
+<p>GRM isn't doing any magic, it's just git under the hood. If you need to have access
+to the underlying git repository, you can always do this:</p>
+<pre><code>$ git --git-dir ./.git-main-working-tree [...]
+</code></pre>
+<p>This should never be required (whenever you have to do this, you can consider
+this a bug in GRM and open an <a href="https://github.com/hakoerber/git-repo-manager/issues/new">issue</a>,
+but it may help in a pinch.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="repos.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                            <a rel="next" href="faq.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="repos.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                    <a rel="next" href="faq.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+    </body>
+</html>
