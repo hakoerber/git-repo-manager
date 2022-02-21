@@ -7,8 +7,8 @@ use clap::{AppSettings, Parser};
     author = clap::crate_authors!("\n"),
     about = clap::crate_description!(),
     long_version = clap::crate_version!(),
-    setting = AppSettings::DeriveDisplayOrder,
-    setting = AppSettings::PropagateVersion,
+    global_setting(AppSettings::DeriveDisplayOrder),
+    propagate_version = true,
 )]
 pub struct Opts {
     #[clap(subcommand)]
