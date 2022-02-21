@@ -11,4 +11,4 @@ PyYAML==6.0
 smmap==5.0.0
 toml==0.10.2
 tomli==2.0.1
-typing_extensions==4.0.1
+typing_extensions==4.1.1
