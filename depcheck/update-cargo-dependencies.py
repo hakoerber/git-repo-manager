@@ -61,10 +61,11 @@ for tier in ["dependencies", "dev-dependencies"]:
         latest_version = None
         for version_entry in open(info_file, "r").readlines():
             version = semver.VersionInfo.parse(json.loads(version_entry)["vers"])
-            if current_version.prerelease == "" and version.prerelease != "":
-                # skip prereleases, except when we are on a prerelease already
-                continue
             if latest_version is None or version > latest_version:
+                if current_version.prerelease is None and version.prerelease is not None:
+                    # skip prereleases, except when we are on a prerelease already
+                    print(f"{name}: Skipping prerelease version {version}")
+                    continue
                 latest_version = version
 
         if latest_version != current_version:
