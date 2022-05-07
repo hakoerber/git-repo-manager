@@ -5,10 +5,10 @@ iniconfig==1.1.1
 packaging==21.3
 pluggy==1.0.0
 py==1.11.0
-pyparsing==3.0.7
-pytest==7.0.1
+pyparsing==3.0.8
+pytest==7.1.2
 PyYAML==6.0
 smmap==5.0.0
 toml==0.10.2
 tomli==2.0.1
-typing_extensions==4.1.1
+typing_extensions==4.2.0
