@@ -474,7 +474,6 @@ pub fn add_worktree(
 
     let config = repo::read_worktree_root_config(directory)?;
 
-
     if repo.find_worktree(name).is_ok() {
         return Err(format!("Worktree {} already exists", &name));
     }
