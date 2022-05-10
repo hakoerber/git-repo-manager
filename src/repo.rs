@@ -674,7 +674,7 @@ impl Repo {
 
     pub fn find_worktree(&self, name: &str) -> Result<(), String> {
         self.0
-            .find_worktree(&name)
+            .find_worktree(name)
             .map_err(convert_libgit2_error)?;
         Ok(())
     }

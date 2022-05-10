@@ -475,13 +475,13 @@ pub fn add_worktree(
     let config = repo::read_worktree_root_config(directory)?;
 
 
-    if repo.find_worktree(&name).is_ok() {
+    if repo.find_worktree(name).is_ok() {
         return Err(format!("Worktree {} already exists", &name));
     }
 
     let path = match subdirectory {
         Some(dir) => directory.join(dir).join(name),
-        None => directory.join(Path::new(name).to_path_buf()),
+        None => directory.join(Path::new(name)),
     };
 
     let mut remote_branch_exists = false;
