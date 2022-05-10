@@ -1,3 +1,5 @@
+use crate::Repo;
+
 use comfy_table::{Cell, Table};
 
 use std::path::Path;
@@ -130,25 +132,11 @@ pub fn get_worktree_status_table(
             ));
         }
     }
-    for entry in std::fs::read_dir(&directory).map_err(|error| error.to_string())? {
-        let dirname = crate::path_as_string(
-            entry
-                .map_err(|error| error.to_string())?
-                .path()
-                .strip_prefix(&directory)
-                // this unwrap is safe, as we can be sure that each subentry of
-                // &directory also has the prefix &dir
-                .unwrap(),
-        );
-        if dirname == crate::GIT_MAIN_WORKTREE_DIRECTORY {
-            continue;
-        }
-        if !&worktrees.iter().any(|worktree| worktree.name() == dirname) {
-            errors.push(format!(
-                "Found {}, which is not a valid worktree directory!",
-                &dirname
-            ));
-        }
+    for worktree in Repo::find_unmanaged_worktrees(&repo, &directory).unwrap() {
+        errors.push(format!(
+            "Found {}, which is not a valid worktree directory!",
+            &worktree
+        ));
     }
     Ok((table, errors))
 }
