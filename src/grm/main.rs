@@ -198,7 +198,9 @@ fn main() {
                     }) {
                         print_warning("No repositories found");
                     } else {
-                        let config = trees.to_config();
+                        let mut config = trees.to_config();
+
+                        config.normalize();
 
                         match args.format {
                             cmd::ConfigFormat::Toml => {
@@ -403,7 +405,9 @@ fn main() {
                         trees.push(tree);
                     }
 
-                    let config = config::Config::from_trees(trees);
+                    let mut config = config::Config::from_trees(trees);
+
+                    config.normalize();
 
                     match args.format {
                         cmd::ConfigFormat::Toml => {

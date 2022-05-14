@@ -4,7 +4,6 @@ use std::process;
 use crate::output::*;
 
 use super::repo::RepoConfig;
-
 use std::path::Path;
 
 use crate::get_token_from_command;
@@ -145,6 +144,27 @@ impl Config {
         Config::ConfigTree(ConfigTree {
             trees: Trees::from_vec(trees),
         })
+    }
+
+    pub fn normalize(&mut self) {
+        if let Config::ConfigTree(config) = self {
+            let home = super::env_home().display().to_string();
+            for tree in &mut config.trees.0 {
+                if tree.root.starts_with(&home) {
+                    // The tilde is not handled differently, it's just a normal path component for `Path`.
+                    // Therefore we can treat it like that during **output**.
+                    //
+                    // The `unwrap()` is safe here as we are testing via `starts_with()`
+                    // beforehand
+                    let mut path = tree.root.strip_prefix(&home).unwrap();
+                    if path.starts_with('/') {
+                        path = path.strip_prefix('/').unwrap();
+                    }
+
+                    tree.root = Path::new("~").join(path).display().to_string();
+                }
+            }
+        }
     }
 
     pub fn as_toml(&self) -> Result<String, String> {

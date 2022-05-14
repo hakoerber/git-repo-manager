@@ -487,15 +487,6 @@ pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
             }
         }
     }
-    let home = env_home();
-    if root.starts_with(&home) {
-        // The tilde is not handled differently, it's just a normal path component for `Path`.
-        // Therefore we can treat it like that during **output**.
-        //
-        // The `unwrap()` is safe here as we are testing via `starts_with()`
-        // beforehand
-        root = Path::new("~").join(root.strip_prefix(&home).unwrap());
-    }
 
     Ok((
         Tree {
