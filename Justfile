@@ -1,12 +1,9 @@
 set positional-arguments
 
-check: check-cargo-lock test
+check: test
     cargo check
     cargo fmt --check
     cargo clippy --no-deps -- -Dwarnings
-
-check-cargo-lock:
-    cargo update --locked
 
 lint-fix:
     cargo clippy --no-deps --fix
