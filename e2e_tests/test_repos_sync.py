@@ -133,6 +133,32 @@ templates = {
         """
         ),
     },
+    "repo_in_subdirectory": {
+        "toml": """
+            [[trees]]
+            root = "{root}"
+
+            [[trees.repos]]
+            name = "outer/inner"
+
+            [[trees.repos.remotes]]
+            name = "origin"
+            url = "file://{remote}"
+            type = "file"
+        """,
+        "yaml": textwrap.dedent(
+            """
+            trees:
+            - root: "{root}"
+              repos:
+              - name: outer/inner
+                remotes:
+                - name: origin
+                  url: "file://{remote}"
+                  type: "file"
+        """
+        ),
+    },
     "nested_trees": {
         "toml": """
             [[trees]]
@@ -317,6 +343,39 @@ def test_repos_sync_normal_clone(configtype):
                         urls = list(repo.remote("origin2").urls)
                         assert len(urls) == 1
                         assert urls[0] == f"file://{remote2}"
+
+
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_repo_in_subdirectory(configtype):
+    with tempfile.TemporaryDirectory() as target:
+        with TempGitFileRemote() as (remote, remote_head_commit_sha):
+            with tempfile.NamedTemporaryFile() as config:
+                with open(config.name, "w") as f:
+                    f.write(
+                        templates["repo_in_subdirectory"][configtype].format(
+                            root=target, remote=remote
+                        )
+                    )
+
+                cmd = grm(["repos", "sync", "config", "--config", config.name])
+                assert cmd.returncode == 0
+
+                git_dir = os.path.join(target, "outer", "inner")
+                assert os.path.exists(git_dir)
+                with git.Repo(git_dir) as repo:
+                    assert not repo.bare
+                    assert not repo.is_dirty()
+                    assert set([str(r) for r in repo.remotes]) == {"origin"}
+                    assert str(repo.active_branch) == "master"
+                    assert str(repo.head.commit) == remote_head_commit_sha
+
+                    assert len(repo.remotes) == 1
+                    urls = list(repo.remote("origin").urls)
+                    assert len(urls) == 1
+                    assert urls[0] == f"file://{remote}"
+
+                cmd = grm(["repos", "sync", "config", "--config", config.name])
+                assert not "found unmanaged repository" in cmd.stderr.lower()
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
