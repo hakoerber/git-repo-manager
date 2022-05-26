@@ -132,7 +132,7 @@ pub fn get_worktree_status_table(
             ));
         }
     }
-    for worktree in Repo::find_unmanaged_worktrees(repo, directory).unwrap() {
+    for worktree in Repo::find_unmanaged_worktrees(repo, directory)? {
         errors.push(format!(
             "Found {}, which is not a valid worktree directory!",
             &worktree
