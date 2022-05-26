@@ -11,18 +11,25 @@ pub mod provider;
 pub mod repo;
 pub mod table;
 
-use config::{Config, Tree};
+use config::Config;
 use output::*;
 
-use repo::{clone_repo, detect_remote_type, Remote, RemoteType, RepoConfig};
+use repo::{clone_repo, detect_remote_type, Remote, RemoteType};
 
-pub use repo::{RemoteTrackingStatus, Repo, RepoErrorKind, WorktreeRemoveFailureReason};
+pub use repo::{
+    RemoteTrackingStatus, Repo, RepoErrorKind, RepoHandle, WorktreeRemoveFailureReason,
+};
 
 const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 const BRANCH_NAMESPACE_SEPARATOR: &str = "/";
 
 const GIT_CONFIG_BARE_KEY: &str = "core.bare";
 const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
+
+pub struct Tree {
+    root: String,
+    repos: Vec<Repo>,
+}
 
 #[cfg(test)]
 mod tests {
@@ -139,7 +146,7 @@ pub fn get_token_from_command(command: &str) -> Result<String, String> {
     Ok(token.to_string())
 }
 
-fn sync_repo(root_path: &Path, repo: &RepoConfig, init_worktree: bool) -> Result<(), String> {
+fn sync_repo(root_path: &Path, repo: &Repo, init_worktree: bool) -> Result<(), String> {
     let repo_path = root_path.join(&repo.name);
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
@@ -156,7 +163,7 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig, init_worktree: bool) -> Result
             &repo.name,
             "Repository does not have remotes configured, initializing new",
         );
-        match Repo::init(&repo_path, repo.worktree_setup) {
+        match RepoHandle::init(&repo_path, repo.worktree_setup) {
             Ok(r) => {
                 print_repo_success(&repo.name, "Repository created");
                 Some(r)
@@ -180,10 +187,10 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig, init_worktree: bool) -> Result
         newly_created = true;
     }
 
-    let repo_handle = match Repo::open(&repo_path, repo.worktree_setup) {
+    let repo_handle = match RepoHandle::open(&repo_path, repo.worktree_setup) {
         Ok(repo) => repo,
         Err(error) => {
-            if !repo.worktree_setup && Repo::open(&repo_path, true).is_ok() {
+            if !repo.worktree_setup && RepoHandle::open(&repo_path, true).is_ok() {
                 return Err(String::from(
                     "Repo already exists, but is using a worktree setup",
                 ));
@@ -264,7 +271,7 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig, init_worktree: bool) -> Result
 
 pub fn find_unmanaged_repos(
     root_path: &Path,
-    managed_repos: &[RepoConfig],
+    managed_repos: &[Repo],
 ) -> Result<Vec<String>, String> {
     let mut unmanaged_repos = Vec::new();
 
@@ -279,8 +286,16 @@ pub fn find_unmanaged_repos(
 
 pub fn sync_trees(config: Config, init_worktree: bool) -> Result<bool, String> {
     let mut failures = false;
-    for tree in config.trees()?.as_vec() {
-        let repos = tree.repos.unwrap_or_default();
+
+    let trees = config.trees()?;
+
+    for tree in trees {
+        let repos: Vec<Repo> = tree
+            .repos
+            .unwrap_or_default()
+            .into_iter()
+            .map(|repo| repo.into_repo())
+            .collect();
 
         let root_path = expand_path(Path::new(&tree.root));
 
@@ -372,18 +387,18 @@ fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
 /// The bool in the return value specifies whether there is a repository
 /// in root itself.
 #[allow(clippy::type_complexity)]
-fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)>, String> {
-    let mut repos: Vec<RepoConfig> = Vec::new();
+fn find_repos(root: &Path) -> Result<Option<(Vec<Repo>, Vec<String>, bool)>, String> {
+    let mut repos: Vec<Repo> = Vec::new();
     let mut repo_in_root = false;
     let mut warnings = Vec::new();
 
     for path in find_repo_paths(root)? {
-        let is_worktree = Repo::detect_worktree(&path);
+        let is_worktree = RepoHandle::detect_worktree(&path);
         if path == root {
             repo_in_root = true;
         }
 
-        match Repo::open(&path, is_worktree) {
+        match RepoHandle::open(&path, is_worktree) {
             Err(error) => {
                 warnings.push(format!(
                     "Error opening repo {}{}: {}",
@@ -445,7 +460,7 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)
                 }
                 let remotes = results;
 
-                repos.push(RepoConfig {
+                repos.push(Repo{
                     name: match path == root {
                         true => match &root.parent() {
                             Some(parent) => path_as_string(path.strip_prefix(parent).unwrap()),
@@ -468,7 +483,7 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)
 pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
     let mut warnings = Vec::new();
 
-    let (repos, repo_in_root): (Vec<RepoConfig>, bool) = match find_repos(path)? {
+    let (repos, repo_in_root): (Vec<Repo>, bool) = match find_repos(path)? {
         Some((vec, mut repo_warnings, repo_in_root)) => {
             warnings.append(&mut repo_warnings);
             (vec, repo_in_root)
@@ -491,7 +506,7 @@ pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
     Ok((
         Tree {
             root: root.into_os_string().into_string().unwrap(),
-            repos: Some(repos),
+            repos,
         },
         warnings,
     ))
@@ -504,7 +519,7 @@ pub fn add_worktree(
     track: Option<(&str, &str)>,
     no_track: bool,
 ) -> Result<(), String> {
-    let repo = Repo::open(directory, true).map_err(|error| match error.kind {
+    let repo = RepoHandle::open(directory, true).map_err(|error| match error.kind {
         RepoErrorKind::NotFound => {
             String::from("Current directory does not contain a worktree setup")
         }
@@ -579,7 +594,7 @@ pub fn add_worktree(
         remote: &mut repo::RemoteHandle,
         branch_name: &str,
         remote_branch_name: &str,
-        repo: &repo::Repo,
+        repo: &repo::RepoHandle,
     ) -> Result<(), String> {
         if !remote.is_pushable()? {
             return Err(format!(

@@ -9,7 +9,7 @@ pub mod gitlab;
 pub use github::Github;
 pub use gitlab::Gitlab;
 
-use crate::{Remote, RemoteType, RepoConfig};
+use crate::{Remote, RemoteType, Repo};
 
 use std::collections::HashMap;
 
@@ -29,16 +29,11 @@ enum ProjectResponse<T, U> {
 }
 
 pub trait Project {
-    fn into_repo_config(
-        self,
-        provider_name: &str,
-        worktree_setup: bool,
-        force_ssh: bool,
-    ) -> RepoConfig
+    fn into_repo_config(self, provider_name: &str, worktree_setup: bool, force_ssh: bool) -> Repo
     where
         Self: Sized,
     {
-        RepoConfig {
+        Repo {
             name: self.name(),
             worktree_setup,
             remotes: Some(vec![Remote {
@@ -205,7 +200,7 @@ pub trait Provider {
         &self,
         worktree_setup: bool,
         force_ssh: bool,
-    ) -> Result<HashMap<String, Vec<RepoConfig>>, String> {
+    ) -> Result<HashMap<String, Vec<Repo>>, String> {
         let mut repos = vec![];
 
         if self.filter().owner {
@@ -282,7 +277,7 @@ pub trait Provider {
             }
         }
 
-        let mut ret: HashMap<String, Vec<RepoConfig>> = HashMap::new();
+        let mut ret: HashMap<String, Vec<Repo>> = HashMap::new();
 
         for repo in repos {
             let namespace = repo.namespace().clone();

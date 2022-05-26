@@ -3,27 +3,32 @@ use std::process;
 
 use crate::output::*;
 
-use super::repo::RepoConfig;
 use std::path::Path;
 
-use crate::get_token_from_command;
+use crate::{get_token_from_command, Remote, Repo, Tree};
+
 use crate::provider;
 use crate::provider::Filter;
 use crate::provider::Provider;
 
 pub type RemoteProvider = crate::provider::RemoteProvider;
+pub type RemoteType = crate::repo::RemoteType;
+
+fn worktree_setup_default() -> bool {
+    false
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Config {
-    ConfigTree(ConfigTree),
+    ConfigTrees(ConfigTrees),
     ConfigProvider(ConfigProvider),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConfigTree {
-    pub trees: Trees,
+pub struct ConfigTrees {
+    pub trees: Vec<ConfigTree>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,30 +55,100 @@ pub struct ConfigProvider {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Trees(Vec<Tree>);
+#[serde(deny_unknown_fields)]
+pub struct RemoteConfig {
+    pub name: String,
+    pub url: String,
+    #[serde(rename = "type")]
+    pub remote_type: RemoteType,
+}
 
-impl Trees {
+impl RemoteConfig {
+    pub fn from_remote(remote: Remote) -> Self {
+        Self {
+            name: remote.name,
+            url: remote.url,
+            remote_type: remote.remote_type,
+        }
+    }
+
+    pub fn into_remote(self) -> Remote {
+        Remote {
+            name: self.name,
+            url: self.url,
+            remote_type: self.remote_type,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RepoConfig {
+    pub name: String,
+
+    #[serde(default = "worktree_setup_default")]
+    pub worktree_setup: bool,
+
+    pub remotes: Option<Vec<RemoteConfig>>,
+}
+
+impl RepoConfig {
+    pub fn from_repo(repo: Repo) -> Self {
+        Self {
+            name: repo.name,
+            worktree_setup: repo.worktree_setup,
+            remotes: repo
+                .remotes
+                .map(|remotes| remotes.into_iter().map(RemoteConfig::from_remote).collect()),
+        }
+    }
+
+    pub fn into_repo(self) -> Repo {
+        Repo {
+            name: self.name,
+            worktree_setup: self.worktree_setup,
+            remotes: self.remotes.map(|remotes| {
+                remotes
+                    .into_iter()
+                    .map(|remote| remote.into_remote())
+                    .collect()
+            }),
+        }
+    }
+}
+
+impl ConfigTrees {
     pub fn to_config(self) -> Config {
-        Config::ConfigTree(ConfigTree { trees: self })
+        Config::ConfigTrees(self)
     }
 
-    pub fn from_vec(vec: Vec<Tree>) -> Self {
-        Trees(vec)
+    pub fn from_vec(vec: Vec<ConfigTree>) -> Self {
+        ConfigTrees { trees: vec }
     }
 
-    pub fn as_vec(self) -> Vec<Tree> {
-        self.0
+    pub fn from_trees(vec: Vec<Tree>) -> Self {
+        ConfigTrees {
+            trees: vec.into_iter().map(ConfigTree::from_tree).collect(),
+        }
     }
 
-    pub fn as_vec_ref(&self) -> &Vec<Tree> {
-        self.0.as_ref()
+    pub fn trees(self) -> Vec<ConfigTree> {
+        self.trees
+    }
+
+    pub fn trees_mut(&mut self) -> &mut Vec<ConfigTree> {
+        &mut self.trees
+    }
+
+    pub fn trees_ref(&self) -> &Vec<ConfigTree> {
+        self.trees.as_ref()
     }
 }
 
 impl Config {
-    pub fn trees(self) -> Result<Trees, String> {
+    pub fn trees(self) -> Result<Vec<ConfigTree>, String> {
         match self {
-            Config::ConfigTree(config) => Ok(config.trees),
+            Config::ConfigTrees(config) => Ok(config.trees),
             Config::ConfigProvider(config) => {
                 let token = match get_token_from_command(&config.token_command) {
                     Ok(token) => token,
@@ -129,27 +204,29 @@ impl Config {
                 let mut trees = vec![];
 
                 for (namespace, namespace_repos) in repos {
-                    let tree = Tree {
+                    let repos = namespace_repos
+                        .into_iter()
+                        .map(RepoConfig::from_repo)
+                        .collect();
+                    let tree = ConfigTree {
                         root: crate::path_as_string(&Path::new(&config.root).join(namespace)),
-                        repos: Some(namespace_repos),
+                        repos: Some(repos),
                     };
                     trees.push(tree);
                 }
-                Ok(Trees(trees))
+                Ok(trees)
             }
         }
     }
 
-    pub fn from_trees(trees: Vec<Tree>) -> Self {
-        Config::ConfigTree(ConfigTree {
-            trees: Trees::from_vec(trees),
-        })
+    pub fn from_trees(trees: Vec<ConfigTree>) -> Self {
+        Config::ConfigTrees(ConfigTrees { trees })
     }
 
     pub fn normalize(&mut self) {
-        if let Config::ConfigTree(config) = self {
+        if let Config::ConfigTrees(config) = self {
             let home = super::env_home().display().to_string();
-            for tree in &mut config.trees.0 {
+            for tree in &mut config.trees_mut().iter_mut() {
                 if tree.root.starts_with(&home) {
                     // The tilde is not handled differently, it's just a normal path component for `Path`.
                     // Therefore we can treat it like that during **output**.
@@ -181,9 +258,25 @@ impl Config {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Tree {
+pub struct ConfigTree {
     pub root: String,
     pub repos: Option<Vec<RepoConfig>>,
+}
+
+impl ConfigTree {
+    pub fn from_repos(root: String, repos: Vec<Repo>) -> Self {
+        Self {
+            root,
+            repos: Some(repos.into_iter().map(RepoConfig::from_repo).collect()),
+        }
+    }
+
+    pub fn from_tree(tree: Tree) -> Self {
+        Self {
+            root: tree.root,
+            repos: Some(tree.repos.into_iter().map(RepoConfig::from_repo).collect()),
+        }
+    }
 }
 
 pub fn read_config<'a, T>(path: &str) -> Result<T, String>

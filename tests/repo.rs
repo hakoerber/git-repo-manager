@@ -8,13 +8,13 @@ use helpers::*;
 fn open_empty_repo() {
     let tmpdir = init_tmpdir();
     assert!(matches!(
-        Repo::open(tmpdir.path(), true),
+        RepoHandle::open(tmpdir.path(), true),
         Err(RepoError {
             kind: RepoErrorKind::NotFound
         })
     ));
     assert!(matches!(
-        Repo::open(tmpdir.path(), false),
+        RepoHandle::open(tmpdir.path(), false),
         Err(RepoError {
             kind: RepoErrorKind::NotFound
         })
@@ -25,7 +25,7 @@ fn open_empty_repo() {
 #[test]
 fn create_repo() -> Result<(), Box<dyn std::error::Error>> {
     let tmpdir = init_tmpdir();
-    let repo = Repo::init(tmpdir.path(), false)?;
+    let repo = RepoHandle::init(tmpdir.path(), false)?;
     assert!(!repo.is_bare());
     assert!(repo.is_empty()?);
     cleanup_tmpdir(tmpdir);
@@ -35,7 +35,7 @@ fn create_repo() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn create_repo_with_worktree() -> Result<(), Box<dyn std::error::Error>> {
     let tmpdir = init_tmpdir();
-    let repo = Repo::init(tmpdir.path(), true)?;
+    let repo = RepoHandle::init(tmpdir.path(), true)?;
     assert!(repo.is_bare());
     assert!(repo.is_empty()?);
     cleanup_tmpdir(tmpdir);

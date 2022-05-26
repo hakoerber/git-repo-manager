@@ -104,27 +104,18 @@ impl std::fmt::Display for RepoError {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug)]
 pub struct Remote {
     pub name: String,
     pub url: String,
-    #[serde(rename = "type")]
     pub remote_type: RemoteType,
 }
 
-fn worktree_setup_default() -> bool {
-    false
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RepoConfig {
+#[derive(Debug)]
+pub struct Repo {
     pub name: String,
 
-    #[serde(default = "worktree_setup_default")]
     pub worktree_setup: bool,
-
     pub remotes: Option<Vec<Remote>>,
 }
 
@@ -182,7 +173,7 @@ impl Worktree {
     }
 
     pub fn forward_branch(&self, rebase: bool, stash: bool) -> Result<Option<String>, String> {
-        let repo = Repo::open(Path::new(&self.name), false)
+        let repo = RepoHandle::open(Path::new(&self.name), false)
             .map_err(|error| format!("Error opening worktree: {}", error))?;
 
         if let Ok(remote_branch) = repo.find_local_branch(&self.name)?.upstream() {
@@ -286,7 +277,7 @@ impl Worktree {
         config: &Option<WorktreeRootConfig>,
         stash: bool,
     ) -> Result<Option<String>, String> {
-        let repo = Repo::open(Path::new(&self.name), false)
+        let repo = RepoHandle::open(Path::new(&self.name), false)
             .map_err(|error| format!("Error opening worktree: {}", error))?;
 
         let guess_default_branch = || {
@@ -468,14 +459,14 @@ pub fn detect_remote_type(remote_url: &str) -> Option<RemoteType> {
     None
 }
 
-pub struct Repo(git2::Repository);
+pub struct RepoHandle(git2::Repository);
 pub struct Branch<'a>(git2::Branch<'a>);
 
 fn convert_libgit2_error(error: git2::Error) -> String {
     error.message().to_string()
 }
 
-impl Repo {
+impl RepoHandle {
     pub fn open(path: &Path, is_worktree: bool) -> Result<Self, RepoError> {
         let open_func = match is_worktree {
             true => Repository::open_bare,
@@ -507,7 +498,7 @@ impl Repo {
         // Right now, we just open the repo AGAIN. It is safe, as we are only accessing the stash
         // with the second reference, so there are no cross effects. But it just smells. Also,
         // using `unwrap()` here as we are already sure that the repo is openable(?).
-        let mut repo = Repo::open(self.0.path(), false).unwrap();
+        let mut repo = RepoHandle::open(self.0.path(), false).unwrap();
         repo.0
             .stash_save2(&author, None, Some(git2::StashFlags::INCLUDE_UNTRACKED))
             .map_err(convert_libgit2_error)?;
@@ -515,7 +506,7 @@ impl Repo {
     }
 
     pub fn stash_pop(&self) -> Result<(), String> {
-        let mut repo = Repo::open(self.0.path(), false).unwrap();
+        let mut repo = RepoHandle::open(self.0.path(), false).unwrap();
         repo.0
             .stash_pop(
                 0,
@@ -659,7 +650,7 @@ impl Repo {
                 .map_err(convert_libgit2_error)?,
         };
 
-        let repo = Repo(repo);
+        let repo = RepoHandle(repo);
 
         if is_worktree {
             repo.set_config_push(GitPushDefaultSetting::Upstream)?;
@@ -788,7 +779,7 @@ impl Repo {
             }
         }
 
-        let worktree_repo = Repo::open(root_dir, true).map_err(|error| {
+        let worktree_repo = RepoHandle::open(root_dir, true).map_err(|error| {
             WorktreeConversionFailureReason::Error(format!(
                 "Opening newly converted repository failed: {}",
                 error
@@ -1068,7 +1059,7 @@ impl Repo {
                 name
             )));
         }
-        let worktree_repo = Repo::open(worktree_dir, false).map_err(|error| {
+        let worktree_repo = RepoHandle::open(worktree_dir, false).map_err(|error| {
             WorktreeRemoveFailureReason::Error(format!("Error opening repo: {}", error))
         })?;
 
@@ -1427,7 +1418,7 @@ impl RemoteHandle<'_> {
         &mut self,
         local_branch_name: &str,
         remote_branch_name: &str,
-        _repo: &Repo,
+        _repo: &RepoHandle,
     ) -> Result<(), String> {
         if !self.is_pushable()? {
             return Err(String::from("Trying to push to a non-pushable remote"));
@@ -1493,7 +1484,7 @@ pub fn clone_repo(
         }
     }
 
-    let repo = Repo::open(&clone_target, false)?;
+    let repo = RepoHandle::open(&clone_target, false)?;
 
     if is_worktree {
         repo.set_config_push(GitPushDefaultSetting::Upstream)?;

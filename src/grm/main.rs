@@ -5,6 +5,7 @@ mod cmd;
 
 use grm::config;
 use grm::output::*;
+use grm::path_as_string;
 use grm::provider;
 use grm::provider::Provider;
 use grm::repo;
@@ -78,16 +79,13 @@ fn main() {
 
                     match repos {
                         Ok(repos) => {
-                            let mut trees: Vec<config::Tree> = vec![];
+                            let mut trees: Vec<config::ConfigTree> = vec![];
 
                             for (namespace, repolist) in repos {
-                                let tree = config::Tree {
-                                    root: Path::new(&args.root)
-                                        .join(namespace)
-                                        .display()
-                                        .to_string(),
-                                    repos: Some(repolist),
-                                };
+                                let tree = config::ConfigTree::from_repos(
+                                    Path::new(&args.root).join(namespace).display().to_string(),
+                                    repolist,
+                                );
                                 trees.push(tree);
                             }
 
@@ -191,8 +189,8 @@ fn main() {
                         }
                     };
 
-                    let trees = grm::config::Trees::from_vec(vec![found_repos]);
-                    if trees.as_vec_ref().iter().all(|t| match &t.repos {
+                    let trees = grm::config::ConfigTrees::from_trees(vec![found_repos]);
+                    if trees.trees_ref().iter().all(|t| match &t.repos {
                         None => false,
                         Some(r) => r.is_empty(),
                     }) {
@@ -311,9 +309,14 @@ fn main() {
                     let mut trees = vec![];
 
                     for (namespace, namespace_repos) in repos {
-                        let tree = config::Tree {
-                            root: grm::path_as_string(&Path::new(&config.root).join(namespace)),
-                            repos: Some(namespace_repos),
+                        let tree = config::ConfigTree {
+                            root: path_as_string(&Path::new(&config.root).join(namespace)),
+                            repos: Some(
+                                namespace_repos
+                                    .into_iter()
+                                    .map(grm::config::RepoConfig::from_repo)
+                                    .collect(),
+                            ),
                         };
                         trees.push(tree);
                     }
@@ -395,12 +398,17 @@ fn main() {
                         process::exit(1);
                     });
 
-                    let mut trees: Vec<config::Tree> = vec![];
+                    let mut trees: Vec<config::ConfigTree> = vec![];
 
                     for (namespace, repolist) in repos {
-                        let tree = config::Tree {
+                        let tree = config::ConfigTree {
                             root: Path::new(&args.root).join(namespace).display().to_string(),
-                            repos: Some(repolist),
+                            repos: Some(
+                                repolist
+                                    .into_iter()
+                                    .map(grm::config::RepoConfig::from_repo)
+                                    .collect(),
+                            ),
                         };
                         trees.push(tree);
                     }
@@ -506,7 +514,7 @@ fn main() {
                         }
                     };
 
-                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         print_error(&format!("Error opening repository: {}", error));
                         process::exit(1);
                     });
@@ -539,7 +547,7 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Status(_args) => {
-                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         print_error(&format!("Error opening repository: {}", error));
                         process::exit(1);
                     });
@@ -564,7 +572,7 @@ fn main() {
                     // * Remove all files
                     // * Set `core.bare` to `true`
 
-                    let repo = grm::Repo::open(&cwd, false).unwrap_or_else(|error| {
+                    let repo = grm::RepoHandle::open(&cwd, false).unwrap_or_else(|error| {
                         if error.kind == grm::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
@@ -592,7 +600,7 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Clean(_args) => {
-                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         if error.kind == grm::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
@@ -626,7 +634,7 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Fetch(_args) => {
-                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         if error.kind == grm::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
@@ -642,7 +650,7 @@ fn main() {
                     print_success("Fetched from all remotes");
                 }
                 cmd::WorktreeAction::Pull(args) => {
-                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         if error.kind == grm::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
@@ -683,7 +691,7 @@ fn main() {
                         print_error("There is no point in using --rebase without --pull");
                         process::exit(1);
                     }
-                    let repo = grm::Repo::open(&cwd, true).unwrap_or_else(|error| {
+                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         if error.kind == grm::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
