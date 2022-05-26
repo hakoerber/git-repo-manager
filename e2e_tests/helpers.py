@@ -8,9 +8,7 @@ import hashlib
 
 import git
 
-binary = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "target/release/grm"
-)
+binary = os.environ["GRM_BINARY"]
 
 
 def grm(args, cwd=None, is_invalid=False):
@@ -208,7 +206,7 @@ class RepoTree:
             """
             )
 
-        cmd = grm(["repos", "sync", "--config", self.config.name])
+        cmd = grm(["repos", "sync", "config", "--config", self.config.name])
         assert cmd.returncode == 0
         return (self.root.name, self.config.name, ["test", "test_worktree"])
 

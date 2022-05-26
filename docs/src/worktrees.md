@@ -269,7 +269,7 @@ wt convert`. This command has to be run in the root of the repository you want
 to convert:
 
 ```
-grm wt convert
+$ grm wt convert
 [✔] Conversion successful
 ```
 
@@ -285,7 +285,7 @@ To fetch all remote references from all remotes in a worktree setup, you can
 use the following command:
 
 ```
-grm wt fetch
+$ grm wt fetch
 [✔] Fetched from all remotes
 ```
 
@@ -295,7 +295,7 @@ Often, you may want to pull all remote changes into your worktrees. For this,
 use the `git pull` equivalent:
 
 ```
-grm wt pull
+$ grm wt pull
 [✔] master: Done
 [✔] my-cool-branch: Done
 ```
@@ -304,7 +304,7 @@ This will refuse when there are local changes, or if the branch cannot be fast
 forwarded. If you want to rebase your local branches, use the `--rebase` switch:
 
 ```
-grm wt pull --rebase
+$ grm wt pull --rebase
 [✔] master: Done
 [✔] my-cool-branch: Done
 ```
@@ -319,7 +319,7 @@ for persistent branches that change on the remote side.
 There is a similar rebase feature that rebases onto the **default** branch instead:
 
 ```
-grm wt rebase
+$ grm wt rebase
 [✔] master: Done
 [✔] my-cool-branch: Done
 ```
@@ -331,7 +331,7 @@ use the `--pull` flag, and `--rebase` if you want to rebase instead of aborting
 on non-fast-forwards:
 
 ```
-grm wt rebase --pull --rebase
+$ grm wt rebase --pull --rebase
 [✔] master: Done
 [✔] my-cool-branch: Done
 ```

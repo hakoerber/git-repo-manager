@@ -1,16 +1,34 @@
-check: check-cargo-lock check-pip-requirements test
+set positional-arguments
+
+check: test
     cargo check
     cargo fmt --check
     cargo clippy --no-deps -- -Dwarnings
 
-check-cargo-lock:
-    cargo update --locked
+fmt:
+    cargo fmt
+    git ls-files | grep '\.py$' | xargs black
+
+lint:
+    cargo clippy --no-deps
 
 lint-fix:
     cargo clippy --no-deps --fix
 
 release:
     cargo build --release
+
+test-binary-docker:
+    env \
+        GITHUB_API_BASEURL=http://rest:5000/github \
+        GITLAB_API_BASEURL=http://rest:5000/gitlab \
+        cargo build --profile e2e-tests
+
+test-binary:
+    env \
+        GITHUB_API_BASEURL=http://localhost:5000/github \
+        GITLAB_API_BASEURL=http://localhost:5000/gitlab \
+        cargo build --profile e2e-tests
 
 install:
     cargo install --path .
@@ -23,19 +41,26 @@ test-unit:
 test-integration:
     cargo test --test "*"
 
-e2e-venv:
+test-e2e-docker +tests=".": test-binary-docker
     cd ./e2e_tests \
-    && python3 -m venv venv \
-    && . ./venv/bin/activate \
-    && pip --disable-pip-version-check install -r ./requirements.txt >/dev/null
+    && docker-compose rm --stop -f \
+    && docker-compose build \
+    && docker-compose run \
+        --rm \
+        -v $PWD/../target/e2e-tests/grm:/grm \
+            pytest \
+            "GRM_BINARY=/grm python3 ALTERNATE_DOMAIN=alternate-rest -m pytest -p no:cacheprovider --color=yes "$@"" \
+    && docker-compose rm --stop -f
 
-
-test-e2e +tests=".": e2e-venv release
+test-e2e +tests=".": test-binary
     cd ./e2e_tests \
-    && . ./venv/bin/activate \
-    && TMPDIR=/dev/shm python -m pytest --color=yes {{tests}}
+    && docker-compose rm --stop -f \
+    && docker-compose build \
+    && docker-compose up -d rest \
+    && GRM_BINARY={{justfile_directory()}}/target/e2e-tests/grm ALTERNATE_DOMAIN=127.0.0.1 python3 -m pytest -p no:cacheprovider --color=yes {{tests}} \
+    && docker-compose rm --stop -f
 
-update-dependencies: update-cargo-dependencies update-pip-requirements
+update-dependencies: update-cargo-dependencies
 
 update-cargo-dependencies:
     @cd ./depcheck \
@@ -43,15 +68,3 @@ update-cargo-dependencies:
     && . ./venv/bin/activate \
     && pip --disable-pip-version-check install -r ./requirements.txt > /dev/null \
     && ./update-cargo-dependencies.py
-
-update-pip-requirements: e2e-venv
-    @cd ./e2e_tests \
-    && ./update_requirementstxt.sh
-
-check-pip-requirements: e2e-venv
-    @cd ./e2e_tests \
-    && . ./venv/bin/activate \
-    && pip list --outdated | grep -q '.' && exit 1 || exit 0
-
-clean:
-    cargo clean

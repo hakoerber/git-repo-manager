@@ -1,4 +1,5 @@
 #![feature(io_error_more)]
+#![feature(const_option_ext)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -6,21 +7,29 @@ use std::process;
 
 pub mod config;
 pub mod output;
+pub mod provider;
 pub mod repo;
 pub mod table;
 
-use config::{Config, Tree};
+use config::Config;
 use output::*;
 
-use repo::{clone_repo, detect_remote_type, Remote, RepoConfig};
+use repo::{clone_repo, detect_remote_type, Remote, RemoteType};
 
-pub use repo::{RemoteTrackingStatus, Repo, RepoErrorKind, WorktreeRemoveFailureReason};
+pub use repo::{
+    RemoteTrackingStatus, Repo, RepoErrorKind, RepoHandle, WorktreeRemoveFailureReason,
+};
 
 const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 const BRANCH_NAMESPACE_SEPARATOR: &str = "/";
 
 const GIT_CONFIG_BARE_KEY: &str = "core.bare";
 const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
+
+pub struct Tree {
+    root: String,
+    repos: Vec<Repo>,
+}
 
 #[cfg(test)]
 mod tests {
@@ -102,36 +111,59 @@ fn expand_path(path: &Path) -> PathBuf {
     Path::new(&expanded_path).to_path_buf()
 }
 
-fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
-    let repo_path = root_path.join(&repo.name);
+pub fn get_token_from_command(command: &str) -> Result<String, String> {
+    let output = std::process::Command::new("/usr/bin/env")
+        .arg("sh")
+        .arg("-c")
+        .arg(command)
+        .output()
+        .map_err(|error| format!("Failed to run token-command: {}", error))?;
+
+    let stderr = String::from_utf8(output.stderr).map_err(|error| error.to_string())?;
+    let stdout = String::from_utf8(output.stdout).map_err(|error| error.to_string())?;
+
+    if !output.status.success() {
+        if !stderr.is_empty() {
+            return Err(format!("Token command failed: {}", stderr));
+        } else {
+            return Err(String::from("Token command failed."));
+        }
+    }
+
+    if !stderr.is_empty() {
+        return Err(format!("Token command produced stderr: {}", stderr));
+    }
+
+    if stdout.is_empty() {
+        return Err(String::from("Token command did not produce output"));
+    }
+
+    let token = stdout
+        .split('\n')
+        .next()
+        .ok_or_else(|| String::from("Output did not contain any newline"))?;
+
+    Ok(token.to_string())
+}
+
+fn sync_repo(root_path: &Path, repo: &Repo, init_worktree: bool) -> Result<(), String> {
+    let repo_path = root_path.join(&repo.fullname());
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
-    let mut repo_handle = None;
+    let mut newly_created = false;
 
     if repo_path.exists() {
         if repo.worktree_setup && !actual_git_directory.exists() {
             return Err(String::from(
                 "Repo already exists, but is not using a worktree setup",
             ));
-        }
-        repo_handle = match Repo::open(&repo_path, repo.worktree_setup) {
-            Ok(repo) => Some(repo),
-            Err(error) => {
-                if !repo.worktree_setup && Repo::open(&repo_path, true).is_ok() {
-                    return Err(String::from(
-                        "Repo already exists, but is using a worktree setup",
-                    ));
-                } else {
-                    return Err(format!("Opening repository failed: {}", error));
-                }
-            }
         };
     } else if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().is_empty() {
         print_repo_action(
             &repo.name,
             "Repository does not have remotes configured, initializing new",
         );
-        repo_handle = match Repo::init(&repo_path, repo.worktree_setup) {
+        match RepoHandle::init(&repo_path, repo.worktree_setup) {
             Ok(r) => {
                 print_repo_success(&repo.name, "Repository created");
                 Some(r)
@@ -139,7 +171,7 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
             Err(e) => {
                 return Err(format!("Repository failed during init: {}", e));
             }
-        }
+        };
     } else {
         let first = repo.remotes.as_ref().unwrap().first().unwrap();
 
@@ -151,12 +183,35 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
                 return Err(format!("Repository failed during clone: {}", e));
             }
         };
+
+        newly_created = true;
+    }
+
+    let repo_handle = match RepoHandle::open(&repo_path, repo.worktree_setup) {
+        Ok(repo) => repo,
+        Err(error) => {
+            if !repo.worktree_setup && RepoHandle::open(&repo_path, true).is_ok() {
+                return Err(String::from(
+                    "Repo already exists, but is using a worktree setup",
+                ));
+            } else {
+                return Err(format!("Opening repository failed: {}", error));
+            }
+        }
+    };
+
+    if newly_created && repo.worktree_setup && init_worktree {
+        match repo_handle.default_branch() {
+            Ok(branch) => {
+                add_worktree(&repo_path, &branch.name()?, None, None, false)?;
+            }
+            Err(_error) => print_repo_error(
+                &repo.name,
+                "Could not determine default branch, skipping worktree initializtion",
+            ),
+        }
     }
     if let Some(remotes) = &repo.remotes {
-        let repo_handle = repo_handle.unwrap_or_else(|| {
-            Repo::open(&repo_path, repo.worktree_setup).unwrap_or_else(|_| process::exit(1))
-        });
-
         let current_remotes: Vec<String> = repo_handle
             .remotes()
             .map_err(|error| format!("Repository failed during getting the remotes: {}", error))?;
@@ -216,28 +271,42 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig) -> Result<(), String> {
 
 pub fn find_unmanaged_repos(
     root_path: &Path,
-    managed_repos: &[RepoConfig],
-) -> Result<Vec<String>, String> {
+    managed_repos: &[Repo],
+) -> Result<Vec<PathBuf>, String> {
     let mut unmanaged_repos = Vec::new();
 
-    for repo in find_repo_paths(root_path)? {
-        let name = path_as_string(repo.strip_prefix(&root_path).unwrap());
-        if !managed_repos.iter().any(|r| r.name == name) {
-            unmanaged_repos.push(name);
+    for repo_path in find_repo_paths(root_path)? {
+        if !managed_repos
+            .iter()
+            .any(|r| Path::new(root_path).join(r.fullname()) == repo_path)
+        {
+            unmanaged_repos.push(repo_path);
         }
     }
     Ok(unmanaged_repos)
 }
 
-pub fn sync_trees(config: Config) -> Result<bool, String> {
+pub fn sync_trees(config: Config, init_worktree: bool) -> Result<bool, String> {
     let mut failures = false;
-    for tree in config.trees.as_vec() {
-        let repos = tree.repos.unwrap_or_default();
+
+    let mut unmanaged_repos_absolute_paths = vec![];
+    let mut managed_repos_absolute_paths = vec![];
+
+    let trees = config.trees()?;
+
+    for tree in trees {
+        let repos: Vec<Repo> = tree
+            .repos
+            .unwrap_or_default()
+            .into_iter()
+            .map(|repo| repo.into_repo())
+            .collect();
 
         let root_path = expand_path(Path::new(&tree.root));
 
         for repo in &repos {
-            match sync_repo(&root_path, repo) {
+            managed_repos_absolute_paths.push(root_path.join(repo.fullname()));
+            match sync_repo(&root_path, repo, init_worktree) {
                 Ok(_) => print_repo_success(&repo.name, "OK"),
                 Err(error) => {
                     print_repo_error(&repo.name, &error);
@@ -247,16 +316,29 @@ pub fn sync_trees(config: Config) -> Result<bool, String> {
         }
 
         match find_unmanaged_repos(&root_path, &repos) {
-            Ok(unmanaged_repos) => {
-                for name in unmanaged_repos {
-                    print_warning(&format!("Found unmanaged repository: {}", name));
-                }
+            Ok(repos) => {
+                unmanaged_repos_absolute_paths.extend(repos);
             }
             Err(error) => {
                 print_error(&format!("Error getting unmanaged repos: {}", error));
                 failures = true;
             }
         }
+    }
+
+    for unmanaged_repo_absolute_path in &unmanaged_repos_absolute_paths {
+        if managed_repos_absolute_paths
+            .iter()
+            .any(|managed_repo_absolute_path| {
+                managed_repo_absolute_path == unmanaged_repo_absolute_path
+            })
+        {
+            continue;
+        }
+        print_warning(&format!(
+            "Found unmanaged repository: \"{}\"",
+            path_as_string(unmanaged_repo_absolute_path)
+        ));
     }
 
     Ok(!failures)
@@ -324,18 +406,18 @@ fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
 /// The bool in the return value specifies whether there is a repository
 /// in root itself.
 #[allow(clippy::type_complexity)]
-fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)>, String> {
-    let mut repos: Vec<RepoConfig> = Vec::new();
+fn find_repos(root: &Path) -> Result<Option<(Vec<Repo>, Vec<String>, bool)>, String> {
+    let mut repos: Vec<Repo> = Vec::new();
     let mut repo_in_root = false;
     let mut warnings = Vec::new();
 
     for path in find_repo_paths(root)? {
-        let is_worktree = Repo::detect_worktree(&path);
+        let is_worktree = RepoHandle::detect_worktree(&path);
         if path == root {
             repo_in_root = true;
         }
 
-        match Repo::open(&path, is_worktree) {
+        match RepoHandle::open(&path, is_worktree) {
             Err(error) => {
                 warnings.push(format!(
                     "Error opening repo {}{}: {}",
@@ -397,17 +479,33 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)
                 }
                 let remotes = results;
 
-                repos.push(RepoConfig {
-                    name: match path == root {
-                        true => match &root.parent() {
+                let (namespace, name) = if path == root {
+                    (
+                        None,
+                        match &root.parent() {
                             Some(parent) => path_as_string(path.strip_prefix(parent).unwrap()),
                             None => {
                                 warnings.push(String::from("Getting name of the search root failed. Do you have a git repository in \"/\"?"));
-                                continue
-                            },
-                        }
-                        false => path_as_string(path.strip_prefix(&root).unwrap()),
-                    },
+                                continue;
+                            }
+                        },
+                    )
+                } else {
+                    let name = path.strip_prefix(&root).unwrap();
+                    let namespace = name.parent().unwrap();
+                    (
+                        if namespace != Path::new("") {
+                            Some(path_as_string(namespace).to_string())
+                        } else {
+                            None
+                        },
+                        path_as_string(name),
+                    )
+                };
+
+                repos.push(Repo {
+                    name,
+                    namespace,
                     remotes: Some(remotes),
                     worktree_setup: is_worktree,
                 });
@@ -420,7 +518,7 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<RepoConfig>, Vec<String>, bool)
 pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
     let mut warnings = Vec::new();
 
-    let (repos, repo_in_root): (Vec<RepoConfig>, bool) = match find_repos(path)? {
+    let (repos, repo_in_root): (Vec<Repo>, bool) = match find_repos(path)? {
         Some((vec, mut repo_warnings, repo_in_root)) => {
             warnings.append(&mut repo_warnings);
             (vec, repo_in_root)
@@ -439,20 +537,11 @@ pub fn find_in_tree(path: &Path) -> Result<(Tree, Vec<String>), String> {
             }
         }
     }
-    let home = env_home();
-    if root.starts_with(&home) {
-        // The tilde is not handled differently, it's just a normal path component for `Path`.
-        // Therefore we can treat it like that during **output**.
-        //
-        // The `unwrap()` is safe here as we are testing via `starts_with()`
-        // beforehand
-        root = Path::new("~").join(root.strip_prefix(&home).unwrap());
-    }
 
     Ok((
         Tree {
             root: root.into_os_string().into_string().unwrap(),
-            repos: Some(repos),
+            repos,
         },
         warnings,
     ))
@@ -465,7 +554,7 @@ pub fn add_worktree(
     track: Option<(&str, &str)>,
     no_track: bool,
 ) -> Result<(), String> {
-    let repo = Repo::open(directory, true).map_err(|error| match error.kind {
+    let repo = RepoHandle::open(directory, true).map_err(|error| match error.kind {
         RepoErrorKind::NotFound => {
             String::from("Current directory does not contain a worktree setup")
         }
@@ -474,14 +563,14 @@ pub fn add_worktree(
 
     let config = repo::read_worktree_root_config(directory)?;
 
-    let path = match subdirectory {
-        Some(dir) => dir.join(name),
-        None => Path::new(name).to_path_buf(),
-    };
-
-    if repo.find_worktree(&path).is_ok() {
+    if repo.find_worktree(name).is_ok() {
         return Err(format!("Worktree {} already exists", &name));
     }
+
+    let path = match subdirectory {
+        Some(dir) => directory.join(dir).join(name),
+        None => directory.join(Path::new(name)),
+    };
 
     let mut remote_branch_exists = false;
 
@@ -540,7 +629,7 @@ pub fn add_worktree(
         remote: &mut repo::RemoteHandle,
         branch_name: &str,
         remote_branch_name: &str,
-        repo: &repo::Repo,
+        repo: &repo::RepoHandle,
     ) -> Result<(), String> {
         if !remote.is_pushable()? {
             return Err(format!(

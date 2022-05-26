@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.6.2"
+version = "0.7.0"
 edition = "2021"
 authors = [
   "Hannes Körber <hannes@hkoerber.de>",
@@ -26,6 +26,9 @@ rust-version = "1.57"
 
 license = "GPL-3.0-only"
 
+[profile.e2e-tests]
+inherits = "release"
+
 [lib]
 name = "grm"
 path = "src/lib.rs"
@@ -44,26 +47,36 @@ version = "=1.0.137"
 features = ["derive"]
 
 [dependencies.git2]
-version = "=0.14.3"
+version = "=0.14.4"
 
 [dependencies.shellexpand]
 version = "=2.1.0"
 
 [dependencies.clap]
-version = "=3.1.17"
+version = "=3.1.18"
 features = ["derive", "cargo"]
 
 [dependencies.console]
 version = "=0.15.0"
 
 [dependencies.regex]
-version = "=1.5.5"
+version = "=1.5.6"
 
 [dependencies.comfy-table]
 version = "=5.0.1"
 
 [dependencies.serde_yaml]
 version = "=0.8.24"
+
+[dependencies.serde_json]
+version = "=1.0.81"
+
+[dependencies.isahc]
+version = "=1.7.2"
+features = ["json"]
+
+[dependencies.parse_link_header]
+version = "=0.3.2"
 
 [dev-dependencies.tempdir]
 version = "=0.3.7"

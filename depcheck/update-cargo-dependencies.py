@@ -62,7 +62,10 @@ for tier in ["dependencies", "dev-dependencies"]:
         for version_entry in open(info_file, "r").readlines():
             version = semver.VersionInfo.parse(json.loads(version_entry)["vers"])
             if latest_version is None or version > latest_version:
-                if current_version.prerelease is None and version.prerelease is not None:
+                if (
+                    current_version.prerelease is None
+                    and version.prerelease is not None
+                ):
                     # skip prereleases, except when we are on a prerelease already
                     print(f"{name}: Skipping prerelease version {version}")
                     continue
@@ -91,7 +94,15 @@ for tier in ["dependencies", "dev-dependencies"]:
 
             try:
                 cmd = subprocess.run(
-                    ["cargo", "update", "-Z", "no-index-update", "--aggressive", "--package", name],
+                    [
+                        "cargo",
+                        "update",
+                        "-Z",
+                        "no-index-update",
+                        "--aggressive",
+                        "--package",
+                        name,
+                    ],
                     check=True,
                     capture_output=True,
                     text=True,
@@ -103,9 +114,16 @@ for tier in ["dependencies", "dev-dependencies"]:
 
             message = f"dependencies: Update {name} to {latest_version}"
             subprocess.run(
-                ["git", "commit", "--message", message, "../Cargo.toml", "../Cargo.lock"],
+                [
+                    "git",
+                    "commit",
+                    "--message",
+                    message,
+                    "../Cargo.toml",
+                    "../Cargo.lock",
+                ],
                 check=True,
-                capture_output=True
+                capture_output=True,
             )
 
 
@@ -114,11 +132,19 @@ for tier in ["dependencies", "dev-dependencies"]:
 while True:
     with open("../Cargo.lock", "r") as f:
         cargo_lock = tomlkit.parse(f.read())
-    for package in cargo_lock['package']:
+    for package in cargo_lock["package"]:
         spec = f"{package['name']}:{package['version']}"
         try:
             cmd = subprocess.run(
-                ["cargo", "update", "-Z", "no-index-update", "--aggressive", "--package", spec],
+                [
+                    "cargo",
+                    "update",
+                    "-Z",
+                    "no-index-update",
+                    "--aggressive",
+                    "--package",
+                    spec,
+                ],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -134,7 +160,7 @@ while True:
             cmd = subprocess.run(
                 ["git", "commit", "--message", message, "../Cargo.lock"],
                 check=True,
-                capture_output=True
+                capture_output=True,
             )
             break
     else:
