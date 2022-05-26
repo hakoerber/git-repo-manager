@@ -272,13 +272,15 @@ fn sync_repo(root_path: &Path, repo: &Repo, init_worktree: bool) -> Result<(), S
 pub fn find_unmanaged_repos(
     root_path: &Path,
     managed_repos: &[Repo],
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<PathBuf>, String> {
     let mut unmanaged_repos = Vec::new();
 
-    for repo in find_repo_paths(root_path)? {
-        let name = path_as_string(repo.strip_prefix(&root_path).unwrap());
-        if !managed_repos.iter().any(|r| r.name == name) {
-            unmanaged_repos.push(name);
+    for repo_path in find_repo_paths(root_path)? {
+        if !managed_repos
+            .iter()
+            .any(|r| Path::new(root_path).join(r.fullname()) == repo_path)
+        {
+            unmanaged_repos.push(repo_path);
         }
     }
     Ok(unmanaged_repos)
@@ -286,6 +288,9 @@ pub fn find_unmanaged_repos(
 
 pub fn sync_trees(config: Config, init_worktree: bool) -> Result<bool, String> {
     let mut failures = false;
+
+    let mut unmanaged_repos_absolute_paths = vec![];
+    let mut managed_repos_absolute_paths = vec![];
 
     let trees = config.trees()?;
 
@@ -300,6 +305,7 @@ pub fn sync_trees(config: Config, init_worktree: bool) -> Result<bool, String> {
         let root_path = expand_path(Path::new(&tree.root));
 
         for repo in &repos {
+            managed_repos_absolute_paths.push(root_path.join(repo.fullname()));
             match sync_repo(&root_path, repo, init_worktree) {
                 Ok(_) => print_repo_success(&repo.name, "OK"),
                 Err(error) => {
@@ -310,16 +316,29 @@ pub fn sync_trees(config: Config, init_worktree: bool) -> Result<bool, String> {
         }
 
         match find_unmanaged_repos(&root_path, &repos) {
-            Ok(unmanaged_repos) => {
-                for name in unmanaged_repos {
-                    print_warning(&format!("Found unmanaged repository: {}", name));
-                }
+            Ok(repos) => {
+                unmanaged_repos_absolute_paths.extend(repos);
             }
             Err(error) => {
                 print_error(&format!("Error getting unmanaged repos: {}", error));
                 failures = true;
             }
         }
+    }
+
+    for unmanaged_repo_absolute_path in &unmanaged_repos_absolute_paths {
+        if managed_repos_absolute_paths
+            .iter()
+            .any(|managed_repo_absolute_path| {
+                managed_repo_absolute_path == unmanaged_repo_absolute_path
+            })
+        {
+            continue;
+        }
+        print_warning(&format!(
+            "Found unmanaged repository: \"{}\"",
+            path_as_string(unmanaged_repo_absolute_path)
+        ));
     }
 
     Ok(!failures)
