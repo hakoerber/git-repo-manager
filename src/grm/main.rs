@@ -82,10 +82,13 @@ fn main() {
                             let mut trees: Vec<config::ConfigTree> = vec![];
 
                             for (namespace, repolist) in repos {
-                                let tree = config::ConfigTree::from_repos(
-                                    Path::new(&args.root).join(namespace).display().to_string(),
-                                    repolist,
-                                );
+                                let root = if let Some(namespace) = namespace {
+                                    path_as_string(&Path::new(&args.root).join(namespace))
+                                } else {
+                                    path_as_string(Path::new(&args.root))
+                                };
+
+                                let tree = config::ConfigTree::from_repos(root, repolist);
                                 trees.push(tree);
                             }
 
@@ -310,7 +313,11 @@ fn main() {
 
                     for (namespace, namespace_repos) in repos {
                         let tree = config::ConfigTree {
-                            root: path_as_string(&Path::new(&config.root).join(namespace)),
+                            root: if let Some(namespace) = namespace {
+                                path_as_string(&Path::new(&config.root).join(namespace))
+                            } else {
+                                path_as_string(Path::new(&config.root))
+                            },
                             repos: Some(
                                 namespace_repos
                                     .into_iter()
@@ -402,7 +409,11 @@ fn main() {
 
                     for (namespace, repolist) in repos {
                         let tree = config::ConfigTree {
-                            root: Path::new(&args.root).join(namespace).display().to_string(),
+                            root: if let Some(namespace) = namespace {
+                                path_as_string(&Path::new(&args.root).join(namespace))
+                            } else {
+                                path_as_string(Path::new(&args.root))
+                            },
                             repos: Some(
                                 repolist
                                     .into_iter()

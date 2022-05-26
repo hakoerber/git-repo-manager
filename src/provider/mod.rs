@@ -35,6 +35,7 @@ pub trait Project {
     {
         Repo {
             name: self.name(),
+            namespace: self.namespace(),
             worktree_setup,
             remotes: Some(vec![Remote {
                 name: String::from(provider_name),
@@ -53,7 +54,7 @@ pub trait Project {
     }
 
     fn name(&self) -> String;
-    fn namespace(&self) -> String;
+    fn namespace(&self) -> Option<String>;
     fn ssh_url(&self) -> String;
     fn http_url(&self) -> String;
     fn private(&self) -> bool;
@@ -200,7 +201,7 @@ pub trait Provider {
         &self,
         worktree_setup: bool,
         force_ssh: bool,
-    ) -> Result<HashMap<String, Vec<Repo>>, String> {
+    ) -> Result<HashMap<Option<String>, Vec<Repo>>, String> {
         let mut repos = vec![];
 
         if self.filter().owner {
@@ -277,12 +278,16 @@ pub trait Provider {
             }
         }
 
-        let mut ret: HashMap<String, Vec<Repo>> = HashMap::new();
+        let mut ret: HashMap<Option<String>, Vec<Repo>> = HashMap::new();
 
         for repo in repos {
-            let namespace = repo.namespace().clone();
+            let namespace = repo.namespace();
 
-            let repo = repo.into_repo_config(&self.name(), worktree_setup, force_ssh);
+            let mut repo = repo.into_repo_config(&self.name(), worktree_setup, force_ssh);
+
+            // Namespace is already part of the hashmap key. I'm not too happy
+            // about the data exchange format here.
+            repo.remove_namespace();
 
             ret.entry(namespace).or_insert(vec![]).push(repo);
         }

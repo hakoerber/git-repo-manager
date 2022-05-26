@@ -114,9 +114,22 @@ pub struct Remote {
 #[derive(Debug)]
 pub struct Repo {
     pub name: String,
-
+    pub namespace: Option<String>,
     pub worktree_setup: bool,
     pub remotes: Option<Vec<Remote>>,
+}
+
+impl Repo {
+    pub fn fullname(&self) -> String {
+        match &self.namespace {
+            Some(namespace) => format!("{}/{}", namespace, self.name),
+            None => self.name.clone(),
+        }
+    }
+
+    pub fn remove_namespace(&mut self) {
+        self.namespace = None
+    }
 }
 
 pub struct RepoChanges {

@@ -147,7 +147,7 @@ pub fn get_token_from_command(command: &str) -> Result<String, String> {
 }
 
 fn sync_repo(root_path: &Path, repo: &Repo, init_worktree: bool) -> Result<(), String> {
-    let repo_path = root_path.join(&repo.name);
+    let repo_path = root_path.join(&repo.fullname());
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
     let mut newly_created = false;
@@ -460,17 +460,33 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<Repo>, Vec<String>, bool)>, Str
                 }
                 let remotes = results;
 
-                repos.push(Repo{
-                    name: match path == root {
-                        true => match &root.parent() {
+                let (namespace, name) = if path == root {
+                    (
+                        None,
+                        match &root.parent() {
                             Some(parent) => path_as_string(path.strip_prefix(parent).unwrap()),
                             None => {
                                 warnings.push(String::from("Getting name of the search root failed. Do you have a git repository in \"/\"?"));
-                                continue
-                            },
-                        }
-                        false => path_as_string(path.strip_prefix(&root).unwrap()),
-                    },
+                                continue;
+                            }
+                        },
+                    )
+                } else {
+                    let name = path.strip_prefix(&root).unwrap();
+                    let namespace = name.parent().unwrap();
+                    (
+                        if namespace != Path::new("") {
+                            Some(path_as_string(namespace).to_string())
+                        } else {
+                            None
+                        },
+                        path_as_string(name),
+                    )
+                };
+
+                repos.push(Repo {
+                    name,
+                    namespace,
                     remotes: Some(remotes),
                     worktree_setup: is_worktree,
                 });

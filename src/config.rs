@@ -5,7 +5,7 @@ use crate::output::*;
 
 use std::path::Path;
 
-use crate::{get_token_from_command, Remote, Repo, Tree};
+use crate::{get_token_from_command, path_as_string, Remote, Repo, Tree};
 
 use crate::provider;
 use crate::provider::Filter;
@@ -104,8 +104,15 @@ impl RepoConfig {
     }
 
     pub fn into_repo(self) -> Repo {
+        let (namespace, name) = if let Some((namespace, name)) = self.name.rsplit_once('/') {
+            (Some(namespace.to_string()), name.to_string())
+        } else {
+            (None, self.name)
+        };
+
         Repo {
-            name: self.name,
+            name,
+            namespace,
             worktree_setup: self.worktree_setup,
             remotes: self.remotes.map(|remotes| {
                 remotes
@@ -209,7 +216,11 @@ impl Config {
                         .map(RepoConfig::from_repo)
                         .collect();
                     let tree = ConfigTree {
-                        root: crate::path_as_string(&Path::new(&config.root).join(namespace)),
+                        root: if let Some(namespace) = namespace {
+                            path_as_string(&Path::new(&config.root).join(namespace))
+                        } else {
+                            path_as_string(Path::new(&config.root))
+                        },
                         repos: Some(repos),
                     };
                     trees.push(tree);

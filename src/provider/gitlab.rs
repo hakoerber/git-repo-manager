@@ -39,12 +39,12 @@ impl Project for GitlabProject {
         self.name.clone()
     }
 
-    fn namespace(&self) -> String {
-        self.path_with_namespace
-            .rsplit_once('/')
-            .expect("Gitlab project name did not include a namespace")
-            .0
-            .to_string()
+    fn namespace(&self) -> Option<String> {
+        if let Some((namespace, _name)) = self.path_with_namespace.rsplit_once('/') {
+            Some(namespace.to_string())
+        } else {
+            None
+        }
     }
 
     fn ssh_url(&self) -> String {

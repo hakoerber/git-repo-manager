@@ -32,12 +32,12 @@ impl Project for GithubProject {
         self.name.clone()
     }
 
-    fn namespace(&self) -> String {
-        self.full_name
-            .rsplit_once('/')
-            .expect("Github project name did not include a namespace")
-            .0
-            .to_string()
+    fn namespace(&self) -> Option<String> {
+        if let Some((namespace, _name)) = self.full_name.rsplit_once('/') {
+            Some(namespace.to_string())
+        } else {
+            None
+        }
     }
 
     fn ssh_url(&self) -> String {
