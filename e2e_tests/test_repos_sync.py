@@ -133,6 +133,50 @@ templates = {
         """
         ),
     },
+    "nested_trees": {
+        "toml": """
+            [[trees]]
+            root = "{root}"
+
+            [[trees.repos]]
+            name = "outer"
+
+            [[trees.repos.remotes]]
+            name = "origin"
+            url = "file://{remote1}"
+            type = "file"
+
+            [[trees]]
+            root = "{root}/subdir"
+
+            [[trees.repos]]
+            name = "inner"
+
+            [[trees.repos.remotes]]
+            name = "origin"
+            url = "file://{remote2}"
+            type = "file"
+        """,
+        "yaml": textwrap.dedent(
+            """
+            trees:
+            - root: "{root}"
+              repos:
+              - name: outer
+                remotes:
+                - name: origin
+                  url: "file://{remote1}"
+                  type: "file"
+            - root: "{root}/subdir"
+              repos:
+              - name: inner
+                remotes:
+                - name: origin
+                  url: "file://{remote2}"
+                  type: "file"
+        """
+        ),
+    },
 }
 
 
@@ -273,6 +317,51 @@ def test_repos_sync_normal_clone(configtype):
                         urls = list(repo.remote("origin2").urls)
                         assert len(urls) == 1
                         assert urls[0] == f"file://{remote2}"
+
+
+@pytest.mark.parametrize("configtype", ["toml", "yaml"])
+def test_repos_sync_nested_clone(configtype):
+    with tempfile.TemporaryDirectory() as target:
+        with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
+            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+                with tempfile.NamedTemporaryFile() as config:
+                    with open(config.name, "w") as f:
+                        f.write(
+                            templates["nested_trees"][configtype].format(
+                                root=target, remote1=remote1, remote2=remote2
+                            )
+                        )
+
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
+                    assert cmd.returncode == 0
+
+                    def validate(git_dir, sha, remote):
+                        assert os.path.exists(git_dir)
+                        with git.Repo(git_dir) as repo:
+                            assert not repo.bare
+                            assert not repo.is_dirty()
+                            assert set([str(r) for r in repo.remotes]) == {"origin"}
+                            assert str(repo.active_branch) == "master"
+                            assert str(repo.head.commit) == sha
+
+                            assert len(repo.remotes) == 1
+                            urls = list(repo.remote("origin").urls)
+                            assert len(urls) == 1
+                            assert urls[0] == f"file://{remote}"
+
+                    validate(
+                        os.path.join(target, "outer"), remote1_head_commit_sha, remote1
+                    )
+                    validate(
+                        os.path.join(target, "subdir", "inner"),
+                        remote2_head_commit_sha,
+                        remote2,
+                    )
+
+                    cmd = grm(["repos", "sync", "config", "--config", config.name])
+                    print(cmd.stdout)
+                    print(cmd.stderr)
+                    assert not "found unmanaged repository" in cmd.stderr.lower()
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
