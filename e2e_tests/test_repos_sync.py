@@ -500,7 +500,8 @@ def test_repos_sync_normal_change_remote_name(configtype):
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
-def test_repos_sync_worktree_clone(configtype):
+@pytest.mark.parametrize("init_worktree", [True, False, "default"])
+def test_repos_sync_worktree_clone(configtype, init_worktree):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote, head_commit_sha):
             with tempfile.NamedTemporaryFile() as config:
@@ -511,13 +512,22 @@ def test_repos_sync_worktree_clone(configtype):
                         )
                     )
 
-                cmd = grm(["repos", "sync", "config", "--config", config.name])
+                args = ["repos", "sync", "config", "--config", config.name]
+                if init_worktree is True:
+                    args.append("--init-worktree=true")
+                if init_worktree is False:
+                    args.append("--init-worktree=false")
+
+                cmd = grm(args)
                 assert cmd.returncode == 0
 
                 worktree_dir = f"{target}/test"
                 assert os.path.exists(worktree_dir)
 
-                assert set(os.listdir(worktree_dir)) == {".git-main-working-tree"}
+                if init_worktree is True or init_worktree == "default":
+                    assert set(os.listdir(worktree_dir)) == {".git-main-working-tree", "master"}
+                else:
+                    assert set(os.listdir(worktree_dir)) == {".git-main-working-tree"}
 
                 with git.Repo(
                     os.path.join(worktree_dir, ".git-main-working-tree")
