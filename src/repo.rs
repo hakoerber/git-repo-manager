@@ -7,7 +7,7 @@ use crate::output::*;
 
 const WORKTREE_CONFIG_FILE_NAME: &str = "grm.toml";
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RemoteType {
     Ssh,
@@ -31,7 +31,7 @@ pub enum GitPushDefaultSetting {
     Upstream,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum RepoErrorKind {
     NotFound,
     Unknown(String),
