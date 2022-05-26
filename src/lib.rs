@@ -143,6 +143,8 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig, init_worktree: bool) -> Result
     let repo_path = root_path.join(&repo.name);
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
+    let mut newly_created = false;
+
     if repo_path.exists() {
         if repo.worktree_setup && !actual_git_directory.exists() {
             return Err(String::from(
@@ -174,6 +176,8 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig, init_worktree: bool) -> Result
                 return Err(format!("Repository failed during clone: {}", e));
             }
         };
+
+        newly_created = true;
     }
 
     let repo_handle = match Repo::open(&repo_path, repo.worktree_setup) {
@@ -181,15 +185,15 @@ fn sync_repo(root_path: &Path, repo: &RepoConfig, init_worktree: bool) -> Result
         Err(error) => {
             if !repo.worktree_setup && Repo::open(&repo_path, true).is_ok() {
                 return Err(String::from(
-                        "Repo already exists, but is using a worktree setup",
-                        ));
+                    "Repo already exists, but is using a worktree setup",
+                ));
             } else {
                 return Err(format!("Opening repository failed: {}", error));
             }
         }
     };
 
-    if repo.worktree_setup && init_worktree {
+    if newly_created && repo.worktree_setup && init_worktree {
         match repo_handle.default_branch() {
             Ok(branch) => {
                 add_worktree(&repo_path, &branch.name()?, None, None, false)?;
