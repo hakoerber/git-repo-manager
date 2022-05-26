@@ -9,6 +9,9 @@ fmt:
     cargo fmt
     git ls-files | grep '\.py$' | xargs black
 
+lint:
+    cargo clippy --no-deps
+
 lint-fix:
     cargo clippy --no-deps --fix
 
