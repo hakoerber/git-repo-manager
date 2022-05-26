@@ -1271,14 +1271,14 @@ impl Repo {
             };
 
             let default_branch_name = match &config {
-                None => guess_default_branch()?,
+                None => guess_default_branch().ok(),
                 Some(config) => match &config.persistent_branches {
-                    None => guess_default_branch()?,
+                    None => guess_default_branch().ok(),
                     Some(persistent_branches) => {
                         if persistent_branches.is_empty() {
-                            guess_default_branch()?
+                            guess_default_branch().ok()
                         } else {
-                            persistent_branches[0].clone()
+                            Some(persistent_branches[0].clone())
                         }
                     }
                 },
@@ -1290,8 +1290,10 @@ impl Repo {
             if dirname == WORKTREE_CONFIG_FILE_NAME {
                 continue;
             }
-            if dirname == default_branch_name {
-                continue;
+            if let Some(default_branch_name) = default_branch_name {
+                if dirname == default_branch_name {
+                    continue;
+                }
             }
             if !&worktrees.iter().any(|worktree| worktree.name() == dirname) {
                 unmanaged_worktrees.push(dirname);
