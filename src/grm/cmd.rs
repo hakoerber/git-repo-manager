@@ -42,9 +42,7 @@ pub enum ReposAction {
 #[derive(Parser)]
 #[clap(about = "Sync local repositories with a configured list")]
 pub enum SyncAction {
-    #[clap(
-        about = "Synchronize the repositories to the configured values"
-    )]
+    #[clap(about = "Synchronize the repositories to the configured values")]
     Config(Config),
     #[clap(about = "Synchronize the repositories from a remote provider")]
     Remote(SyncRemoteArgs),
