@@ -447,6 +447,26 @@ mod tests {
     fn check_unsupported_protocol_git() {
         detect_remote_type("git://example.com");
     }
+
+    #[test]
+    fn repo_check_fullname() {
+        let with_namespace = Repo {
+            name: "name".to_string(),
+            namespace: Some("namespace".to_string()),
+            worktree_setup: false,
+            remotes: None,
+        };
+
+        let without_namespace = Repo {
+            name: "name".to_string(),
+            namespace: None,
+            worktree_setup: false,
+            remotes: None,
+        };
+
+        assert_eq!(with_namespace.fullname(), "namespace/name");
+        assert_eq!(without_namespace.fullname(), "name");
+    }
 }
 
 pub fn detect_remote_type(remote_url: &str) -> Option<RemoteType> {
