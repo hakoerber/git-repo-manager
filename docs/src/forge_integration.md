@@ -10,7 +10,7 @@ Imagine you are just starting out with `grm` and want to clone all your reposito
 from GitHub. This is as simple as:
 
 ```bash
-$ grm repos sync remote --provider github --owner --token-command "pass show github_grm_access_token --path ~/projects"
+$ grm repos sync remote --provider github --owner --token-command "pass show github_grm_access_token" --path ~/projects
 ```
 
 You will end up with your projects cloned into `~/projects/{your_github_username}/`
