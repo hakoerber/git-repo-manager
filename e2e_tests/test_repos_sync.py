@@ -518,24 +518,30 @@ def test_repos_sync_worktree_clone(configtype, init_worktree):
                 if init_worktree is False:
                     args.append("--init-worktree=false")
 
-                cmd = grm(args)
-                assert cmd.returncode == 0
+                for i in [1, 2]:
+                    cmd = grm(args)
+                    assert cmd.returncode == 0
 
-                worktree_dir = f"{target}/test"
-                assert os.path.exists(worktree_dir)
+                    worktree_dir = f"{target}/test"
+                    assert os.path.exists(worktree_dir)
 
-                if init_worktree is True or init_worktree == "default":
-                    assert set(os.listdir(worktree_dir)) == {".git-main-working-tree", "master"}
-                else:
-                    assert set(os.listdir(worktree_dir)) == {".git-main-working-tree"}
+                    if init_worktree is True or init_worktree == "default":
+                        assert set(os.listdir(worktree_dir)) == {
+                            ".git-main-working-tree",
+                            "master",
+                        }
+                    else:
+                        assert set(os.listdir(worktree_dir)) == {
+                            ".git-main-working-tree"
+                        }
 
-                with git.Repo(
-                    os.path.join(worktree_dir, ".git-main-working-tree")
-                ) as repo:
-                    assert repo.bare
-                    assert set([str(r) for r in repo.remotes]) == {"origin"}
-                    assert str(repo.active_branch) == "master"
-                    assert str(repo.head.commit) == head_commit_sha
+                    with git.Repo(
+                        os.path.join(worktree_dir, ".git-main-working-tree")
+                    ) as repo:
+                        assert repo.bare
+                        assert set([str(r) for r in repo.remotes]) == {"origin"}
+                        assert str(repo.active_branch) == "master"
+                        assert str(repo.head.commit) == head_commit_sha
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
