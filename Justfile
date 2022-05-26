@@ -5,6 +5,10 @@ check: test
     cargo fmt --check
     cargo clippy --no-deps -- -Dwarnings
 
+fmt:
+    cargo fmt
+    git ls-files | grep '\.py$' | xargs black
+
 lint-fix:
     cargo clippy --no-deps --fix
 
