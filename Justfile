@@ -32,6 +32,12 @@ install:
 install-static:
     cargo install --target {{target}} --features=static-build --path .
 
+build:
+    cargo build
+
+build-static:
+    cargo build --target {{target}} --features=static-build
+
 test: test-unit test-integration test-e2e
 
 test-unit:
