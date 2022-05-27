@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use super::escape;
 use super::ApiErrorResponse;
 use super::Filter;
 use super::JsonError;
@@ -125,7 +126,7 @@ impl Provider for Gitlab {
         user: &str,
     ) -> Result<Vec<GitlabProject>, ApiErrorResponse<GitlabApiErrorResponse>> {
         self.call_list(
-            &format!("{}/api/v4/users/{}/projects", self.api_url(), user),
+            &format!("{}/api/v4/users/{}/projects", self.api_url(), escape(user)),
             Some(ACCEPT_HEADER_JSON),
         )
     }
@@ -138,7 +139,7 @@ impl Provider for Gitlab {
             &format!(
                 "{}/api/v4/groups/{}/projects?include_subgroups=true&archived=false",
                 self.api_url(),
-                group
+                escape(group),
             ),
             Some(ACCEPT_HEADER_JSON),
         )

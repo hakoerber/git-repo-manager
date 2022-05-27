@@ -78,5 +78,8 @@ features = ["json"]
 [dependencies.parse_link_header]
 version = "=0.3.2"
 
+[dependencies.url-escape]
+version = "=0.1.1"
+
 [dev-dependencies.tempdir]
 version = "=0.3.7"

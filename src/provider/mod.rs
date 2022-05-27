@@ -28,6 +28,10 @@ enum ProjectResponse<T, U> {
     Failure(U),
 }
 
+pub fn escape(s: &str) -> String {
+    url_escape::encode_component(s).to_string()
+}
+
 pub trait Project {
     fn into_repo_config(
         self,

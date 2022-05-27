@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use super::escape;
 use super::ApiErrorResponse;
 use super::Filter;
 use super::JsonError;
@@ -108,7 +109,7 @@ impl Provider for Github {
         user: &str,
     ) -> Result<Vec<GithubProject>, ApiErrorResponse<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/users/{user}/repos"),
+            &format!("{GITHUB_API_BASEURL}/users/{}/repos", escape(user)),
             Some(ACCEPT_HEADER_JSON),
         )
     }
@@ -118,7 +119,7 @@ impl Provider for Github {
         group: &str,
     ) -> Result<Vec<GithubProject>, ApiErrorResponse<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/orgs/{group}/repos?type=all"),
+            &format!("{GITHUB_API_BASEURL}/orgs/{}/repos?type=all", escape(group)),
             Some(ACCEPT_HEADER_JSON),
         )
     }
