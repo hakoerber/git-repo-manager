@@ -57,7 +57,7 @@ impl Project for GitlabProject {
     }
 
     fn private(&self) -> bool {
-        matches!(self.visibility, GitlabVisibility::Private)
+        !matches!(self.visibility, GitlabVisibility::Public)
     }
 }
 
