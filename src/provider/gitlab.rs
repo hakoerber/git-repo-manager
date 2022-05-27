@@ -63,7 +63,7 @@ impl Project for GitlabProject {
 
 #[derive(Deserialize)]
 pub struct GitlabApiErrorResponse {
-    #[serde(alias = "error_description")]
+    #[serde(alias = "error_description", alias = "error")]
     pub message: String,
 }
 
