@@ -1,7 +1,7 @@
 # Summary
 
 - [Overview](./overview.md)
-- [Getting started](./getting_started.md)
+- [Installation](./installation.md)
 - [Repository trees](./repos.md)
 - [Git Worktrees](./worktrees.md)
 - [Forge Integrations](./forge_integration.md)

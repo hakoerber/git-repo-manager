@@ -2,6 +2,7 @@
 name = "git-repo-manager"
 version = "0.7.0"
 edition = "2021"
+
 authors = [
   "Hannes Körber <hannes@hkoerber.de>",
 ]
@@ -73,7 +74,8 @@ version = "=1.0.81"
 
 [dependencies.isahc]
 version = "=1.7.2"
-features = ["json"]
+default-features = false
+features = ["json", "http2", "text-decoding"]
 
 [dependencies.parse_link_header]
 version = "=0.3.2"
@@ -83,3 +85,11 @@ version = "=0.1.1"
 
 [dev-dependencies.tempdir]
 version = "=0.3.7"
+
+[features]
+static-build = [
+  "git2/vendored-openssl",
+  "git2/vendored-libgit2",
+  "isahc/static-curl",
+  "isahc/static-ssl",
+]
