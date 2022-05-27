@@ -1,18 +1,19 @@
 use serde::{Deserialize, Serialize};
 use std::process;
 
-use crate::output::*;
-
 use std::path::Path;
 
-use crate::{get_token_from_command, path_as_string, Remote, Repo, Tree};
+use super::auth;
+use super::output::*;
+use super::path;
+use super::provider;
+use super::provider::Filter;
+use super::provider::Provider;
+use super::repo;
+use super::tree;
 
-use crate::provider;
-use crate::provider::Filter;
-use crate::provider::Provider;
-
-pub type RemoteProvider = crate::provider::RemoteProvider;
-pub type RemoteType = crate::repo::RemoteType;
+pub type RemoteProvider = provider::RemoteProvider;
+pub type RemoteType = repo::RemoteType;
 
 fn worktree_setup_default() -> bool {
     false
@@ -64,7 +65,7 @@ pub struct RemoteConfig {
 }
 
 impl RemoteConfig {
-    pub fn from_remote(remote: Remote) -> Self {
+    pub fn from_remote(remote: repo::Remote) -> Self {
         Self {
             name: remote.name,
             url: remote.url,
@@ -72,8 +73,8 @@ impl RemoteConfig {
         }
     }
 
-    pub fn into_remote(self) -> Remote {
-        Remote {
+    pub fn into_remote(self) -> repo::Remote {
+        repo::Remote {
             name: self.name,
             url: self.url,
             remote_type: self.remote_type,
@@ -93,7 +94,7 @@ pub struct RepoConfig {
 }
 
 impl RepoConfig {
-    pub fn from_repo(repo: Repo) -> Self {
+    pub fn from_repo(repo: repo::Repo) -> Self {
         Self {
             name: repo.name,
             worktree_setup: repo.worktree_setup,
@@ -103,14 +104,14 @@ impl RepoConfig {
         }
     }
 
-    pub fn into_repo(self) -> Repo {
+    pub fn into_repo(self) -> repo::Repo {
         let (namespace, name) = if let Some((namespace, name)) = self.name.rsplit_once('/') {
             (Some(namespace.to_string()), name.to_string())
         } else {
             (None, self.name)
         };
 
-        Repo {
+        repo::Repo {
             name,
             namespace,
             worktree_setup: self.worktree_setup,
@@ -133,7 +134,7 @@ impl ConfigTrees {
         ConfigTrees { trees: vec }
     }
 
-    pub fn from_trees(vec: Vec<Tree>) -> Self {
+    pub fn from_trees(vec: Vec<tree::Tree>) -> Self {
         ConfigTrees {
             trees: vec.into_iter().map(ConfigTree::from_tree).collect(),
         }
@@ -157,7 +158,7 @@ impl Config {
         match self {
             Config::ConfigTrees(config) => Ok(config.trees),
             Config::ConfigProvider(config) => {
-                let token = match get_token_from_command(&config.token_command) {
+                let token = match auth::get_token_from_command(&config.token_command) {
                     Ok(token) => token,
                     Err(error) => {
                         print_error(&format!("Getting token from command failed: {}", error));
@@ -217,9 +218,9 @@ impl Config {
                         .collect();
                     let tree = ConfigTree {
                         root: if let Some(namespace) = namespace {
-                            path_as_string(&Path::new(&config.root).join(namespace))
+                            path::path_as_string(&Path::new(&config.root).join(namespace))
                         } else {
-                            path_as_string(Path::new(&config.root))
+                            path::path_as_string(Path::new(&config.root))
                         },
                         repos: Some(repos),
                     };
@@ -236,7 +237,7 @@ impl Config {
 
     pub fn normalize(&mut self) {
         if let Config::ConfigTrees(config) = self {
-            let home = super::env_home().display().to_string();
+            let home = path::env_home().display().to_string();
             for tree in &mut config.trees_mut().iter_mut() {
                 if tree.root.starts_with(&home) {
                     // The tilde is not handled differently, it's just a normal path component for `Path`.
@@ -275,14 +276,14 @@ pub struct ConfigTree {
 }
 
 impl ConfigTree {
-    pub fn from_repos(root: String, repos: Vec<Repo>) -> Self {
+    pub fn from_repos(root: String, repos: Vec<repo::Repo>) -> Self {
         Self {
             root,
             repos: Some(repos.into_iter().map(RepoConfig::from_repo).collect()),
         }
     }
 
-    pub fn from_tree(tree: Tree) -> Self {
+    pub fn from_tree(tree: tree::Tree) -> Self {
         Self {
             root: tree.root,
             repos: Some(tree.repos.into_iter().map(RepoConfig::from_repo).collect()),

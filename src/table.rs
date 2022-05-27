@@ -1,4 +1,6 @@
-use crate::RepoHandle;
+use super::config;
+use super::path;
+use super::repo;
 
 use comfy_table::{Cell, Table};
 
@@ -21,7 +23,7 @@ fn add_table_header(table: &mut Table) {
 fn add_repo_status(
     table: &mut Table,
     repo_name: &str,
-    repo_handle: &crate::RepoHandle,
+    repo_handle: &repo::RepoHandle,
     is_worktree: bool,
 ) -> Result<(), String> {
     let repo_status = repo_handle.status(is_worktree)?;
@@ -65,11 +67,11 @@ fn add_repo_status(
                                 " <{}>{}",
                                 remote_branch_name,
                                 &match remote_tracking_status {
-                                    crate::RemoteTrackingStatus::UpToDate =>
+                                    repo::RemoteTrackingStatus::UpToDate =>
                                         String::from(" \u{2714}"),
-                                    crate::RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
-                                    crate::RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
-                                    crate::RemoteTrackingStatus::Diverged(d1, d2) =>
+                                    repo::RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
+                                    repo::RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
+                                    repo::RemoteTrackingStatus::Diverged(d1, d2) =>
                                         format!(" [+{}/-{}]", &d1, &d2),
                                 }
                             )
@@ -99,7 +101,7 @@ fn add_repo_status(
 
 // Don't return table, return a type that implements Display(?)
 pub fn get_worktree_status_table(
-    repo: &crate::RepoHandle,
+    repo: &repo::RepoHandle,
     directory: &Path,
 ) -> Result<(impl std::fmt::Display, Vec<String>), String> {
     let worktrees = repo.get_worktrees()?;
@@ -111,7 +113,7 @@ pub fn get_worktree_status_table(
     for worktree in &worktrees {
         let worktree_dir = &directory.join(&worktree.name());
         if worktree_dir.exists() {
-            let repo = match crate::RepoHandle::open(worktree_dir, false) {
+            let repo = match repo::RepoHandle::open(worktree_dir, false) {
                 Ok(repo) => repo,
                 Err(error) => {
                     errors.push(format!(
@@ -132,7 +134,7 @@ pub fn get_worktree_status_table(
             ));
         }
     }
-    for worktree in RepoHandle::find_unmanaged_worktrees(repo, directory)? {
+    for worktree in repo::RepoHandle::find_unmanaged_worktrees(repo, directory)? {
         errors.push(format!(
             "Found {}, which is not a valid worktree directory!",
             &worktree
@@ -141,13 +143,13 @@ pub fn get_worktree_status_table(
     Ok((table, errors))
 }
 
-pub fn get_status_table(config: crate::Config) -> Result<(Vec<Table>, Vec<String>), String> {
+pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<String>), String> {
     let mut errors = Vec::new();
     let mut tables = Vec::new();
     for tree in config.trees()? {
         let repos = tree.repos.unwrap_or_default();
 
-        let root_path = crate::expand_path(Path::new(&tree.root));
+        let root_path = path::expand_path(Path::new(&tree.root));
 
         let mut table = Table::new();
         add_table_header(&mut table);
@@ -163,12 +165,12 @@ pub fn get_status_table(config: crate::Config) -> Result<(Vec<Table>, Vec<String
                 continue;
             }
 
-            let repo_handle = crate::RepoHandle::open(&repo_path, repo.worktree_setup);
+            let repo_handle = repo::RepoHandle::open(&repo_path, repo.worktree_setup);
 
             let repo_handle = match repo_handle {
                 Ok(repo) => repo,
                 Err(error) => {
-                    if error.kind == crate::RepoErrorKind::NotFound {
+                    if error.kind == repo::RepoErrorKind::NotFound {
                         errors.push(format!(
                             "{}: No git repository found. Run sync?",
                             &repo.name
@@ -206,8 +208,8 @@ fn add_worktree_table_header(table: &mut Table) {
 
 fn add_worktree_status(
     table: &mut Table,
-    worktree: &crate::repo::Worktree,
-    repo: &crate::RepoHandle,
+    worktree: &repo::Worktree,
+    repo: &repo::RepoHandle,
 ) -> Result<(), String> {
     let repo_status = repo.status(false)?;
 
@@ -272,13 +274,13 @@ pub fn show_single_repo_status(
     let mut table = Table::new();
     let mut warnings = Vec::new();
 
-    let is_worktree = crate::RepoHandle::detect_worktree(path);
+    let is_worktree = repo::RepoHandle::detect_worktree(path);
     add_table_header(&mut table);
 
-    let repo_handle = crate::RepoHandle::open(path, is_worktree);
+    let repo_handle = repo::RepoHandle::open(path, is_worktree);
 
     if let Err(error) = repo_handle {
-        if error.kind == crate::RepoErrorKind::NotFound {
+        if error.kind == repo::RepoErrorKind::NotFound {
             return Err(String::from("Directory is not a git directory"));
         } else {
             return Err(format!("Opening repository failed: {}", error));

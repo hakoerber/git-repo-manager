@@ -9,7 +9,7 @@ pub mod gitlab;
 pub use github::Github;
 pub use gitlab::Gitlab;
 
-use crate::{Remote, RemoteType, Repo};
+use super::repo;
 
 use std::collections::HashMap;
 
@@ -29,15 +29,20 @@ enum ProjectResponse<T, U> {
 }
 
 pub trait Project {
-    fn into_repo_config(self, provider_name: &str, worktree_setup: bool, force_ssh: bool) -> Repo
+    fn into_repo_config(
+        self,
+        provider_name: &str,
+        worktree_setup: bool,
+        force_ssh: bool,
+    ) -> repo::Repo
     where
         Self: Sized,
     {
-        Repo {
+        repo::Repo {
             name: self.name(),
             namespace: self.namespace(),
             worktree_setup,
-            remotes: Some(vec![Remote {
+            remotes: Some(vec![repo::Remote {
                 name: String::from(provider_name),
                 url: if force_ssh || self.private() {
                     self.ssh_url()
@@ -45,9 +50,9 @@ pub trait Project {
                     self.http_url()
                 },
                 remote_type: if force_ssh || self.private() {
-                    RemoteType::Ssh
+                    repo::RemoteType::Ssh
                 } else {
-                    RemoteType::Https
+                    repo::RemoteType::Https
                 },
             }]),
         }
@@ -201,7 +206,7 @@ pub trait Provider {
         &self,
         worktree_setup: bool,
         force_ssh: bool,
-    ) -> Result<HashMap<Option<String>, Vec<Repo>>, String> {
+    ) -> Result<HashMap<Option<String>, Vec<repo::Repo>>, String> {
         let mut repos = vec![];
 
         if self.filter().owner {
@@ -278,7 +283,7 @@ pub trait Provider {
             }
         }
 
-        let mut ret: HashMap<Option<String>, Vec<Repo>> = HashMap::new();
+        let mut ret: HashMap<Option<String>, Vec<repo::Repo>> = HashMap::new();
 
         for repo in repos {
             let namespace = repo.namespace();

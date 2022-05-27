@@ -3,12 +3,17 @@ use std::process;
 
 mod cmd;
 
+use grm::auth;
 use grm::config;
+use grm::find_in_tree;
 use grm::output::*;
-use grm::path_as_string;
+use grm::path;
 use grm::provider;
 use grm::provider::Provider;
 use grm::repo;
+use grm::table;
+use grm::tree;
+use grm::worktree;
 
 fn main() {
     let opts = cmd::parse();
@@ -24,7 +29,7 @@ fn main() {
                             process::exit(1);
                         }
                     };
-                    match grm::sync_trees(config, args.init_worktree == "true") {
+                    match tree::sync_trees(config, args.init_worktree == "true") {
                         Ok(success) => {
                             if !success {
                                 process::exit(1)
@@ -37,7 +42,7 @@ fn main() {
                     }
                 }
                 cmd::SyncAction::Remote(args) => {
-                    let token = match grm::get_token_from_command(&args.token_command) {
+                    let token = match auth::get_token_from_command(&args.token_command) {
                         Ok(token) => token,
                         Err(error) => {
                             print_error(&format!("Getting token from command failed: {}", error));
@@ -45,18 +50,14 @@ fn main() {
                         }
                     };
 
-                    let filter = grm::provider::Filter::new(
-                        args.users,
-                        args.groups,
-                        args.owner,
-                        args.access,
-                    );
+                    let filter =
+                        provider::Filter::new(args.users, args.groups, args.owner, args.access);
 
                     let worktree = args.worktree == "true";
 
                     let repos = match args.provider {
                         cmd::RemoteProvider::Github => {
-                            match grm::provider::Github::new(filter, token, args.api_url) {
+                            match provider::Github::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
                                     print_error(&format!("Error: {}", error));
@@ -66,7 +67,7 @@ fn main() {
                             .get_repos(worktree, args.force_ssh)
                         }
                         cmd::RemoteProvider::Gitlab => {
-                            match grm::provider::Gitlab::new(filter, token, args.api_url) {
+                            match provider::Gitlab::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
                                     print_error(&format!("Error: {}", error));
@@ -83,9 +84,9 @@ fn main() {
 
                             for (namespace, repolist) in repos {
                                 let root = if let Some(namespace) = namespace {
-                                    path_as_string(&Path::new(&args.root).join(namespace))
+                                    path::path_as_string(&Path::new(&args.root).join(namespace))
                                 } else {
-                                    path_as_string(Path::new(&args.root))
+                                    path::path_as_string(Path::new(&args.root))
                                 };
 
                                 let tree = config::ConfigTree::from_repos(root, repolist);
@@ -94,7 +95,7 @@ fn main() {
 
                             let config = config::Config::from_trees(trees);
 
-                            match grm::sync_trees(config, args.init_worktree == "true") {
+                            match tree::sync_trees(config, args.init_worktree == "true") {
                                 Ok(success) => {
                                     if !success {
                                         process::exit(1)
@@ -122,7 +123,7 @@ fn main() {
                             process::exit(1);
                         }
                     };
-                    match grm::table::get_status_table(config) {
+                    match table::get_status_table(config) {
                         Ok((tables, errors)) => {
                             for table in tables {
                                 println!("{}", table);
@@ -146,7 +147,7 @@ fn main() {
                         }
                     };
 
-                    match grm::table::show_single_repo_status(&dir) {
+                    match table::show_single_repo_status(&dir) {
                         Ok((table, warnings)) => {
                             println!("{}", table);
                             for warning in warnings {
@@ -184,7 +185,7 @@ fn main() {
                         }
                     };
 
-                    let (found_repos, warnings) = match grm::find_in_tree(&path) {
+                    let (found_repos, warnings) = match find_in_tree(&path) {
                         Ok((repos, warnings)) => (repos, warnings),
                         Err(error) => {
                             print_error(&error);
@@ -192,7 +193,7 @@ fn main() {
                         }
                     };
 
-                    let trees = grm::config::ConfigTrees::from_trees(vec![found_repos]);
+                    let trees = config::ConfigTrees::from_trees(vec![found_repos]);
                     if trees.trees_ref().iter().all(|t| match &t.repos {
                         None => false,
                         Some(r) => r.is_empty(),
@@ -237,16 +238,15 @@ fn main() {
                     }
                 }
                 cmd::FindAction::Config(args) => {
-                    let config: crate::config::ConfigProvider =
-                        match config::read_config(&args.config) {
-                            Ok(config) => config,
-                            Err(error) => {
-                                print_error(&error);
-                                process::exit(1);
-                            }
-                        };
+                    let config: config::ConfigProvider = match config::read_config(&args.config) {
+                        Ok(config) => config,
+                        Err(error) => {
+                            print_error(&error);
+                            process::exit(1);
+                        }
+                    };
 
-                    let token = match grm::get_token_from_command(&config.token_command) {
+                    let token = match auth::get_token_from_command(&config.token_command) {
                         Ok(token) => token,
                         Err(error) => {
                             print_error(&format!("Getting token from command failed: {}", error));
@@ -254,7 +254,7 @@ fn main() {
                         }
                     };
 
-                    let filters = config.filters.unwrap_or(grm::config::ConfigProviderFilter {
+                    let filters = config.filters.unwrap_or(config::ConfigProviderFilter {
                         access: Some(false),
                         owner: Some(false),
                         users: Some(vec![]),
@@ -314,14 +314,14 @@ fn main() {
                     for (namespace, namespace_repos) in repos {
                         let tree = config::ConfigTree {
                             root: if let Some(namespace) = namespace {
-                                path_as_string(&Path::new(&config.root).join(namespace))
+                                path::path_as_string(&Path::new(&config.root).join(namespace))
                             } else {
-                                path_as_string(Path::new(&config.root))
+                                path::path_as_string(Path::new(&config.root))
                             },
                             repos: Some(
                                 namespace_repos
                                     .into_iter()
-                                    .map(grm::config::RepoConfig::from_repo)
+                                    .map(config::RepoConfig::from_repo)
                                     .collect(),
                             ),
                         };
@@ -360,7 +360,7 @@ fn main() {
                     }
                 }
                 cmd::FindAction::Remote(args) => {
-                    let token = match grm::get_token_from_command(&args.token_command) {
+                    let token = match auth::get_token_from_command(&args.token_command) {
                         Ok(token) => token,
                         Err(error) => {
                             print_error(&format!("Getting token from command failed: {}", error));
@@ -368,18 +368,14 @@ fn main() {
                         }
                     };
 
-                    let filter = grm::provider::Filter::new(
-                        args.users,
-                        args.groups,
-                        args.owner,
-                        args.access,
-                    );
+                    let filter =
+                        provider::Filter::new(args.users, args.groups, args.owner, args.access);
 
                     let worktree = args.worktree == "true";
 
                     let repos = match args.provider {
                         cmd::RemoteProvider::Github => {
-                            match grm::provider::Github::new(filter, token, args.api_url) {
+                            match provider::Github::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
                                     print_error(&format!("Error: {}", error));
@@ -389,7 +385,7 @@ fn main() {
                             .get_repos(worktree, args.force_ssh)
                         }
                         cmd::RemoteProvider::Gitlab => {
-                            match grm::provider::Gitlab::new(filter, token, args.api_url) {
+                            match provider::Gitlab::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
                                     print_error(&format!("Error: {}", error));
@@ -410,14 +406,14 @@ fn main() {
                     for (namespace, repolist) in repos {
                         let tree = config::ConfigTree {
                             root: if let Some(namespace) = namespace {
-                                path_as_string(&Path::new(&args.root).join(namespace))
+                                path::path_as_string(&Path::new(&args.root).join(namespace))
                             } else {
-                                path_as_string(Path::new(&args.root))
+                                path::path_as_string(Path::new(&args.root))
                             },
                             repos: Some(
                                 repolist
                                     .into_iter()
-                                    .map(grm::config::RepoConfig::from_repo)
+                                    .map(config::RepoConfig::from_repo)
                                     .collect(),
                             ),
                         };
@@ -503,7 +499,13 @@ fn main() {
                         }
                     }
 
-                    match grm::add_worktree(&cwd, name, subdirectory, track, action_args.no_track) {
+                    match worktree::add_worktree(
+                        &cwd,
+                        name,
+                        subdirectory,
+                        track,
+                        action_args.no_track,
+                    ) {
                         Ok(_) => print_success(&format!("Worktree {} created", &action_args.name)),
                         Err(error) => {
                             print_error(&format!("Error creating worktree: {}", error));
@@ -525,7 +527,7 @@ fn main() {
                         }
                     };
 
-                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
+                    let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         print_error(&format!("Error opening repository: {}", error));
                         process::exit(1);
                     });
@@ -539,17 +541,17 @@ fn main() {
                         Ok(_) => print_success(&format!("Worktree {} deleted", &action_args.name)),
                         Err(error) => {
                             match error {
-                                grm::WorktreeRemoveFailureReason::Error(msg) => {
+                                repo::WorktreeRemoveFailureReason::Error(msg) => {
                                     print_error(&msg);
                                     process::exit(1);
                                 }
-                                grm::WorktreeRemoveFailureReason::Changes(changes) => {
+                                repo::WorktreeRemoveFailureReason::Changes(changes) => {
                                     print_warning(&format!(
                                         "Changes in worktree: {}. Refusing to delete",
                                         changes
                                     ));
                                 }
-                                grm::WorktreeRemoveFailureReason::NotMerged(message) => {
+                                repo::WorktreeRemoveFailureReason::NotMerged(message) => {
                                     print_warning(&message);
                                 }
                             }
@@ -558,12 +560,12 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Status(_args) => {
-                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
+                    let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         print_error(&format!("Error opening repository: {}", error));
                         process::exit(1);
                     });
 
-                    match grm::table::get_worktree_status_table(&repo, &cwd) {
+                    match table::get_worktree_status_table(&repo, &cwd) {
                         Ok((table, errors)) => {
                             println!("{}", table);
                             for error in errors {
@@ -583,8 +585,8 @@ fn main() {
                     // * Remove all files
                     // * Set `core.bare` to `true`
 
-                    let repo = grm::RepoHandle::open(&cwd, false).unwrap_or_else(|error| {
-                        if error.kind == grm::RepoErrorKind::NotFound {
+                    let repo = repo::RepoHandle::open(&cwd, false).unwrap_or_else(|error| {
+                        if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {}", error));
@@ -611,8 +613,8 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Clean(_args) => {
-                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == grm::RepoErrorKind::NotFound {
+                    let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
+                        if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {}", error));
@@ -645,8 +647,8 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Fetch(_args) => {
-                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == grm::RepoErrorKind::NotFound {
+                    let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
+                        if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {}", error));
@@ -661,8 +663,8 @@ fn main() {
                     print_success("Fetched from all remotes");
                 }
                 cmd::WorktreeAction::Pull(args) => {
-                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == grm::RepoErrorKind::NotFound {
+                    let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
+                        if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {}", error));
@@ -702,8 +704,8 @@ fn main() {
                         print_error("There is no point in using --rebase without --pull");
                         process::exit(1);
                     }
-                    let repo = grm::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == grm::RepoErrorKind::NotFound {
+                    let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
+                        if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {}", error));
@@ -718,14 +720,10 @@ fn main() {
                         });
                     }
 
-                    let config =
-                        grm::repo::read_worktree_root_config(&cwd).unwrap_or_else(|error| {
-                            print_error(&format!(
-                                "Failed to read worktree configuration: {}",
-                                error
-                            ));
-                            process::exit(1);
-                        });
+                    let config = repo::read_worktree_root_config(&cwd).unwrap_or_else(|error| {
+                        print_error(&format!("Failed to read worktree configuration: {}", error));
+                        process::exit(1);
+                    });
 
                     let worktrees = repo.get_worktrees().unwrap_or_else(|error| {
                         print_error(&format!("Error getting worktrees: {}", error));

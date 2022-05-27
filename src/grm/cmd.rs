@@ -181,7 +181,7 @@ pub struct Config {
     pub init_worktree: String,
 }
 
-pub type RemoteProvider = grm::provider::RemoteProvider;
+pub type RemoteProvider = super::provider::RemoteProvider;
 
 #[derive(Parser)]
 #[clap()]

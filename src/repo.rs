@@ -3,9 +3,13 @@ use std::path::Path;
 
 use git2::Repository;
 
-use crate::output::*;
+use super::output::*;
+use super::path;
+use super::worktree;
 
 const WORKTREE_CONFIG_FILE_NAME: &str = "grm.toml";
+const GIT_CONFIG_BARE_KEY: &str = "core.bare";
+const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -506,7 +510,7 @@ impl RepoHandle {
             false => Repository::open,
         };
         let path = match is_worktree {
-            true => path.join(crate::GIT_MAIN_WORKTREE_DIRECTORY),
+            true => path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY),
             false => path.to_path_buf(),
         };
         match open_func(path) {
@@ -679,7 +683,7 @@ impl RepoHandle {
     pub fn init(path: &Path, is_worktree: bool) -> Result<Self, String> {
         let repo = match is_worktree {
             false => Repository::init(path).map_err(convert_libgit2_error)?,
-            true => Repository::init_bare(path.join(crate::GIT_MAIN_WORKTREE_DIRECTORY))
+            true => Repository::init_bare(path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY))
                 .map_err(convert_libgit2_error)?,
         };
 
@@ -742,8 +746,8 @@ impl RepoHandle {
         let mut config = self.config()?;
 
         config
-            .set_bool(crate::GIT_CONFIG_BARE_KEY, value)
-            .map_err(|error| format!("Could not set {}: {}", crate::GIT_CONFIG_BARE_KEY, error))
+            .set_bool(GIT_CONFIG_BARE_KEY, value)
+            .map_err(|error| format!("Could not set {}: {}", GIT_CONFIG_BARE_KEY, error))
     }
 
     pub fn convert_to_worktree(
@@ -766,7 +770,7 @@ impl RepoHandle {
             return Err(WorktreeConversionFailureReason::Ignored);
         }
 
-        std::fs::rename(".git", crate::GIT_MAIN_WORKTREE_DIRECTORY).map_err(|error| {
+        std::fs::rename(".git", worktree::GIT_MAIN_WORKTREE_DIRECTORY).map_err(|error| {
             WorktreeConversionFailureReason::Error(format!(
                 "Error moving .git directory: {}",
                 error
@@ -786,7 +790,7 @@ impl RepoHandle {
                 Ok(entry) => {
                     let path = entry.path();
                     // unwrap is safe here, the path will ALWAYS have a file component
-                    if path.file_name().unwrap() == crate::GIT_MAIN_WORKTREE_DIRECTORY {
+                    if path.file_name().unwrap() == worktree::GIT_MAIN_WORKTREE_DIRECTORY {
                         continue;
                     }
                     if path.is_file() || path.is_symlink() {
@@ -835,18 +839,12 @@ impl RepoHandle {
 
         config
             .set_str(
-                crate::GIT_CONFIG_PUSH_DEFAULT,
+                GIT_CONFIG_PUSH_DEFAULT,
                 match value {
                     GitPushDefaultSetting::Upstream => "upstream",
                 },
             )
-            .map_err(|error| {
-                format!(
-                    "Could not set {}: {}",
-                    crate::GIT_CONFIG_PUSH_DEFAULT,
-                    error
-                )
-            })
+            .map_err(|error| format!("Could not set {}: {}", GIT_CONFIG_PUSH_DEFAULT, error))
     }
 
     pub fn has_untracked_files(&self, is_worktree: bool) -> Result<bool, String> {
@@ -1105,7 +1103,7 @@ impl RepoHandle {
         })?;
 
         if branch_name != name
-            && !branch_name.ends_with(&format!("{}{}", crate::BRANCH_NAMESPACE_SEPARATOR, name))
+            && !branch_name.ends_with(&format!("{}{}", super::BRANCH_NAMESPACE_SEPARATOR, name))
         {
             return Err(WorktreeRemoveFailureReason::Error(format!(
                 "Branch {} is checked out in worktree, this does not look correct",
@@ -1275,7 +1273,7 @@ impl RepoHandle {
 
         let mut unmanaged_worktrees = Vec::new();
         for entry in std::fs::read_dir(&directory).map_err(|error| error.to_string())? {
-            let dirname = crate::path_as_string(
+            let dirname = path::path_as_string(
                 entry
                     .map_err(|error| error.to_string())?
                     .path()
@@ -1308,7 +1306,7 @@ impl RepoHandle {
                 },
             };
 
-            if dirname == crate::GIT_MAIN_WORKTREE_DIRECTORY {
+            if dirname == worktree::GIT_MAIN_WORKTREE_DIRECTORY {
                 continue;
             }
             if dirname == WORKTREE_CONFIG_FILE_NAME {
@@ -1327,7 +1325,7 @@ impl RepoHandle {
     }
 
     pub fn detect_worktree(path: &Path) -> bool {
-        path.join(crate::GIT_MAIN_WORKTREE_DIRECTORY).exists()
+        path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY).exists()
     }
 }
 
@@ -1486,7 +1484,7 @@ pub fn clone_repo(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let clone_target = match is_worktree {
         false => path.to_path_buf(),
-        true => path.join(crate::GIT_MAIN_WORKTREE_DIRECTORY),
+        true => path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY),
     };
 
     print_action(&format!(
