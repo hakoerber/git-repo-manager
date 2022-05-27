@@ -20,17 +20,11 @@ lint-fix:
 release:
     cargo build --release --target {{target}}
 
-test-binary-docker:
+test-binary:
     env \
         GITHUB_API_BASEURL=http://rest:5000/github \
         GITLAB_API_BASEURL=http://rest:5000/gitlab \
         cargo build --target {{target}} --profile e2e-tests --features=static-build
-
-test-binary:
-    env \
-        GITHUB_API_BASEURL=http://localhost:5000/github \
-        GITLAB_API_BASEURL=http://localhost:5000/gitlab \
-        cargo build --target {{target}} --profile e2e-tests
 
 install:
     cargo install --path .
@@ -46,7 +40,7 @@ test-unit:
 test-integration:
     cargo test --test "*"
 
-test-e2e-docker +tests=".": test-binary-docker
+test-e2e +tests=".": test-binary
     cd ./e2e_tests \
     && docker-compose rm --stop -f \
     && docker-compose build \
@@ -54,15 +48,7 @@ test-e2e-docker +tests=".": test-binary-docker
         --rm \
         -v $PWD/../target/{{target}}/e2e-tests/grm:/grm \
             pytest \
-            "GRM_BINARY=/grm python3 ALTERNATE_DOMAIN=alternate-rest -m pytest -p no:cacheprovider --color=yes "$@"" \
-    && docker-compose rm --stop -f
-
-test-e2e +tests=".": test-binary
-    cd ./e2e_tests \
-    && docker-compose rm --stop -f \
-    && docker-compose build \
-    && docker-compose up -d rest \
-    && GRM_BINARY={{justfile_directory()}}/target/{{target}}/e2e-tests/grm ALTERNATE_DOMAIN=127.0.0.1 python3 -m pytest -p no:cacheprovider --color=yes {{tests}} \
+            "GRM_BINARY=/grm ALTERNATE_DOMAIN=alternate-rest python3 -m pytest -p no:cacheprovider --color=yes "$@"" \
     && docker-compose rm --stop -f
 
 update-dependencies: update-cargo-dependencies
