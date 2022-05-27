@@ -78,7 +78,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">1.</strong> Overview</a></li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">2.</strong> Getting started</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Repository trees</a></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">5.</strong> Forge Integrations</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contributing.html"><strong aria-hidden="true">7.</strong> Contributing</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">1.</strong> Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Repository trees</a></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">5.</strong> Forge Integrations</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contributing.html"><strong aria-hidden="true">7.</strong> Contributing</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -167,17 +167,38 @@ especially helpful when the following describes you:</p>
 <li>When switching branches, you'd like to just leave your work as-is, without
 using the stash or temporary commits.</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="quickstart"><a class="header" href="#quickstart">Quickstart</a></h1>
-<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<h2 id="installation-1"><a class="header" href="#installation-1">Installation</a></h2>
 <p>Building GRM currently requires the nightly Rust toolchain. The easiest way
 is using <a href="https://rustup.rs/"><code>rustup</code></a>. Make sure that rustup is properly installed.</p>
 <p>Make sure that the nightly toolchain is installed:</p>
 <pre><code>$ rustup toolchain install nightly
 </code></pre>
-<pre><code class="language-bash">$ cargo +nightly install --git https://github.com/hakoerber/git-repo-manager.git --branch master
+<p>Then, install the build dependencies:</p>
+<table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
+<tr><td>Archlinux</td><td><code>pacman -S --needed gcc openssl pkg-config</code></td></tr>
+<tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends pkg-config gcc libssl-dev zlib1g-dev</code></td></tr>
+</tbody></table>
+<p>Then, it's a simple command to install the latest stable version:</p>
+<pre><code class="language-bash">$ cargo +nightly install git-repo-manager
 </code></pre>
 <p>If you're brave, you can also run the development build:</p>
 <pre><code class="language-bash">$ cargo +nightly install --git https://github.com/hakoerber/git-repo-manager.git --branch develop
+</code></pre>
+<h2 id="static-build"><a class="header" href="#static-build">Static build</a></h2>
+<p>Note that by default, you will get a  dynamically linked executable.
+Alternatively, you can also build a statically linked binary. For this, you
+will need <code>musl</code> and a few other build dependencies installed installed:</p>
+<table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
+<tr><td>Archlinux</td><td><code>pacman -S --needed gcc musl perl make</code></td></tr>
+<tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends gcc musl-tools libc-dev perl make</code></td></tr>
+</tbody></table>
+<p>(<code>perl</code> and <code>make</code> are required for the OpenSSL build script)</p>
+<p>The, add the musl target via <code>rustup</code>:</p>
+<pre><code>$ rustup +nightly target add x86_64-unknown-linux-musl
+</code></pre>
+<p>Then, use a modified build command to get a statically linked binary:</p>
+<pre><code>$ cargo +nightly install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="managing-tree-of-git-repositories"><a class="header" href="#managing-tree-of-git-repositories">Managing tree of git repositories</a></h1>
 <p>When managing multiple git repositories with GRM, you'll generally have a
