@@ -141,7 +141,7 @@ def test_repos_find_remote_no_filter(provider, configtype, default, use_config):
                 f.write(
                     f"""
                 provider = "{provider}"
-                token_command = "echo authtoken"
+                token_command = "echo secret-token:myauthtoken"
                 root = "/myroot"
                 """
                 )
@@ -157,7 +157,7 @@ def test_repos_find_remote_no_filter(provider, configtype, default, use_config):
             "--provider",
             provider,
             "--token-command",
-            "echo authtoken",
+            "echo secret-token:myauthtoken",
             "--root",
             "/myroot",
         ]
@@ -193,7 +193,7 @@ def test_repos_find_remote_user_empty(
             with open(config.name, "w") as f:
                 cfg = f"""
                 provider = "{provider}"
-                token_command = "echo authtoken"
+                token_command = "echo secret-token:myauthtoken"
                 root = "/myroot"
 
                 [filters]
@@ -213,7 +213,7 @@ def test_repos_find_remote_user_empty(
             "--provider",
             provider,
             "--token-command",
-            "echo authtoken",
+            "echo secret-token:myauthtoken",
             "--root",
             "/myroot",
             "--user",
@@ -264,7 +264,7 @@ def test_repos_find_remote_user(
             with open(config.name, "w") as f:
                 cfg = f"""
                 provider = "{provider}"
-                token_command = "echo authtoken"
+                token_command = "echo secret-token:myauthtoken"
                 root = "/myroot"
                 """
 
@@ -300,7 +300,7 @@ def test_repos_find_remote_user(
             "--provider",
             provider,
             "--token-command",
-            "echo authtoken",
+            "echo secret-token:myauthtoken",
             "--root",
             "/myroot",
         ]
@@ -378,7 +378,7 @@ def test_repos_find_remote_group_empty(
             with open(config.name, "w") as f:
                 cfg = f"""
                 provider = "{provider}"
-                token_command = "echo authtoken"
+                token_command = "echo secret-token:myauthtoken"
                 root = "/myroot"
                 """
 
@@ -403,7 +403,7 @@ def test_repos_find_remote_group_empty(
             "--provider",
             provider,
             "--token-command",
-            "echo authtoken",
+            "echo secret-token:myauthtoken",
             "--root",
             "/myroot",
             "--group",
@@ -459,7 +459,7 @@ def test_repos_find_remote_group(
             with open(config.name, "w") as f:
                 cfg = f"""
                 provider = "{provider}"
-                token_command = "echo authtoken"
+                token_command = "echo secret-token:myauthtoken"
                 root = "/myroot"
                 """
 
@@ -488,7 +488,7 @@ def test_repos_find_remote_group(
             "--provider",
             provider,
             "--token-command",
-            "echo authtoken",
+            "echo secret-token:myauthtoken",
             "--root",
             "/myroot",
             "--group",
@@ -575,7 +575,7 @@ def test_repos_find_remote_user_and_group(
             with open(config.name, "w") as f:
                 cfg = f"""
                 provider = "{provider}"
-                token_command = "echo authtoken"
+                token_command = "echo secret-token:myauthtoken"
                 root = "/myroot"
                 """
 
@@ -609,7 +609,7 @@ def test_repos_find_remote_user_and_group(
             "--provider",
             provider,
             "--token-command",
-            "echo authtoken",
+            "echo secret-token:myauthtoken",
             "--root",
             "/myroot",
             "--group",
@@ -726,7 +726,7 @@ def test_repos_find_remote_owner(
             with open(config.name, "w") as f:
                 cfg = f"""
                 provider = "{provider}"
-                token_command = "echo authtoken"
+                token_command = "echo secret-token:myauthtoken"
                 root = "/myroot"
                 """
 
@@ -761,7 +761,7 @@ def test_repos_find_remote_owner(
             "--provider",
             provider,
             "--token-command",
-            "echo authtoken",
+            "echo secret-token:myauthtoken",
             "--root",
             "/myroot",
             "--access",

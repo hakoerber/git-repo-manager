@@ -18,6 +18,8 @@ def grm(args, cwd=None, is_invalid=False):
     print(f"grmcmd: {args}")
     print(f"stdout:\n{cmd.stdout}")
     print(f"stderr:\n{cmd.stderr}")
+    assert "secret-token:" not in cmd.stdout
+    assert "secret-token:" not in cmd.stderr
     assert "panicked" not in cmd.stderr
     return cmd
 

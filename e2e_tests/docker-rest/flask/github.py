@@ -12,7 +12,7 @@ def check_headers():
         app.logger.error("Invalid accept header")
         abort(500)
     auth_header = request.headers.get("authorization")
-    if auth_header != "token authtoken":
+    if auth_header != "token secret-token:myauthtoken":
         app.logger.error("Invalid authorization header: %s", auth_header)
         abort(
             make_response(
