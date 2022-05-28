@@ -6,7 +6,7 @@ use super::Filter;
 use super::JsonError;
 use super::Project;
 use super::Provider;
-use super::SecretToken;
+use super::auth;
 
 const PROVIDER_NAME: &str = "github";
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
@@ -67,7 +67,7 @@ impl JsonError for GithubApiErrorResponse {
 
 pub struct Github {
     filter: Filter,
-    secret_token: SecretToken,
+    secret_token: auth::AuthToken,
 }
 
 impl Provider for Github {
@@ -76,7 +76,7 @@ impl Provider for Github {
 
     fn new(
         filter: Filter,
-        secret_token: SecretToken,
+        secret_token: auth::AuthToken,
         api_url_override: Option<String>,
     ) -> Result<Self, String> {
         if api_url_override.is_some() {
@@ -96,8 +96,8 @@ impl Provider for Github {
         self.filter.clone()
     }
 
-    fn secret_token(&self) -> SecretToken {
-        self.secret_token.clone()
+    fn secret_token(&self) -> &auth::AuthToken {
+        &self.secret_token
     }
 
     fn auth_header_key() -> String {

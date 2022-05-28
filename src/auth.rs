@@ -1,6 +1,16 @@
 use std::process;
 
-pub fn get_token_from_command(command: &str) -> Result<String, String> {
+#[derive(Clone)]
+pub struct AuthToken(String);
+
+impl AuthToken {
+    pub fn access(&self) -> &str {
+        &self.0
+    }
+
+}
+
+pub fn get_token_from_command(command: &str) -> Result<AuthToken, String> {
     let output = process::Command::new("/usr/bin/env")
         .arg("sh")
         .arg("-c")
@@ -32,5 +42,5 @@ pub fn get_token_from_command(command: &str) -> Result<String, String> {
         .next()
         .ok_or_else(|| String::from("Output did not contain any newline"))?;
 
-    Ok(token.to_string())
+    Ok(AuthToken(token.to_string()))
 }

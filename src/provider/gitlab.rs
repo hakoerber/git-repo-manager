@@ -6,7 +6,7 @@ use super::Filter;
 use super::JsonError;
 use super::Project;
 use super::Provider;
-use super::SecretToken;
+use super::auth;
 
 const PROVIDER_NAME: &str = "gitlab";
 const ACCEPT_HEADER_JSON: &str = "application/json";
@@ -75,7 +75,7 @@ impl JsonError for GitlabApiErrorResponse {
 
 pub struct Gitlab {
     filter: Filter,
-    secret_token: SecretToken,
+    secret_token: auth::AuthToken,
     api_url_override: Option<String>,
 }
 
@@ -95,7 +95,7 @@ impl Provider for Gitlab {
 
     fn new(
         filter: Filter,
-        secret_token: SecretToken,
+        secret_token: auth::AuthToken,
         api_url_override: Option<String>,
     ) -> Result<Self, String> {
         Ok(Self {
@@ -113,8 +113,8 @@ impl Provider for Gitlab {
         self.filter.clone()
     }
 
-    fn secret_token(&self) -> SecretToken {
-        self.secret_token.clone()
+    fn secret_token(&self) -> &auth::AuthToken {
+        &self.secret_token
     }
 
     fn auth_header_key() -> String {

@@ -10,6 +10,7 @@ pub use github::Github;
 pub use gitlab::Gitlab;
 
 use super::repo;
+use super::auth;
 
 use std::collections::HashMap;
 
@@ -69,8 +70,6 @@ pub trait Project {
     fn private(&self) -> bool;
 }
 
-type SecretToken = String;
-
 #[derive(Clone)]
 pub struct Filter {
     users: Vec<String>,
@@ -117,7 +116,7 @@ pub trait Provider {
 
     fn new(
         filter: Filter,
-        secret_token: SecretToken,
+        secret_token: auth::AuthToken,
         api_url_override: Option<String>,
     ) -> Result<Self, String>
     where
@@ -125,7 +124,7 @@ pub trait Provider {
 
     fn name(&self) -> String;
     fn filter(&self) -> Filter;
-    fn secret_token(&self) -> SecretToken;
+    fn secret_token(&self) -> &auth::AuthToken;
     fn auth_header_key() -> String;
 
     fn get_user_projects(
@@ -167,7 +166,7 @@ pub trait Provider {
             .header("accept", accept_header.unwrap_or("application/json"))
             .header(
                 "authorization",
-                format!("{} {}", Self::auth_header_key(), &self.secret_token()),
+                format!("{} {}", Self::auth_header_key(), &self.secret_token().access()),
             )
             .body(())
             .map_err(|error| error.to_string())?;
@@ -308,7 +307,7 @@ pub trait Provider {
 fn call<T, U>(
     uri: &str,
     auth_header_key: &str,
-    secret_token: &str,
+    secret_token: &auth::AuthToken,
     accept_header: Option<&str>,
 ) -> Result<T, ApiErrorResponse<U>>
 where
@@ -322,7 +321,7 @@ where
         .header("accept", accept_header.unwrap_or("application/json"))
         .header(
             "authorization",
-            format!("{} {}", &auth_header_key, &secret_token),
+            format!("{} {}", &auth_header_key, &secret_token.access()),
         )
         .body(())
         .map_err(|error| ApiErrorResponse::String(error.to_string()))?;
