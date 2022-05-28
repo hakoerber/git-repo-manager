@@ -17,7 +17,7 @@ You will end up with your projects cloned into `~/projects/{your_github_username
 
 ## Authentication
 
-The only currently supported authentication option is using personal access
+The only currently supported authentication option is using a personal access
 token.
 
 ### GitHub
@@ -27,7 +27,7 @@ See the GitHub documentation for personal access tokens:
 
 The only required permission is the "repo" scope.
 
-### GitHub
+### GitLab
 
 See the GitLab documentation for personal access tokens:
 [Link](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html).
