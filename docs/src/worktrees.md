@@ -5,11 +5,11 @@
 The default workflow when using git is having your repository in a single directory.
 Then, you can check out a certain reference (usually a branch), which will update
 the files in the directory to match the state of that reference. Most of the time,
-this is exactly what you need and works perfectly. But especially when you're using
+this is exactly what you need and works perfectly. But especially when you're working
 with branches a lot, you may notice that there is a lot of work required to make
-everything run smootly.
+everything run smoothly.
 
-Maybe you experienced the following: You're working on a feature branch. Then,
+Maybe you have experienced the following: You're working on a feature branch. Then,
 for some reason, you have to change branches (maybe to investigate some issue).
 But you get the following:
 
@@ -20,7 +20,7 @@ error: Your local changes to the following files would be overwritten by checkou
 Now you can create a temporary commit or stash your changes. In any case, you have
 some mental overhead before you can work on something else. Especially with stashes,
 you'll have to remember to do a `git stash pop` before resuming your work (I
-cannot count the number of times where is "rediscovered" some code hidden in some
+cannot count the number of times where I "rediscovered" some code hidden in some
 old stash I forgot about.
 
 And even worse: If you're currently in the process of resolving merge conflicts or an
@@ -40,7 +40,7 @@ In any case, Git Worktrees are here for the rescue:
 independent checkouts of your repository on different directories. You can have
 multiple directories that correspond to different references in your repository.
 Each worktree has it's independent working tree (duh) and index, so there is no
-to run into conflicts. Changing to a different branch is just a `cd` away (if
+way to run into conflicts. Changing to a different branch is just a `cd` away (if
 the worktree is already set up).
 
 ## Worktrees in GRM
@@ -210,7 +210,7 @@ your changes to. I'd rather not delete work that you cannot recover."
 
 Note that `grm` is very cautious here. As your repository will not be deleted,
 you could still recover the commits via [`git-reflog`](https://git-scm.com/docs/git-reflog).
-But better safe then sorry! Note that you'd get a similar error message if your
+But better safe than sorry! Note that you'd get a similar error message if your
 worktree had any uncommitted files, for the same reason. Now you can either
 commit & push your changes, or your tell `grm` that you know what you're doing:
 
@@ -241,7 +241,7 @@ calls them "persistent branches" and treats them a bit differently:
   `grm wt delete`, which will not require a `--force` flag. Note that of
   course, actual changes in the worktree will still block an automatic cleanup!
 * As soon as you enable persistent branches, non-persistent branches will only
-  ever cleaned up when merged into a persistent branch.
+  ever be cleaned up when merged into a persistent branch.
 
 To elaborate: This is mostly relevant for a feature-branch workflow. Whenever a
 feature branch is merged, it can usually be thrown away. As merging is usually
@@ -340,7 +340,7 @@ $ grm wt rebase --pull --rebase
 hell is there a `--rebase` flag in the `rebase` command?"
 
 Yes, it's kind of weird. Remember that `pull` only ever updates each worktree
-to their remote branch, if possible. `rebase` rabases onto the **default** branch
+to their remote branch, if possible. `rebase` rebases onto the **default** branch
 instead. The switches to `rebase` are just convenience, so you do not have to
 run two commands.
 
