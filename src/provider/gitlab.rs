@@ -105,20 +105,20 @@ impl Provider for Gitlab {
         })
     }
 
-    fn name(&self) -> String {
-        String::from(PROVIDER_NAME)
+    fn name(&self) -> &str {
+        PROVIDER_NAME
     }
 
-    fn filter(&self) -> Filter {
-        self.filter.clone()
+    fn filter(&self) -> &Filter {
+        &self.filter
     }
 
     fn secret_token(&self) -> &auth::AuthToken {
         &self.secret_token
     }
 
-    fn auth_header_key() -> String {
-        "bearer".to_string()
+    fn auth_header_key() -> &'static str {
+        "bearer"
     }
 
     fn get_user_projects(

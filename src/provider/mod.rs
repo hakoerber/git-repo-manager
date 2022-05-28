@@ -122,10 +122,10 @@ pub trait Provider {
     where
         Self: Sized;
 
-    fn name(&self) -> String;
-    fn filter(&self) -> Filter;
+    fn name(&self) -> &str;
+    fn filter(&self) -> &Filter;
     fn secret_token(&self) -> &auth::AuthToken;
-    fn auth_header_key() -> String;
+    fn auth_header_key() -> &'static str;
 
     fn get_user_projects(
         &self,
