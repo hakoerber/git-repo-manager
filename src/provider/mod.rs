@@ -9,8 +9,8 @@ pub mod gitlab;
 pub use github::Github;
 pub use gitlab::Gitlab;
 
-use super::repo;
 use super::auth;
+use super::repo;
 
 use std::collections::HashMap;
 
@@ -166,7 +166,11 @@ pub trait Provider {
             .header("accept", accept_header.unwrap_or("application/json"))
             .header(
                 "authorization",
-                format!("{} {}", Self::auth_header_key(), &self.secret_token().access()),
+                format!(
+                    "{} {}",
+                    Self::auth_header_key(),
+                    &self.secret_token().access()
+                ),
             )
             .body(())
             .map_err(|error| error.to_string())?;
