@@ -143,6 +143,28 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
 
     let mut newly_created = false;
 
+    // Syncing a repository can have a few different flows, depending on the repository
+    // that is to be cloned and the local directory:
+    //
+    // * If the local directory already exists, we have to make sure that it matches the
+    //   worktree configuration, as there is no way to convert. If the sync is supposed
+    //   to be worktree-aware, but the local directory is not, we abort. Note that we could
+    //   also automatically convert here. In any case, the other direction (converting a
+    //   worktree repository to non-worktree) cannot work, as we'd have to throw away the
+    //   worktrees.
+    //
+    // * If the local directory does not yet exist, we have to actually do something ;). If
+    //   no remote is specified, we just initialize a new repository (git init) and are done.
+    //
+    //   If there are (potentially multiple) remotes configured, we have to clone. We assume
+    //   that the first remote is the canonical one that we do the first clone from. After
+    //   cloning, we just add the other remotes as usual (as if they were added to the config
+    //   afterwards)
+    //
+    // Branch handling:
+    //
+    // Handling the branches on checkout is a bit magic. For minimum surprises, we just set
+    // up local tracking branches for all remote branches.
     if repo_path.exists()
         && repo_path
             .read_dir()
