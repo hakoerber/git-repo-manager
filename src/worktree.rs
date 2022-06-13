@@ -1,9 +1,23 @@
 use std::path::Path;
 
+use super::output::*;
 use super::repo;
 
 pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
+// The logic about the base branch and the tracking branch is as follows:
+//
+// * If a branch with the same name does not exist and no track is given, use the default
+//   branch
+//
+// * If a branch with the same name exists and no track is given, use that
+//
+// * If a branch with the same name does not exist and track is given, use the
+//   local branch that tracks that branch
+//
+// * If a branch with the same name exists and track is given, use the locally
+//   existing branch. If the locally existing branch is not the local branch to
+//   the remote tracking branch, issue a warning
 pub fn add_worktree(
     directory: &Path,
     name: &str,
@@ -31,55 +45,77 @@ pub fn add_worktree(
 
     let mut remote_branch_exists = false;
 
-    let default_checkout = || repo.default_branch()?.to_commit();
-
-    let checkout_commit;
-    if no_track {
-        checkout_commit = default_checkout()?;
-    } else {
-        match track {
-            Some((remote_name, remote_branch_name)) => {
-                let remote_branch = repo.find_remote_branch(remote_name, remote_branch_name);
-                match remote_branch {
-                    Ok(branch) => {
+    let mut target_branch = match repo.find_local_branch(name) {
+        Ok(branchref) => {
+            if !no_track {
+                if let Some((remote_name, remote_branch_name)) = track {
+                    let remote_branch = repo.find_remote_branch(remote_name, remote_branch_name);
+                    if let Ok(remote_branch) = remote_branch {
                         remote_branch_exists = true;
-                        checkout_commit = branch.to_commit()?;
-                    }
-                    Err(_) => {
-                        remote_branch_exists = false;
-                        checkout_commit = default_checkout()?;
+                        if let Ok(local_upstream_branch) = branchref.upstream() {
+                            if remote_branch.name()? != local_upstream_branch.name()? {
+                                print_warning(&format!(
+                                    "You specified a tracking branch ({}/{}) for an existing branch ({}), but \
+                                    it differs from the current upstream ({}). Will keep current upstream"
+                                , remote_name, remote_branch_name, branchref.name()?, local_upstream_branch.name()?))
+                            }
+                        }
                     }
                 }
             }
-            None => match &config {
-                None => checkout_commit = default_checkout()?,
-                Some(config) => match &config.track {
-                    None => checkout_commit = default_checkout()?,
-                    Some(track_config) => {
-                        if track_config.default {
-                            let remote_branch =
-                                repo.find_remote_branch(&track_config.default_remote, name);
-                            match remote_branch {
-                                Ok(branch) => {
-                                    remote_branch_exists = true;
-                                    checkout_commit = branch.to_commit()?;
-                                }
-                                Err(_) => {
+            branchref
+        }
+        Err(_) => {
+            let default_checkout = || repo.default_branch()?.to_commit();
+
+            let checkout_commit;
+
+            if no_track {
+                checkout_commit = default_checkout()?;
+            } else {
+                match track {
+                    Some((remote_name, remote_branch_name)) => {
+                        let remote_branch =
+                            repo.find_remote_branch(remote_name, remote_branch_name);
+                        match remote_branch {
+                            Ok(branch) => {
+                                remote_branch_exists = true;
+                                checkout_commit = branch.to_commit()?;
+                            }
+                            Err(_) => {
+                                remote_branch_exists = false;
+                                checkout_commit = default_checkout()?;
+                            }
+                        }
+                    }
+                    None => match &config {
+                        None => checkout_commit = default_checkout()?,
+                        Some(config) => match &config.track {
+                            None => checkout_commit = default_checkout()?,
+                            Some(track_config) => {
+                                if track_config.default {
+                                    let remote_branch =
+                                        repo.find_remote_branch(&track_config.default_remote, name);
+                                    match remote_branch {
+                                        Ok(branch) => {
+                                            remote_branch_exists = true;
+                                            checkout_commit = branch.to_commit()?;
+                                        }
+                                        Err(_) => {
+                                            checkout_commit = default_checkout()?;
+                                        }
+                                    }
+                                } else {
                                     checkout_commit = default_checkout()?;
                                 }
                             }
-                        } else {
-                            checkout_commit = default_checkout()?;
-                        }
-                    }
-                },
-            },
-        };
-    }
+                        },
+                    },
+                };
+            }
 
-    let mut target_branch = match repo.find_local_branch(name) {
-        Ok(branchref) => branchref,
-        Err(_) => repo.create_branch(name, &checkout_commit)?,
+            repo.create_branch(name, &checkout_commit)?
+        }
     };
 
     fn push(
