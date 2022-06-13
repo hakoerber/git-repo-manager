@@ -37,13 +37,13 @@ a separate e2e test suite in python (`just test-e2e`).
 
 To run all tests, run `just test`.
 
-When contributing, consider whether it makes sense to add tests that to prevent
-regressions in the future. When fixing bugs, it makes sense to add tests that
-expose the wrong behaviour beforehand.
+When contributing, consider whether it makes sense to add tests which could
+prevent regressions in the future. When fixing bugs, it makes sense to add
+tests that expose the wrong behaviour beforehand.
 
 ## Documentation
 
 The documentation lives in `docs` and uses
-[mdBook](https://github.com/rust-lang/mdBook).  Please document new user-facing
+[mdBook](https://github.com/rust-lang/mdBook). Please document new user-facing
 features here!
 

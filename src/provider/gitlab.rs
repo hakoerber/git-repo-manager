@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
+use super::auth;
 use super::escape;
 use super::ApiErrorResponse;
 use super::Filter;
 use super::JsonError;
 use super::Project;
 use super::Provider;
-use super::SecretToken;
 
 const PROVIDER_NAME: &str = "gitlab";
 const ACCEPT_HEADER_JSON: &str = "application/json";
@@ -75,7 +75,7 @@ impl JsonError for GitlabApiErrorResponse {
 
 pub struct Gitlab {
     filter: Filter,
-    secret_token: SecretToken,
+    secret_token: auth::AuthToken,
     api_url_override: Option<String>,
 }
 
@@ -95,7 +95,7 @@ impl Provider for Gitlab {
 
     fn new(
         filter: Filter,
-        secret_token: SecretToken,
+        secret_token: auth::AuthToken,
         api_url_override: Option<String>,
     ) -> Result<Self, String> {
         Ok(Self {
@@ -105,20 +105,20 @@ impl Provider for Gitlab {
         })
     }
 
-    fn name(&self) -> String {
-        String::from(PROVIDER_NAME)
+    fn name(&self) -> &str {
+        PROVIDER_NAME
     }
 
-    fn filter(&self) -> Filter {
-        self.filter.clone()
+    fn filter(&self) -> &Filter {
+        &self.filter
     }
 
-    fn secret_token(&self) -> SecretToken {
-        self.secret_token.clone()
+    fn secret_token(&self) -> &auth::AuthToken {
+        &self.secret_token
     }
 
-    fn auth_header_key() -> String {
-        "bearer".to_string()
+    fn auth_header_key() -> &'static str {
+        "bearer"
     }
 
     fn get_user_projects(
@@ -157,8 +157,8 @@ impl Provider for Gitlab {
     fn get_current_user(&self) -> Result<String, ApiErrorResponse<GitlabApiErrorResponse>> {
         Ok(super::call::<GitlabUser, GitlabApiErrorResponse>(
             &format!("{}/api/v4/user", self.api_url()),
-            &Self::auth_header_key(),
-            &self.secret_token(),
+            Self::auth_header_key(),
+            self.secret_token(),
             Some(ACCEPT_HEADER_JSON),
         )?
         .username)

@@ -20,12 +20,12 @@ pub fn print_repo_action(repo: &str, message: &str) {
 }
 
 pub fn print_action(message: &str) {
-    let stderr = Term::stderr();
+    let stdout = Term::stdout();
     let mut style = Style::new().yellow();
-    if stderr.is_term() {
+    if stdout.is_term() {
         style = style.force_styling(true);
     }
-    stderr
+    stdout
         .write_line(&format!("[{}] {}", style.apply_to('\u{2699}'), &message))
         .unwrap();
 }
@@ -46,13 +46,13 @@ pub fn print_repo_success(repo: &str, message: &str) {
 }
 
 pub fn print_success(message: &str) {
-    let stderr = Term::stderr();
+    let stdout = Term::stdout();
     let mut style = Style::new().green();
-    if stderr.is_term() {
+    if stdout.is_term() {
         style = style.force_styling(true);
     }
 
-    stderr
+    stdout
         .write_line(&format!("[{}] {}", style.apply_to('\u{2714}'), &message))
         .unwrap();
 }

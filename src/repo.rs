@@ -659,6 +659,14 @@ impl RepoHandle {
             .collect::<Result<Vec<Branch>, String>>()
     }
 
+    pub fn remote_branches(&self) -> Result<Vec<Branch>, String> {
+        self.0
+            .branches(Some(git2::BranchType::Remote))
+            .map_err(convert_libgit2_error)?
+            .map(|branch| Ok(Branch(branch.map_err(convert_libgit2_error)?.0)))
+            .collect::<Result<Vec<Branch>, String>>()
+    }
+
     pub fn fetch(&self, remote_name: &str) -> Result<(), String> {
         let mut remote = self
             .0
@@ -1034,14 +1042,80 @@ impl RepoHandle {
         })
     }
 
-    pub fn default_branch(&self) -> Result<Branch, String> {
-        match self.0.find_branch("main", git2::BranchType::Local) {
-            Ok(branch) => Ok(Branch(branch)),
-            Err(_) => match self.0.find_branch("master", git2::BranchType::Local) {
-                Ok(branch) => Ok(Branch(branch)),
-                Err(_) => Err(String::from("Could not determine default branch")),
-            },
+    pub fn get_remote_default_branch(&self, remote_name: &str) -> Result<Option<Branch>, String> {
+        // libgit2's `git_remote_default_branch()` and `Remote::default_branch()`
+        // need an actual connection to the remote, so they may fail.
+        if let Some(mut remote) = self.find_remote(remote_name)? {
+            if remote.connected() {
+                let remote = remote; // unmut
+                if let Ok(remote_default_branch) = remote.default_branch() {
+                    return Ok(Some(self.find_local_branch(&remote_default_branch)?));
+                };
+            }
         }
+
+        // Note that <remote>/HEAD only exists after a normal clone, there is no way to get the
+        // remote HEAD afterwards. So this is a "best effort" approach.
+        if let Ok(remote_head) = self.find_remote_branch(remote_name, "HEAD") {
+            if let Some(pointer_name) = remote_head.as_reference().symbolic_target() {
+                if let Some(local_branch_name) =
+                    pointer_name.strip_prefix(&format!("refs/remotes/{}/", remote_name))
+                {
+                    return Ok(Some(self.find_local_branch(local_branch_name)?));
+                } else {
+                    eprintln!("Remote HEAD ({}) pointer is invalid", pointer_name);
+                }
+            } else {
+                eprintln!("Remote HEAD does not point to a symbolic target");
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn default_branch(&self) -> Result<Branch, String> {
+        // This is a bit of a guessing game.
+        //
+        // In the best case, there is only one remote. Then, we can check <remote>/HEAD to get the
+        // default remote branch.
+        //
+        // If there are multiple remotes, we first check whether they all have the same
+        // <remote>/HEAD branch. If yes, good! If not, we use whatever "origin" uses, if that
+        // exists. If it does not, there is no way to reliably get a remote default branch.
+        //
+        // In this case, we just try to guess a local branch from a list. If even that does not
+        // work, well, bad luck.
+        let remotes = self.remotes()?;
+
+        if remotes.len() == 1 {
+            let remote_name = &remotes[0];
+            if let Some(default_branch) = self.get_remote_default_branch(remote_name)? {
+                return Ok(default_branch);
+            }
+        } else {
+            let mut default_branches: Vec<Branch> = vec![];
+            for remote_name in remotes {
+                if let Some(default_branch) = self.get_remote_default_branch(&remote_name)? {
+                    default_branches.push(default_branch)
+                }
+            }
+
+            if !default_branches.is_empty()
+                && (default_branches.len() == 1
+                    || default_branches
+                        .windows(2)
+                        .all(|w| w[0].name() == w[1].name()))
+            {
+                return Ok(default_branches.remove(0));
+            }
+        }
+
+        for branch_name in &vec!["main", "master"] {
+            if let Ok(branch) = self.0.find_branch(branch_name, git2::BranchType::Local) {
+                return Ok(Branch(branch));
+            }
+        }
+
+        Err(String::from("Could not determine default branch"))
     }
 
     // Looks like there is no distinguishing between the error cases
@@ -1106,7 +1180,7 @@ impl RepoHandle {
             && !branch_name.ends_with(&format!("{}{}", super::BRANCH_NAMESPACE_SEPARATOR, name))
         {
             return Err(WorktreeRemoveFailureReason::Error(format!(
-                "Branch {} is checked out in worktree, this does not look correct",
+                "Branch \"{}\" is checked out in worktree, this does not look correct",
                 &branch_name
             )));
         }
@@ -1394,6 +1468,15 @@ impl Branch<'_> {
         self.0.delete().map_err(convert_libgit2_error)
     }
 
+    pub fn basename(&self) -> Result<String, String> {
+        let name = self.name()?;
+        if let Some((_prefix, basename)) = name.split_once('/') {
+            Ok(basename.to_string())
+        } else {
+            Ok(name)
+        }
+    }
+
     // only used internally in this module, exposes libgit2 details
     fn as_reference(&self) -> &git2::Reference {
         self.0.get()
@@ -1437,6 +1520,20 @@ impl RemoteHandle<'_> {
             .name()
             .expect("Remote name is invalid utf-8")
             .to_string()
+    }
+
+    pub fn connected(&mut self) -> bool {
+        self.0.connected()
+    }
+
+    pub fn default_branch(&self) -> Result<String, String> {
+        Ok(self
+            .0
+            .default_branch()
+            .map_err(convert_libgit2_error)?
+            .as_str()
+            .expect("Remote branch name is not valid utf-8")
+            .to_string())
     }
 
     pub fn is_pushable(&self) -> Result<bool, String> {
@@ -1527,6 +1624,24 @@ pub fn clone_repo(
         // the Ok variant option
         let origin = repo.find_remote("origin")?.unwrap();
         repo.rename_remote(&origin, &remote.name)?;
+    }
+
+    // Initialize local branches. For all remote branches, we set up local
+    // tracking branches with the same name (just without the remote prefix).
+    for remote_branch in repo.remote_branches()? {
+        let local_branch_name = remote_branch.basename()?;
+
+        if repo.find_local_branch(&local_branch_name).is_ok() {
+            continue;
+        }
+
+        // Ignore <remote>/HEAD, as this is not something we can check out
+        if local_branch_name == "HEAD" {
+            continue;
+        }
+
+        let mut local_branch = repo.create_branch(&local_branch_name, &remote_branch.commit()?)?;
+        local_branch.set_upstream(&remote.name, &local_branch_name)?;
     }
 
     // If there is no head_branch, we most likely cloned an empty repository and

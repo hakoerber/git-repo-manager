@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
+use super::auth;
 use super::escape;
 use super::ApiErrorResponse;
 use super::Filter;
 use super::JsonError;
 use super::Project;
 use super::Provider;
-use super::SecretToken;
 
 const PROVIDER_NAME: &str = "github";
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
@@ -67,7 +67,7 @@ impl JsonError for GithubApiErrorResponse {
 
 pub struct Github {
     filter: Filter,
-    secret_token: SecretToken,
+    secret_token: auth::AuthToken,
 }
 
 impl Provider for Github {
@@ -76,7 +76,7 @@ impl Provider for Github {
 
     fn new(
         filter: Filter,
-        secret_token: SecretToken,
+        secret_token: auth::AuthToken,
         api_url_override: Option<String>,
     ) -> Result<Self, String> {
         if api_url_override.is_some() {
@@ -88,20 +88,20 @@ impl Provider for Github {
         })
     }
 
-    fn name(&self) -> String {
-        String::from(PROVIDER_NAME)
+    fn name(&self) -> &str {
+        PROVIDER_NAME
     }
 
-    fn filter(&self) -> Filter {
-        self.filter.clone()
+    fn filter(&self) -> &Filter {
+        &self.filter
     }
 
-    fn secret_token(&self) -> SecretToken {
-        self.secret_token.clone()
+    fn secret_token(&self) -> &auth::AuthToken {
+        &self.secret_token
     }
 
-    fn auth_header_key() -> String {
-        "token".to_string()
+    fn auth_header_key() -> &'static str {
+        "token"
     }
 
     fn get_user_projects(
@@ -136,8 +136,8 @@ impl Provider for Github {
     fn get_current_user(&self) -> Result<String, ApiErrorResponse<GithubApiErrorResponse>> {
         Ok(super::call::<GithubUser, GithubApiErrorResponse>(
             &format!("{GITHUB_API_BASEURL}/user"),
-            &Self::auth_header_key(),
-            &self.secret_token(),
+            Self::auth_header_key(),
+            self.secret_token(),
             Some(ACCEPT_HEADER_JSON),
         )?
         .username)

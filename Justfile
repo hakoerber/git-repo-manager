@@ -2,7 +2,7 @@ set positional-arguments
 
 target := "x86_64-unknown-linux-musl"
 
-check: test
+check: fmt-check lint test
     cargo check
     cargo fmt --check
     cargo clippy --no-deps -- -Dwarnings
@@ -11,8 +11,12 @@ fmt:
     cargo fmt
     git ls-files | grep '\.py$' | xargs black
 
+fmt-check:
+    cargo fmt --check
+    git ls-files | grep '\.py$' | xargs black --check
+
 lint:
-    cargo clippy --no-deps
+    cargo clippy --no-deps -- -Dwarnings
 
 lint-fix:
     cargo clippy --no-deps --fix
@@ -40,8 +44,8 @@ build-static:
 
 test: test-unit test-integration test-e2e
 
-test-unit:
-    cargo test --lib --bins
+test-unit +tests="":
+    cargo test --lib --bins -- --show-output {{tests}}
 
 test-integration:
     cargo test --test "*"

@@ -303,7 +303,6 @@ def test_repos_sync_root_is_file(configtype):
 
             cmd = grm(["repos", "sync", "config", "--config", config.name])
             assert cmd.returncode != 0
-            assert len(cmd.stdout) == 0
             assert "not a directory" in cmd.stderr.lower()
 
 
