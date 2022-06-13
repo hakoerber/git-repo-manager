@@ -1035,13 +1035,15 @@ impl RepoHandle {
     }
 
     pub fn default_branch(&self) -> Result<Branch, String> {
-        match self.0.find_branch("main", git2::BranchType::Local) {
-            Ok(branch) => Ok(Branch(branch)),
-            Err(_) => match self.0.find_branch("master", git2::BranchType::Local) {
-                Ok(branch) => Ok(Branch(branch)),
-                Err(_) => Err(String::from("Could not determine default branch")),
-            },
+        let branch_names = vec!["main", "master"];
+
+        for branch_name in &branch_names {
+            if let Ok(branch) = self.0.find_branch(branch_name, git2::BranchType::Local) {
+                return Ok(Branch(branch))
+            }
         }
+
+        Err(String::from("Could not determine default branch"))
     }
 
     // Looks like there is no distinguishing between the error cases
