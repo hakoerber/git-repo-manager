@@ -40,8 +40,8 @@ build-static:
 
 test: test-unit test-integration test-e2e
 
-test-unit:
-    cargo test --lib --bins
+test-unit +tests="":
+    cargo test --lib --bins -- --show-output {{tests}}
 
 test-integration:
     cargo test --test "*"
