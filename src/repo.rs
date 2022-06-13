@@ -1396,6 +1396,15 @@ impl Branch<'_> {
         self.0.delete().map_err(convert_libgit2_error)
     }
 
+    pub fn basename(&self) -> Result<String, String> {
+        let name = self.name()?;
+        if let Some((_prefix, basename)) = name.split_once('/') {
+            Ok(basename.to_string())
+        } else {
+            Ok(name)
+        }
+    }
+
     // only used internally in this module, exposes libgit2 details
     fn as_reference(&self) -> &git2::Reference {
         self.0.get()
