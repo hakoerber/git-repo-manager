@@ -143,7 +143,13 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
 
     let mut newly_created = false;
 
-    if repo_path.exists() {
+    if repo_path.exists()
+        && repo_path
+            .read_dir()
+            .map_err(|error| error.to_string())?
+            .next()
+            .is_some()
+    {
         if repo.worktree_setup && !actual_git_directory.exists() {
             return Err(String::from(
                 "Repo already exists, but is not using a worktree setup",
