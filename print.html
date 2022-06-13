@@ -255,18 +255,18 @@ $ grm repos status
 </code></pre>
 <h2 id="yaml"><a class="header" href="#yaml">YAML</a></h2>
 <p>By default, the repo configuration uses TOML. If you prefer YAML, just give it
-a YAML file instead (file ending does not matter, <code>grm</code> will figure out the format
-itself). For generating a configuration, pass <code>--format yaml</code> to <code>grm repo find</code>
-to generate YAML instead of TOML.</p>
+a YAML file instead (file ending does not matter, <code>grm</code> will figure out the format).
+For generating a configuration, pass <code>--format yaml</code> to <code>grm repo find</code>
+which generates a YAML config instead of a TOML configuration.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="git-worktrees"><a class="header" href="#git-worktrees">Git Worktrees</a></h1>
 <h2 id="why"><a class="header" href="#why">Why?</a></h2>
 <p>The default workflow when using git is having your repository in a single directory.
 Then, you can check out a certain reference (usually a branch), which will update
 the files in the directory to match the state of that reference. Most of the time,
-this is exactly what you need and works perfectly. But especially when you're using
+this is exactly what you need and works perfectly. But especially when you're working
 with branches a lot, you may notice that there is a lot of work required to make
-everything run smootly.</p>
-<p>Maybe you experienced the following: You're working on a feature branch. Then,
+everything run smoothly.</p>
+<p>Maybe you have experienced the following: You're working on a feature branch. Then,
 for some reason, you have to change branches (maybe to investigate some issue).
 But you get the following:</p>
 <pre><code>error: Your local changes to the following files would be overwritten by checkout
@@ -274,7 +274,7 @@ But you get the following:</p>
 <p>Now you can create a temporary commit or stash your changes. In any case, you have
 some mental overhead before you can work on something else. Especially with stashes,
 you'll have to remember to do a <code>git stash pop</code> before resuming your work (I
-cannot count the number of times where is &quot;rediscovered&quot; some code hidden in some
+cannot count the number of times where I &quot;rediscovered&quot; some code hidden in some
 old stash I forgot about.</p>
 <p>And even worse: If you're currently in the process of resolving merge conflicts or an
 interactive rebase, there is just no way to &quot;pause&quot; this work to check out a
@@ -289,7 +289,7 @@ I have no idea how those tools would behave (and I'm not too eager to find out).
 independent checkouts of your repository on different directories. You can have
 multiple directories that correspond to different references in your repository.
 Each worktree has it's independent working tree (duh) and index, so there is no
-to run into conflicts. Changing to a different branch is just a <code>cd</code> away (if
+way to run into conflicts. Changing to a different branch is just a <code>cd</code> away (if
 the worktree is already set up).</p>
 <h2 id="worktrees-in-grm"><a class="header" href="#worktrees-in-grm">Worktrees in GRM</a></h2>
 <p>GRM exposes an opinionated way to use worktrees in your repositories. Opinionated,
@@ -409,7 +409,7 @@ start with <code>mybranch2</code>:</p>
 your changes to. I'd rather not delete work that you cannot recover.&quot;</p>
 <p>Note that <code>grm</code> is very cautious here. As your repository will not be deleted,
 you could still recover the commits via <a href="https://git-scm.com/docs/git-reflog"><code>git-reflog</code></a>.
-But better safe then sorry! Note that you'd get a similar error message if your
+But better safe than sorry! Note that you'd get a similar error message if your
 worktree had any uncommitted files, for the same reason. Now you can either
 commit &amp; push your changes, or your tell <code>grm</code> that you know what you're doing:</p>
 <pre><code>$ grm wt delete mybranch --force
@@ -432,7 +432,7 @@ up, even though they may not be in line with their upstream. Same goes for
 <code>grm wt delete</code>, which will not require a <code>--force</code> flag. Note that of
 course, actual changes in the worktree will still block an automatic cleanup!</li>
 <li>As soon as you enable persistent branches, non-persistent branches will only
-ever cleaned up when merged into a persistent branch.</li>
+ever be cleaned up when merged into a persistent branch.</li>
 </ul>
 <p>To elaborate: This is mostly relevant for a feature-branch workflow. Whenever a
 feature branch is merged, it can usually be thrown away. As merging is usually
@@ -499,7 +499,7 @@ on non-fast-forwards:</p>
 <p>&quot;So, what's the difference between <code>pull --rebase</code> and <code>rebase --pull</code>? Why the
 hell is there a <code>--rebase</code> flag in the <code>rebase</code> command?&quot;</p>
 <p>Yes, it's kind of weird. Remember that <code>pull</code> only ever updates each worktree
-to their remote branch, if possible. <code>rebase</code> rabases onto the <strong>default</strong> branch
+to their remote branch, if possible. <code>rebase</code> rebases onto the <strong>default</strong> branch
 instead. The switches to <code>rebase</code> are just convenience, so you do not have to
 run two commands.</p>
 <ul>
@@ -532,13 +532,13 @@ from GitHub. This is as simple as:</p>
 </code></pre>
 <p>You will end up with your projects cloned into <code>~/projects/{your_github_username}/</code></p>
 <h2 id="authentication"><a class="header" href="#authentication">Authentication</a></h2>
-<p>The only currently supported authentication option is using personal access
+<p>The only currently supported authentication option is using a personal access
 token.</p>
 <h3 id="github"><a class="header" href="#github">GitHub</a></h3>
 <p>See the GitHub documentation for personal access tokens:
 <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">Link</a>.</p>
 <p>The only required permission is the &quot;repo&quot; scope.</p>
-<h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>
+<h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
 <p>See the GitLab documentation for personal access tokens:
 <a href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html">Link</a>.</p>
 <p>The required scopes are a bit weird. Actually, the following should suffice:</p>
@@ -638,7 +638,7 @@ filter a little bit:</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --access --root ~/github_projects --token-command &quot;pass show github_grm_access_token&quot;
 </code></pre>
 <h2 id="limitations"><a class="header" href="#limitations">Limitations</a></h2>
-<h3 id="github-2"><a class="header" href="#github-2">GitHub</a></h3>
+<h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>
 <p>Unfortunately, GitHub does not have a nice API endpoint to get <strong>private</strong>
 repositories for a certain user (<a href="https://docs.github.com/en/rest/repos/repos#list-repositories-for-a-user"><code>/users/{user}/repos/</code></a> only returns public
 repositories).</p>
@@ -702,12 +702,12 @@ instructions (it's most likely just a simple <code>cargo install just</code>).</
 integration tests (<code>just test-integration</code>) that is part of the rust crate, and
 a separate e2e test suite in python (<code>just test-e2e</code>).</p>
 <p>To run all tests, run <code>just test</code>.</p>
-<p>When contributing, consider whether it makes sense to add tests that to prevent
-regressions in the future. When fixing bugs, it makes sense to add tests that
-expose the wrong behaviour beforehand.</p>
+<p>When contributing, consider whether it makes sense to add tests which could
+prevent regressions in the future. When fixing bugs, it makes sense to add
+tests that expose the wrong behaviour beforehand.</p>
 <h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
 <p>The documentation lives in <code>docs</code> and uses
-<a href="https://github.com/rust-lang/mdBook">mdBook</a>.  Please document new user-facing
+<a href="https://github.com/rust-lang/mdBook">mdBook</a>. Please document new user-facing
 features here!</p>
 
                     </main>
