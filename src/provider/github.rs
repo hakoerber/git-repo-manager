@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
+use super::auth;
 use super::escape;
 use super::ApiErrorResponse;
 use super::Filter;
 use super::JsonError;
 use super::Project;
 use super::Provider;
-use super::auth;
 
 const PROVIDER_NAME: &str = "github";
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";

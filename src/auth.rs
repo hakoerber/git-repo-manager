@@ -7,7 +7,6 @@ impl AuthToken {
     pub fn access(&self) -> &str {
         &self.0
     }
-
 }
 
 pub fn get_token_from_command(command: &str) -> Result<AuthToken, String> {
