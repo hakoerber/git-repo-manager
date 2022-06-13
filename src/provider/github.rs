@@ -136,8 +136,8 @@ impl Provider for Github {
     fn get_current_user(&self) -> Result<String, ApiErrorResponse<GithubApiErrorResponse>> {
         Ok(super::call::<GithubUser, GithubApiErrorResponse>(
             &format!("{GITHUB_API_BASEURL}/user"),
-            &Self::auth_header_key(),
-            &self.secret_token(),
+            Self::auth_header_key(),
+            self.secret_token(),
             Some(ACCEPT_HEADER_JSON),
         )?
         .username)

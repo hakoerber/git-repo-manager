@@ -157,8 +157,8 @@ impl Provider for Gitlab {
     fn get_current_user(&self) -> Result<String, ApiErrorResponse<GitlabApiErrorResponse>> {
         Ok(super::call::<GitlabUser, GitlabApiErrorResponse>(
             &format!("{}/api/v4/user", self.api_url()),
-            &Self::auth_header_key(),
-            &self.secret_token(),
+            Self::auth_header_key(),
+            self.secret_token(),
             Some(ACCEPT_HEADER_JSON),
         )?
         .username)

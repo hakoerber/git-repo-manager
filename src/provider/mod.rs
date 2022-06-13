@@ -295,7 +295,7 @@ pub trait Provider {
         for repo in repos {
             let namespace = repo.namespace();
 
-            let mut repo = repo.into_repo_config(&self.name(), worktree_setup, force_ssh);
+            let mut repo = repo.into_repo_config(self.name(), worktree_setup, force_ssh);
 
             // Namespace is already part of the hashmap key. I'm not too happy
             // about the data exchange format here.
