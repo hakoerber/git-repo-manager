@@ -1548,6 +1548,24 @@ pub fn clone_repo(
         repo.rename_remote(&origin, &remote.name)?;
     }
 
+    // Initialize local branches. For all remote branches, we set up local
+    // tracking branches with the same name (just without the remote prefix).
+    for remote_branch in repo.remote_branches()? {
+        let local_branch_name = remote_branch.basename()?;
+
+        if repo.find_local_branch(&local_branch_name).is_ok() {
+            continue;
+        }
+
+        // Ignore <remote>/HEAD, as this is not something we can check out
+        if local_branch_name == "HEAD" {
+            continue;
+        }
+
+        let mut local_branch = repo.create_branch(&local_branch_name, &remote_branch.commit()?)?;
+        local_branch.set_upstream(&remote.name, &local_branch_name)?;
+    }
+
     // If there is no head_branch, we most likely cloned an empty repository and
     // there is no point in setting any upstreams.
     if let Ok(mut active_branch) = repo.head_branch() {
