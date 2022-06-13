@@ -1180,7 +1180,7 @@ impl RepoHandle {
             && !branch_name.ends_with(&format!("{}{}", super::BRANCH_NAMESPACE_SEPARATOR, name))
         {
             return Err(WorktreeRemoveFailureReason::Error(format!(
-                "Branch {} is checked out in worktree, this does not look correct",
+                "Branch \"{}\" is checked out in worktree, this does not look correct",
                 &branch_name
             )));
         }
