@@ -659,6 +659,14 @@ impl RepoHandle {
             .collect::<Result<Vec<Branch>, String>>()
     }
 
+    pub fn remote_branches(&self) -> Result<Vec<Branch>, String> {
+        self.0
+            .branches(Some(git2::BranchType::Remote))
+            .map_err(convert_libgit2_error)?
+            .map(|branch| Ok(Branch(branch.map_err(convert_libgit2_error)?.0)))
+            .collect::<Result<Vec<Branch>, String>>()
+    }
+
     pub fn fetch(&self, remote_name: &str) -> Result<(), String> {
         let mut remote = self
             .0
