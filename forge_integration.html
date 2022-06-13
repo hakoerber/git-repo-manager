@@ -149,13 +149,13 @@ from GitHub. This is as simple as:</p>
 </code></pre>
 <p>You will end up with your projects cloned into <code>~/projects/{your_github_username}/</code></p>
 <h2 id="authentication"><a class="header" href="#authentication">Authentication</a></h2>
-<p>The only currently supported authentication option is using personal access
+<p>The only currently supported authentication option is using a personal access
 token.</p>
 <h3 id="github"><a class="header" href="#github">GitHub</a></h3>
 <p>See the GitHub documentation for personal access tokens:
 <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">Link</a>.</p>
 <p>The only required permission is the &quot;repo&quot; scope.</p>
-<h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>
+<h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
 <p>See the GitLab documentation for personal access tokens:
 <a href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html">Link</a>.</p>
 <p>The required scopes are a bit weird. Actually, the following should suffice:</p>
@@ -255,7 +255,7 @@ filter a little bit:</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --access --root ~/github_projects --token-command &quot;pass show github_grm_access_token&quot;
 </code></pre>
 <h2 id="limitations"><a class="header" href="#limitations">Limitations</a></h2>
-<h3 id="github-2"><a class="header" href="#github-2">GitHub</a></h3>
+<h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>
 <p>Unfortunately, GitHub does not have a nice API endpoint to get <strong>private</strong>
 repositories for a certain user (<a href="https://docs.github.com/en/rest/repos/repos#list-repositories-for-a-user"><code>/users/{user}/repos/</code></a> only returns public
 repositories).</p>
