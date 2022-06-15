@@ -45,12 +45,14 @@ if ! [[ "${new_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ; then
     exit 1
 fi
 
-if [[ $(git rev-parse --abbrev-ref HEAD) != "develop" ]] ; then
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [[ "${current_branch}" != "develop" ]] ; then
     printf '%s\n' 'You need to be on develop' >&2
     exit 1
 fi
 
-if [[ -n "$(git status --porcelain)" ]] ; then
+gitstatus="$(git status --porcelain)"
+if [[ -n "${gitstatus}" ]] ; then
     printf '%s\n' 'There are uncommitted changes' >&2
     exit 1
 fi
@@ -83,7 +85,8 @@ if ! git merge-base --is-ancestor master develop ; then
     exit 1
 fi
 
-if (( $(git log --oneline master..develop | wc -l) == 0 )) ; then
+changes="$(git log --oneline master..develop | wc -l)"
+if (( changes == 0 )) ; then
     printf '%s\n' 'No changes between master and develop?' >&2
     exit 1
 fi
@@ -97,7 +100,7 @@ sed -i "0,/^version/{s/^version.*$/version = \"${new_version}\"/}" Cargo.toml
 cargo update --package git-repo-manager --precise "${new_version}"
 
 diff="$(git diff --numstat)"
-if (( $(printf '%s\n' "${diff}" | wc -l) != 2 )) ; then
+if (( $(printf '%s\n' "${diff}" | wc -l || true) != 2 )) ; then
      printf '%s\n' 'Weird changes detected, bailing' >&2
      exit 1
 fi
@@ -118,7 +121,8 @@ git commit -m "Release v${new_version}"
 
 git switch master 2>/dev/null || { [[ -d "../master" ]] && cd "../master" ; } || { printf '%s\n' 'Could not change to master' >&2 ; exit 1 ; }
 
-if [[ $(git rev-parse --abbrev-ref HEAD) != "master" ]] ; then
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [[ "${current_branch}" != "master" ]] ; then
     printf '%s\n' 'Looks like branch switching to master did not work' >&2
     exit 1
 fi
@@ -134,7 +138,8 @@ done
 
 git switch develop 2>/dev/null || { [[ -d "../develop" ]] && cd "../develop" ; } || { printf '%s\n' 'Could not change to develop' >&2 ; exit 1 ; }
 
-if [[ $(git rev-parse --abbrev-ref HEAD) != "develop" ]] ; then
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [[ "${current_branch}" != "develop" ]] ; then
     printf '%s\n' 'Looks like branch switching to develop did not work' >&2
     exit 1
 fi

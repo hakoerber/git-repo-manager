@@ -21,6 +21,7 @@ fmt-check:
 
 lint:
     cargo clippy --no-deps -- -Dwarnings
+    find -name '*.sh' | xargs -L 1 shellcheck --norc
 
 lint-fix:
     cargo clippy --no-deps --fix
