@@ -248,6 +248,7 @@ def test_repos_find_remote_user_empty(
 @pytest.mark.parametrize("force_ssh", [True, False])
 @pytest.mark.parametrize("use_alternate_endpoint", [True, False])
 @pytest.mark.parametrize("use_config", [True, False])
+@pytest.mark.parametrize("override_remote_name", [True, False])
 def test_repos_find_remote_user(
     provider,
     configtype,
@@ -258,6 +259,7 @@ def test_repos_find_remote_user(
     force_ssh,
     use_alternate_endpoint,
     use_config,
+    override_remote_name,
 ):
     if use_config:
         with tempfile.NamedTemporaryFile() as config:
@@ -274,6 +276,8 @@ def test_repos_find_remote_user(
                     cfg += f"worktree = {str(worktree).lower()}\n"
                 if force_ssh:
                     cfg += f"force_ssh = true\n"
+                if override_remote_name:
+                    cfg += f'remote_name = "otherremote"\n'
                 if use_owner:
                     cfg += """
                         [filters]
@@ -310,6 +314,8 @@ def test_repos_find_remote_user(
             args += ["--user", "myuser1"]
         if force_ssh:
             args += ["--force-ssh"]
+        if override_remote_name:
+            args += ["--remote-name", "otherremote"]
         if not worktree_default:
             args += ["--worktree", str(worktree).lower()]
         if use_alternate_endpoint:
@@ -350,7 +356,10 @@ def test_repos_find_remote_user(
         assert repo["worktree_setup"] is (not worktree_default and worktree)
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
-        assert repo["remotes"][0]["name"] == provider
+        if override_remote_name:
+            assert repo["remotes"][0]["name"] == "otherremote"
+        else:
+            assert repo["remotes"][0]["name"] == "origin"
         if force_ssh or i == 1:
             assert (
                 repo["remotes"][0]["url"]
@@ -535,14 +544,14 @@ def test_repos_find_remote_group(
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
         if force_ssh or i == 1:
-            assert repo["remotes"][0]["name"] == provider
+            assert repo["remotes"][0]["name"] == "origin"
             assert (
                 repo["remotes"][0]["url"]
                 == f"ssh://git@example.com/mygroup1/myproject{i}.git"
             )
             assert repo["remotes"][0]["type"] == "ssh"
         else:
-            assert repo["remotes"][0]["name"] == provider
+            assert repo["remotes"][0]["name"] == "origin"
             assert (
                 repo["remotes"][0]["url"]
                 == f"https://example.com/mygroup1/myproject{i}.git"
@@ -659,7 +668,7 @@ def test_repos_find_remote_user_and_group(
         assert repo["worktree_setup"] is (not worktree_default and worktree)
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
-        assert repo["remotes"][0]["name"] == provider
+        assert repo["remotes"][0]["name"] == "origin"
         if force_ssh or i == 1:
             assert (
                 repo["remotes"][0]["url"]
@@ -684,7 +693,7 @@ def test_repos_find_remote_user_and_group(
         assert repo["worktree_setup"] is (not worktree_default and worktree)
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
-        assert repo["remotes"][0]["name"] == provider
+        assert repo["remotes"][0]["name"] == "origin"
         if force_ssh or i == 1:
             assert (
                 repo["remotes"][0]["url"]
@@ -814,7 +823,7 @@ def test_repos_find_remote_owner(
             assert repo["worktree_setup"] is (not worktree_default and worktree)
             assert isinstance(repo["remotes"], list)
             assert len(repo["remotes"]) == 1
-            assert repo["remotes"][0]["name"] == provider
+            assert repo["remotes"][0]["name"] == "origin"
             if force_ssh or i == 1:
                 assert (
                     repo["remotes"][0]["url"]
@@ -837,7 +846,7 @@ def test_repos_find_remote_owner(
             assert repo["worktree_setup"] is (not worktree_default and worktree)
             assert isinstance(repo["remotes"], list)
             assert len(repo["remotes"]) == 1
-            assert repo["remotes"][0]["name"] == provider
+            assert repo["remotes"][0]["name"] == "origin"
             if force_ssh or i == 1:
                 assert (
                     repo["remotes"][0]["url"]
@@ -861,7 +870,7 @@ def test_repos_find_remote_owner(
     assert repo["worktree_setup"] is (not worktree_default and worktree)
     assert isinstance(repo["remotes"], list)
     assert len(repo["remotes"]) == 1
-    assert repo["remotes"][0]["name"] == provider
+    assert repo["remotes"][0]["name"] == "origin"
     if force_ssh:
         assert (
             repo["remotes"][0]["url"] == f"ssh://git@example.com/myuser2/myproject3.git"
@@ -890,7 +899,7 @@ def test_repos_find_remote_owner(
             assert repo["worktree_setup"] is (not worktree_default and worktree)
             assert isinstance(repo["remotes"], list)
             assert len(repo["remotes"]) == 1
-            assert repo["remotes"][0]["name"] == provider
+            assert repo["remotes"][0]["name"] == "origin"
             if force_ssh or i == 1:
                 assert (
                     repo["remotes"][0]["url"]
@@ -910,7 +919,7 @@ def test_repos_find_remote_owner(
         assert repo["worktree_setup"] is (not worktree_default and worktree)
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
-        assert repo["remotes"][0]["name"] == provider
+        assert repo["remotes"][0]["name"] == "origin"
         if force_ssh:
             assert (
                 repo["remotes"][0]["url"]
@@ -936,7 +945,7 @@ def test_repos_find_remote_owner(
     assert repo["worktree_setup"] is (not worktree_default and worktree)
     assert isinstance(repo["remotes"], list)
     assert len(repo["remotes"]) == 1
-    assert repo["remotes"][0]["name"] == provider
+    assert repo["remotes"][0]["name"] == "origin"
     if force_ssh:
         assert (
             repo["remotes"][0]["url"]

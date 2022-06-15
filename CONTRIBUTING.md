@@ -21,7 +21,8 @@ If you want, add yourself to the `CONTRIBUTORS` file in your pull request.
 
 For Rust, just use `cargo fmt`. For Python, use
 [black](https://github.com/psf/black). I'd rather not spend any effort in
-configuring the formatters (not possible for black anyway).
+configuring the formatters (not possible for black anyway). For shell scripts,
+use [`shfmt`](https://github.com/mvdan/sh).
 
 ## Tooling
 
@@ -40,6 +41,9 @@ To run all tests, run `just test`.
 When contributing, consider whether it makes sense to add tests which could
 prevent regressions in the future. When fixing bugs, it makes sense to add
 tests that expose the wrong behaviour beforehand.
+
+To also ensure proper formatting and that the linter is happy, use `just check`.
+If that succeeds, your code is most likely fine to push!
 
 ## Documentation
 

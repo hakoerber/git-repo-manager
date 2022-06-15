@@ -53,6 +53,8 @@ pub struct ConfigProvider {
 
     pub worktree: Option<bool>,
     pub init_worktree: Option<bool>,
+
+    pub remote_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -192,6 +194,7 @@ impl Config {
                         .get_repos(
                             config.worktree.unwrap_or(false),
                             config.force_ssh.unwrap_or(false),
+                            config.remote_name,
                         )?
                     }
                     RemoteProvider::Gitlab => {
@@ -205,6 +208,7 @@ impl Config {
                         .get_repos(
                             config.worktree.unwrap_or(false),
                             config.force_ssh.unwrap_or(false),
+                            config.remote_name,
                         )?
                     }
                 };

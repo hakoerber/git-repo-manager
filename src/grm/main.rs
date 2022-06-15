@@ -64,7 +64,11 @@ fn main() {
                                     process::exit(1);
                                 }
                             }
-                            .get_repos(worktree, args.force_ssh)
+                            .get_repos(
+                                worktree,
+                                args.force_ssh,
+                                args.remote_name,
+                            )
                         }
                         cmd::RemoteProvider::Gitlab => {
                             match provider::Gitlab::new(filter, token, args.api_url) {
@@ -74,7 +78,11 @@ fn main() {
                                     process::exit(1);
                                 }
                             }
-                            .get_repos(worktree, args.force_ssh)
+                            .get_repos(
+                                worktree,
+                                args.force_ssh,
+                                args.remote_name,
+                            )
                         }
                     };
 
@@ -280,6 +288,7 @@ fn main() {
                             .get_repos(
                                 config.worktree.unwrap_or(false),
                                 config.force_ssh.unwrap_or(false),
+                                config.remote_name,
                             ) {
                                 Ok(provider) => provider,
                                 Err(error) => {
@@ -299,6 +308,7 @@ fn main() {
                             .get_repos(
                                 config.worktree.unwrap_or(false),
                                 config.force_ssh.unwrap_or(false),
+                                config.remote_name,
                             ) {
                                 Ok(provider) => provider,
                                 Err(error) => {
@@ -382,7 +392,11 @@ fn main() {
                                     process::exit(1);
                                 }
                             }
-                            .get_repos(worktree, args.force_ssh)
+                            .get_repos(
+                                worktree,
+                                args.force_ssh,
+                                args.remote_name,
+                            )
                         }
                         cmd::RemoteProvider::Gitlab => {
                             match provider::Gitlab::new(filter, token, args.api_url) {
@@ -392,7 +406,11 @@ fn main() {
                                     process::exit(1);
                                 }
                             }
-                            .get_repos(worktree, args.force_ssh)
+                            .get_repos(
+                                worktree,
+                                args.force_ssh,
+                                args.remote_name,
+                            )
                         }
                     };
 
