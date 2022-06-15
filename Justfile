@@ -4,8 +4,6 @@ static_target := "x86_64-unknown-linux-musl"
 
 check: fmt-check lint test
     cargo check
-    cargo fmt --check
-    cargo clippy --no-deps -- -Dwarnings
 
 clean:
     cargo clean
