@@ -103,6 +103,9 @@ pub struct FindRemoteArgs {
     #[clap(arg_enum, short, long, help = "Remote provider to use")]
     pub provider: RemoteProvider,
 
+    #[clap(short, long, help = "Name of the remote to use")]
+    pub remote_name: Option<String>,
+
     #[clap(
         multiple_occurrences = true,
         name = "user",
@@ -188,6 +191,9 @@ pub type RemoteProvider = super::provider::RemoteProvider;
 pub struct SyncRemoteArgs {
     #[clap(arg_enum, short, long, help = "Remote provider to use")]
     pub provider: RemoteProvider,
+
+    #[clap(short, long, help = "Name of the remote to use")]
+    pub remote_name: Option<String>,
 
     #[clap(
         multiple_occurrences = true,
