@@ -154,7 +154,8 @@ so we can discuss it.</p>
 <h2 id="code-formatting"><a class="header" href="#code-formatting">Code formatting</a></h2>
 <p>For Rust, just use <code>cargo fmt</code>. For Python, use
 <a href="https://github.com/psf/black">black</a>. I'd rather not spend any effort in
-configuring the formatters (not possible for black anyway).</p>
+configuring the formatters (not possible for black anyway). For shell scripts,
+use <a href="https://github.com/mvdan/sh"><code>shfmt</code></a>.</p>
 <h2 id="tooling"><a class="header" href="#tooling">Tooling</a></h2>
 <p>GRM uses <a href="https://github.com/casey/just"><code>just</code></a> as a command runner. See
 <a href="https://github.com/casey/just#installation">here</a> for installation
@@ -167,6 +168,8 @@ a separate e2e test suite in python (<code>just test-e2e</code>).</p>
 <p>When contributing, consider whether it makes sense to add tests which could
 prevent regressions in the future. When fixing bugs, it makes sense to add
 tests that expose the wrong behaviour beforehand.</p>
+<p>To also ensure proper formatting and that the linter is happy, use <code>just check</code>.
+If that succeeds, your code is most likely fine to push!</p>
 <h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
 <p>The documentation lives in <code>docs</code> and uses
 <a href="https://github.com/rust-lang/mdBook">mdBook</a>. Please document new user-facing
