@@ -7,6 +7,10 @@ check: fmt-check lint test
     cargo fmt --check
     cargo clippy --no-deps -- -Dwarnings
 
+clean:
+    cargo clean
+    git clean -f -d -X
+
 fmt:
     cargo fmt
     git ls-files | grep '\.py$' | xargs black
