@@ -14,14 +14,16 @@ clean:
 fmt:
     cargo fmt
     git ls-files | grep '\.py$' | xargs black
+    git ls-files | grep '\.sh$' | xargs -L 1 shfmt --indent 4 --write
 
 fmt-check:
     cargo fmt --check
     git ls-files | grep '\.py$' | xargs black --check
+    git ls-files | grep '\.sh$' | xargs -L 1 shfmt --indent 4 --diff
 
 lint:
     cargo clippy --no-deps -- -Dwarnings
-    find -name '*.sh' | xargs -L 1 shellcheck --norc
+    git ls-files | grep '\.sh$' | xargs -L 1 shellcheck --norc
 
 lint-fix:
     cargo clippy --no-deps --fix

@@ -21,7 +21,8 @@ If you want, add yourself to the `CONTRIBUTORS` file in your pull request.
 
 For Rust, just use `cargo fmt`. For Python, use
 [black](https://github.com/psf/black). I'd rather not spend any effort in
-configuring the formatters (not possible for black anyway).
+configuring the formatters (not possible for black anyway). For shell scripts,
+use [`shfmt`](https://github.com/mvdan/sh).
 
 ## Tooling
 
