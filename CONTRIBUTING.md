@@ -42,6 +42,9 @@ When contributing, consider whether it makes sense to add tests which could
 prevent regressions in the future. When fixing bugs, it makes sense to add
 tests that expose the wrong behaviour beforehand.
 
+To also ensure proper formatting and that the linter is happy, use `just check`.
+If that succeeds, your code is most likely fine to push!
+
 ## Documentation
 
 The documentation lives in `docs` and uses
