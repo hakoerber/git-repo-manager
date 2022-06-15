@@ -8,7 +8,6 @@ use super::JsonError;
 use super::Project;
 use super::Provider;
 
-const PROVIDER_NAME: &str = "github";
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
 const GITHUB_API_BASEURL: &str =
     option_env!("GITHUB_API_BASEURL").unwrap_or("https://api.github.com");
@@ -86,10 +85,6 @@ impl Provider for Github {
             filter,
             secret_token,
         })
-    }
-
-    fn name(&self) -> &str {
-        PROVIDER_NAME
     }
 
     fn filter(&self) -> &Filter {

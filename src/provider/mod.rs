@@ -14,6 +14,8 @@ use super::repo;
 
 use std::collections::HashMap;
 
+const DEFAULT_REMOTE_NAME: &str = "origin";
+
 #[derive(Debug, Deserialize, Serialize, clap::ArgEnum, Clone)]
 pub enum RemoteProvider {
     #[serde(alias = "github", alias = "GitHub")]
@@ -122,7 +124,6 @@ pub trait Provider {
     where
         Self: Sized;
 
-    fn name(&self) -> &str;
     fn filter(&self) -> &Filter;
     fn secret_token(&self) -> &auth::AuthToken;
     fn auth_header_key() -> &'static str;
@@ -293,7 +294,7 @@ pub trait Provider {
 
         let mut ret: HashMap<Option<String>, Vec<repo::Repo>> = HashMap::new();
 
-        let remote_name = remote_name.unwrap_or_else(|| self.name().to_string());
+        let remote_name = remote_name.unwrap_or_else(|| DEFAULT_REMOTE_NAME.to_string());
 
         for repo in repos {
             let namespace = repo.namespace();

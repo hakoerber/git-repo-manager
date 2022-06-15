@@ -8,7 +8,6 @@ use super::JsonError;
 use super::Project;
 use super::Provider;
 
-const PROVIDER_NAME: &str = "gitlab";
 const ACCEPT_HEADER_JSON: &str = "application/json";
 const GITLAB_API_BASEURL: &str = option_env!("GITLAB_API_BASEURL").unwrap_or("https://gitlab.com");
 
@@ -103,10 +102,6 @@ impl Provider for Gitlab {
             secret_token,
             api_url_override,
         })
-    }
-
-    fn name(&self) -> &str {
-        PROVIDER_NAME
     }
 
     fn filter(&self) -> &Filter {
