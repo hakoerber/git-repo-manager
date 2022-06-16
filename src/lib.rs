@@ -1,5 +1,6 @@
 #![feature(io_error_more)]
 #![feature(const_option_ext)]
+#![forbid(unsafe_code)]
 
 use std::path::Path;
 
