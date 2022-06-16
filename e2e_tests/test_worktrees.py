@@ -228,67 +228,6 @@ def test_worktree_add_with_explicit_no_tracking(
         assert repo.active_branch.tracking_branch() is None
 
 
-@pytest.mark.parametrize("remote_branch_already_exists", [True, False])
-@pytest.mark.parametrize("has_default", [True, False])
-@pytest.mark.parametrize("has_prefix", [True, False])
-def test_worktree_add_with_config(
-    remote_branch_already_exists, has_default, has_prefix
-):
-    with TempGitRepositoryWorktree() as (base_dir, _commit):
-        with open(os.path.join(base_dir, "grm.toml"), "w") as f:
-            f.write(
-                f"""
-            [track]
-            default = {str(has_default).lower()}
-            default_remote = "origin"
-            """
-            )
-            if has_prefix:
-                f.write(
-                    """
-                default_remote_prefix = "myprefix"
-                """
-                )
-        if remote_branch_already_exists:
-            shell(
-                f"""
-                cd {base_dir}
-                git --git-dir ./.git-main-working-tree worktree add tmp
-                (
-                    cd tmp
-                    touch change
-                    git add change
-                    git commit -m commit
-                    git push origin HEAD:test
-                    #git reset --hard 'HEAD@{1}'
-                    git branch -va
-                )
-                git --git-dir ./.git-main-working-tree worktree remove tmp
-            """
-            )
-        cmd = grm(["wt", "add", "test"], cwd=base_dir)
-        print(cmd.stderr)
-        assert cmd.returncode == 0
-
-        files = os.listdir(base_dir)
-        assert len(files) == 3
-        assert set(files) == {".git-main-working-tree", "grm.toml", "test"}
-
-        repo = git.Repo(os.path.join(base_dir, "test"))
-        assert not repo.bare
-        assert not repo.is_dirty()
-        assert str(repo.active_branch) == "test"
-        if has_default:
-            if has_prefix and not remote_branch_already_exists:
-                assert (
-                    str(repo.active_branch.tracking_branch()) == "origin/myprefix/test"
-                )
-            else:
-                assert str(repo.active_branch.tracking_branch()) == "origin/test"
-        else:
-            assert repo.active_branch.tracking_branch() is None
-
-
 def test_worktree_delete():
     with TempGitRepositoryWorktree() as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
