@@ -36,7 +36,7 @@ test-binary:
     env \
         GITHUB_API_BASEURL=http://rest:5000/github \
         GITLAB_API_BASEURL=http://rest:5000/gitlab \
-        cargo build --target {{static_target}} --profile e2e-tests --features=static-build
+        cargo build --profile e2e-tests
 
 install:
     cargo install --path .
@@ -64,7 +64,7 @@ test-e2e +tests=".": test-binary
     && docker-compose build \
     && docker-compose run \
         --rm \
-        -v $PWD/../target/{{static_target}}/e2e-tests/grm:/grm \
+        -v $PWD/../target/e2e-tests/grm:/grm \
             pytest \
             "GRM_BINARY=/grm ALTERNATE_DOMAIN=alternate-rest python3 -m pytest -p no:cacheprovider --color=yes "$@"" \
     && docker-compose rm --stop -f
