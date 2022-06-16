@@ -95,6 +95,17 @@ def test_worktree_add(
             assert repo.active_branch.tracking_branch() is None
 
 
+def test_worktree_add_invalid_name():
+    with TempGitRepositoryWorktree() as (base_dir, _commit):
+        for worktree_name in ["/absolute/path" "trailingslash/"]:
+            args = ["wt", "add", worktree_name]
+            cmd = grm(args, cwd=base_dir)
+            assert cmd.returncode != 0
+            print(cmd.stdout)
+            print(cmd.stderr)
+            assert not os.path.exists(worktree_name)
+            assert not os.path.exists(os.path.join(base_dir, worktree_name))
+            assert "invalid worktree name" in str(cmd.stderr.lower())
 
 
 def test_worktree_add_into_invalid_subdirectory():
