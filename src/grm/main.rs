@@ -502,25 +502,9 @@ fn main() {
                         None => None,
                     };
 
-                    let mut name: &str = &action_args.name;
-                    let subdirectory;
-                    let split = name.split_once('/');
-                    match split {
-                        None => subdirectory = None,
-                        Some(split) => {
-                            if split.0.is_empty() || split.1.is_empty() {
-                                print_error("Worktree name cannot start or end with a slash");
-                                process::exit(1);
-                            } else {
-                                (subdirectory, name) = (Some(Path::new(split.0)), split.1);
-                            }
-                        }
-                    }
-
                     match worktree::add_worktree(
                         &cwd,
-                        name,
-                        subdirectory,
+                        &action_args.name,
                         track,
                         action_args.no_track,
                     ) {
