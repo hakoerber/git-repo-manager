@@ -483,6 +483,9 @@ fn main() {
 
             match args.action {
                 cmd::WorktreeAction::Add(action_args) => {
+                    if action_args.track.is_some() && action_args.no_track {
+                        print_warning("You are using --track and --no-track at the same time. --track will be ignored");
+                    }
                     let track = match &action_args.track {
                         Some(branch) => {
                             let split = branch.split_once('/');
