@@ -1435,11 +1435,20 @@ impl<'a> Branch<'a> {
     }
 }
 
-impl Branch<'_> {
+impl<'a> Branch<'a> {
     pub fn commit(&self) -> Result<Commit, String> {
         Ok(Commit(
             self.0
                 .get()
+                .peel_to_commit()
+                .map_err(convert_libgit2_error)?,
+        ))
+    }
+
+    pub fn commit_owned(self) -> Result<Commit<'a>, String> {
+        Ok(Commit(
+            self.0
+                .into_reference()
                 .peel_to_commit()
                 .map_err(convert_libgit2_error)?,
         ))
