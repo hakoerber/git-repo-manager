@@ -97,7 +97,13 @@ def test_worktree_add(
 
 def test_worktree_add_invalid_name():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
-        for worktree_name in ["/absolute/path" "trailingslash/"]:
+        for worktree_name in [
+            "/absolute/path",
+            "trailingslash/",
+            "with spaces",
+            "with\t tabs",
+            "with\nnewline",
+        ]:
             args = ["wt", "add", worktree_name]
             cmd = grm(args, cwd=base_dir)
             assert cmd.returncode != 0
