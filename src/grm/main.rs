@@ -513,7 +513,14 @@ fn main() {
                         track,
                         action_args.no_track,
                     ) {
-                        Ok(_) => print_success(&format!("Worktree {} created", &action_args.name)),
+                        Ok(warnings) => {
+                            if let Some(warnings) = warnings {
+                                for warning in warnings {
+                                    print_warning(&warning);
+                                }
+                            }
+                            print_success(&format!("Worktree {} created", &action_args.name));
+                        }
                         Err(error) => {
                             print_error(&format!("Error creating worktree: {}", error));
                             process::exit(1);
