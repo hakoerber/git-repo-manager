@@ -28,7 +28,7 @@ rust-version = "1.57"
 license = "GPL-3.0-only"
 
 [profile.e2e-tests]
-inherits = "dev"
+inherits = "release"
 
 [lib]
 name = "grm"
