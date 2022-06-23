@@ -124,112 +124,37 @@ def test_worktree_add_invalid_track():
             assert "tracking branch" in str(cmd.stderr.lower())
 
 
-@pytest.mark.parametrize("remote_branch_already_exists", [True, False])
-@pytest.mark.parametrize("has_config", [True, False])
-@pytest.mark.parametrize("has_default", [True, False])
-@pytest.mark.parametrize("has_prefix", [True, False])
-def test_worktree_add_with_tracking(
-    remote_branch_already_exists, has_config, has_default, has_prefix
+@pytest.mark.parametrize("use_track", [True, False])
+@pytest.mark.parametrize("use_configuration", [True, False])
+@pytest.mark.parametrize("use_configuration_default", [True, False])
+def test_worktree_add_invalid_remote_name(
+    use_track, use_configuration, use_configuration_default
 ):
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
-        if has_config:
+        if use_configuration:
             with open(os.path.join(base_dir, "grm.toml"), "w") as f:
                 f.write(
                     f"""
                 [track]
-                default = {str(has_default).lower()}
-                default_remote = "origin"
+                default = {str(use_configuration_default).lower()}
+                default_remote = "thisremotedoesnotexist"
                 """
                 )
-                if has_prefix:
-                    f.write(
-                        """
-                    default_remote_prefix = "myprefix"
-                    """
-                    )
 
-        if remote_branch_already_exists:
-            shell(
-                f"""
-                cd {base_dir}
-                git --git-dir ./.git-main-working-tree worktree add tmp
-                (
-                    cd tmp
-                    touch change
-                    git add change
-                    git commit -m commit
-                    git push origin HEAD:test
-                    #git reset --hard 'HEAD@{1}'
-                    git branch -va
-                )
-                git --git-dir ./.git-main-working-tree worktree remove tmp
-            """
-            )
-        cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
-        print(cmd.stderr)
-        assert cmd.returncode == 0
+        args = ["wt", "add", "foo"]
+        if use_track:
+            args.extend(["--track", "thisremotedoesnotexist/master"])
 
-        files = os.listdir(base_dir)
-        if has_config is True:
-            assert len(files) == 3
-            assert set(files) == {".git-main-working-tree", "grm.toml", "test"}
+        cmd = grm(args, cwd=base_dir)
+
+        if use_track or (use_configuration and use_configuration_default):
+            assert cmd.returncode != 0
+            assert "thisremotedoesnotexist" in cmd.stderr
         else:
-            assert len(files) == 2
-            assert set(files) == {".git-main-working-tree", "test"}
-
-        repo = git.Repo(os.path.join(base_dir, "test"))
-        assert not repo.bare
-        assert not repo.is_dirty()
-        assert str(repo.active_branch) == "test"
-        assert str(repo.active_branch.tracking_branch()) == "origin/test"
+            assert cmd.returncode == 0
+            assert len(cmd.stderr) == 0
 
 
-@pytest.mark.parametrize("has_config", [True, False])
-@pytest.mark.parametrize("has_default", [True, False])
-@pytest.mark.parametrize("has_prefix", [True, False])
-@pytest.mark.parametrize("track", [True, False])
-def test_worktree_add_with_explicit_no_tracking(
-    has_config, has_default, has_prefix, track
-):
-    with TempGitRepositoryWorktree() as (base_dir, _commit):
-        if has_config:
-            with open(os.path.join(base_dir, "grm.toml"), "w") as f:
-                f.write(
-                    f"""
-                [track]
-                default = {str(has_default).lower()}
-                default_remote = "origin"
-                """
-                )
-                if has_prefix:
-                    f.write(
-                        """
-                    default_remote_prefix = "myprefix"
-                    """
-                    )
-        if track is True:
-            cmd = grm(
-                ["wt", "add", "test", "--track", "origin/test", "--no-track"],
-                cwd=base_dir,
-            )
-        else:
-            cmd = grm(["wt", "add", "test", "--no-track"], cwd=base_dir)
-        print(cmd.stderr)
-        assert cmd.returncode == 0
-
-        files = os.listdir(base_dir)
-        if has_config is True:
-            assert len(files) == 3
-            assert set(files) == {".git-main-working-tree", "grm.toml", "test"}
-        else:
-            assert len(files) == 2
-            assert set(files) == {".git-main-working-tree", "test"}
-
-        repo = git.Repo(os.path.join(base_dir, "test"))
-        assert not repo.bare
-        assert not repo.is_dirty()
-        assert str(repo.active_branch) == "test"
-        assert repo.active_branch.tracking_branch() is None
 def test_worktree_add_into_invalid_subdirectory():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         cmd = grm(["wt", "add", "/dir/test"], cwd=base_dir)
