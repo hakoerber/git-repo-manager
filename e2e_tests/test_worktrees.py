@@ -107,8 +107,6 @@ def test_worktree_add_invalid_name():
             args = ["wt", "add", worktree_name]
             cmd = grm(args, cwd=base_dir)
             assert cmd.returncode != 0
-            print(cmd.stdout)
-            print(cmd.stderr)
             assert not os.path.exists(worktree_name)
             assert not os.path.exists(os.path.join(base_dir, worktree_name))
             assert "invalid worktree name" in str(cmd.stderr.lower())
@@ -257,7 +255,6 @@ def test_worktree_delete():
         cmd = grm(["wt", "add", "check"], cwd=base_dir)
         assert cmd.returncode == 0
         repo = git.Repo(os.path.join(base_dir, ".git-main-working-tree"))
-        print(repo.branches)
         assert "test" not in [str(b) for b in repo.branches]
 
 
