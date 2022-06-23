@@ -26,7 +26,11 @@ def grm(args, cwd=None, is_invalid=False):
 
 def shell(script):
     script = "set -o errexit\nset -o nounset\nset -o pipefail\n" + script
-    subprocess.run(["bash"], input=script, text=True, check=True)
+    cmd = subprocess.run(["bash"], input=script, text=True, capture_output=True)
+    if cmd.returncode != 0:
+        print(cmd.stdout)
+        print(cmd.stderr)
+    cmd.check_returncode()
 
 
 def checksum_directory(path):
