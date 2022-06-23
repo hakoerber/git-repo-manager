@@ -262,7 +262,7 @@ class TempGitFileRemote:
         shell(
             f"""
             cd {self.tmpdir.name}
-            git init
+            git -c init.defaultBranch=master init
             echo test > root-commit-in-remote-1
             git add root-commit-in-remote-1
             git commit -m "root-commit-in-remote-1"
