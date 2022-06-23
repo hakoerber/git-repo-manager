@@ -114,6 +114,16 @@ def test_worktree_add_invalid_name():
             assert "invalid worktree name" in str(cmd.stderr.lower())
 
 
+def test_worktree_add_invalid_track():
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
+        for track in ["/absolute/path", "trailingslash/", "/"]:
+            args = ["wt", "add", "foo", "--track", track]
+            cmd = grm(args, cwd=base_dir)
+            assert cmd.returncode != 0
+            assert len(cmd.stderr.strip().split("\n")) == 1
+            assert not os.path.exists("foo")
+            assert not os.path.exists(os.path.join(base_dir, "foo"))
+            assert "tracking branch" in str(cmd.stderr.lower())
 
 
 @pytest.mark.parametrize("remote_branch_already_exists", [True, False])
