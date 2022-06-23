@@ -114,16 +114,6 @@ def test_worktree_add_invalid_name():
             assert "invalid worktree name" in str(cmd.stderr.lower())
 
 
-def test_worktree_add_into_invalid_subdirectory():
-    with TempGitRepositoryWorktree() as (base_dir, _commit):
-        cmd = grm(["wt", "add", "/dir/test"], cwd=base_dir)
-        assert cmd.returncode == 1
-        assert "dir" not in os.listdir(base_dir)
-        assert "dir" not in os.listdir("/")
-
-        cmd = grm(["wt", "add", "dir/"], cwd=base_dir)
-        assert cmd.returncode == 1
-        assert "dir" not in os.listdir(base_dir)
 
 
 @pytest.mark.parametrize("remote_branch_already_exists", [True, False])
@@ -232,6 +222,16 @@ def test_worktree_add_with_explicit_no_tracking(
         assert not repo.is_dirty()
         assert str(repo.active_branch) == "test"
         assert repo.active_branch.tracking_branch() is None
+def test_worktree_add_into_invalid_subdirectory():
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
+        cmd = grm(["wt", "add", "/dir/test"], cwd=base_dir)
+        assert cmd.returncode == 1
+        assert "dir" not in os.listdir(base_dir)
+        assert "dir" not in os.listdir("/")
+
+        cmd = grm(["wt", "add", "dir/"], cwd=base_dir)
+        assert cmd.returncode == 1
+        assert "dir" not in os.listdir(base_dir)
 
 
 def test_worktree_delete():
