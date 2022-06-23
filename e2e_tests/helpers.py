@@ -25,7 +25,7 @@ def grm(args, cwd=None, is_invalid=False):
 
 
 def shell(script):
-    script = "set -o errexit\nset -o nounset\n" + script
+    script = "set -o errexit\nset -o nounset\nset -o pipefail\n" + script
     subprocess.run(["bash"], input=script, text=True, check=True)
 
 
