@@ -70,7 +70,7 @@ version = "=6.0.0"
 version = "=0.8.24"
 
 [dependencies.serde_json]
-version = "=1.0.81"
+version = "=1.0.82"
 
 [dependencies.isahc]
 version = "=1.7.2"
