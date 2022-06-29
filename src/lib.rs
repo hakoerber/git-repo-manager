@@ -14,8 +14,6 @@ pub mod table;
 pub mod tree;
 pub mod worktree;
 
-const BRANCH_NAMESPACE_SEPARATOR: &str = "/";
-
 /// Find all git repositories under root, recursively
 ///
 /// The bool in the return value specifies whether there is a repository

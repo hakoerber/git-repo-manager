@@ -528,8 +528,6 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Delete(action_args) => {
-                    let worktree_dir = cwd.join(&action_args.name);
-
                     let worktree_config = match repo::read_worktree_root_config(&cwd) {
                         Ok(config) => config,
                         Err(error) => {
@@ -547,8 +545,9 @@ fn main() {
                     });
 
                     match repo.remove_worktree(
+                        &cwd,
                         &action_args.name,
-                        &worktree_dir,
+                        Path::new(&action_args.name),
                         action_args.force,
                         &worktree_config,
                     ) {

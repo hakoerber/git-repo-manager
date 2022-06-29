@@ -589,6 +589,30 @@ def test_worktree_delete():
         assert "test" not in [str(b) for b in repo.branches]
 
 
+@pytest.mark.parametrize("has_other_worktree", [True, False])
+def test_worktree_delete_in_subfolder(has_other_worktree):
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
+        cmd = grm(["wt", "add", "dir/test", "--track", "origin/test"], cwd=base_dir)
+        assert cmd.returncode == 0
+        assert "dir" in os.listdir(base_dir)
+
+        if has_other_worktree is True:
+            cmd = grm(
+                ["wt", "add", "dir/test2", "--track", "origin/test"], cwd=base_dir
+            )
+            assert cmd.returncode == 0
+            assert {"test", "test2"} == set(os.listdir(os.path.join(base_dir, "dir")))
+        else:
+            assert {"test"} == set(os.listdir(os.path.join(base_dir, "dir")))
+
+        cmd = grm(["wt", "delete", "dir/test"], cwd=base_dir)
+        assert cmd.returncode == 0
+        if has_other_worktree is True:
+            assert {"test2"} == set(os.listdir(os.path.join(base_dir, "dir")))
+        else:
+            assert "dir" not in os.listdir(base_dir)
+
+
 def test_worktree_delete_refusal_no_tracking_branch():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
