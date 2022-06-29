@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use std::path::Path;
 use std::process;
 
@@ -481,6 +483,9 @@ fn main() {
 
             match args.action {
                 cmd::WorktreeAction::Add(action_args) => {
+                    if action_args.track.is_some() && action_args.no_track {
+                        print_warning("You are using --track and --no-track at the same time. --track will be ignored");
+                    }
                     let track = match &action_args.track {
                         Some(branch) => {
                             let split = branch.split_once('/');
@@ -502,29 +507,20 @@ fn main() {
                         None => None,
                     };
 
-                    let mut name: &str = &action_args.name;
-                    let subdirectory;
-                    let split = name.split_once('/');
-                    match split {
-                        None => subdirectory = None,
-                        Some(split) => {
-                            if split.0.is_empty() || split.1.is_empty() {
-                                print_error("Worktree name cannot start or end with a slash");
-                                process::exit(1);
-                            } else {
-                                (subdirectory, name) = (Some(Path::new(split.0)), split.1);
-                            }
-                        }
-                    }
-
                     match worktree::add_worktree(
                         &cwd,
-                        name,
-                        subdirectory,
+                        &action_args.name,
                         track,
                         action_args.no_track,
                     ) {
-                        Ok(_) => print_success(&format!("Worktree {} created", &action_args.name)),
+                        Ok(warnings) => {
+                            if let Some(warnings) = warnings {
+                                for warning in warnings {
+                                    print_warning(&warning);
+                                }
+                            }
+                            print_success(&format!("Worktree {} created", &action_args.name));
+                        }
                         Err(error) => {
                             print_error(&format!("Error creating worktree: {}", error));
                             process::exit(1);
@@ -532,8 +528,6 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Delete(action_args) => {
-                    let worktree_dir = cwd.join(&action_args.name);
-
                     let worktree_config = match repo::read_worktree_root_config(&cwd) {
                         Ok(config) => config,
                         Err(error) => {
@@ -551,8 +545,9 @@ fn main() {
                     });
 
                     match repo.remove_worktree(
+                        &cwd,
                         &action_args.name,
-                        &worktree_dir,
+                        Path::new(&action_args.name),
                         action_args.force,
                         &worktree_config,
                     ) {

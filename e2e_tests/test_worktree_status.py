@@ -9,7 +9,7 @@ import pytest
 
 @pytest.mark.parametrize("has_config", [True, False])
 def test_worktree_status(has_config):
-    with TempGitRepositoryWorktree() as (base_dir, _commit):
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         if has_config:
             with open(os.path.join(base_dir, "grm.toml"), "w") as f:
                 f.write("")
@@ -24,7 +24,7 @@ def test_worktree_status(has_config):
 
 
 def test_worktree_status_fail_from_subdir():
-    with TempGitRepositoryWorktree() as (base_dir, _commit):
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
@@ -51,7 +51,7 @@ def test_worktree_status_non_git():
 
 
 def test_worktree_status_warn_with_non_worktree_dir():
-    with TempGitRepositoryWorktree() as (base_dir, _commit):
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 

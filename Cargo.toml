@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.7.3"
+version = "0.7.4"
 edition = "2021"
 
 authors = [
@@ -28,7 +28,7 @@ rust-version = "1.57"
 license = "GPL-3.0-only"
 
 [profile.e2e-tests]
-inherits = "release"
+inherits = "dev"
 
 [lib]
 name = "grm"
@@ -54,7 +54,7 @@ version = "=0.14.4"
 version = "=2.1.0"
 
 [dependencies.clap]
-version = "=3.2.5"
+version = "=3.2.7"
 features = ["derive", "cargo"]
 
 [dependencies.console]
@@ -70,7 +70,7 @@ version = "=6.0.0"
 version = "=0.8.24"
 
 [dependencies.serde_json]
-version = "=1.0.81"
+version = "=1.0.82"
 
 [dependencies.isahc]
 version = "=1.7.2"

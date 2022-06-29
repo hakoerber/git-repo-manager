@@ -1153,18 +1153,21 @@ impl RepoHandle {
 
     pub fn remove_worktree(
         &self,
+        base_dir: &Path,
         name: &str,
         worktree_dir: &Path,
         force: bool,
         worktree_config: &Option<WorktreeRootConfig>,
     ) -> Result<(), WorktreeRemoveFailureReason> {
-        if !worktree_dir.exists() {
+        let fullpath = base_dir.join(worktree_dir);
+
+        if !fullpath.exists() {
             return Err(WorktreeRemoveFailureReason::Error(format!(
                 "{} does not exist",
                 name
             )));
         }
-        let worktree_repo = RepoHandle::open(worktree_dir, false).map_err(|error| {
+        let worktree_repo = RepoHandle::open(&fullpath, false).map_err(|error| {
             WorktreeRemoveFailureReason::Error(format!("Error opening repo: {}", error))
         })?;
 
@@ -1176,12 +1179,11 @@ impl RepoHandle {
             WorktreeRemoveFailureReason::Error(format!("Failed getting name of branch: {}", error))
         })?;
 
-        if branch_name != name
-            && !branch_name.ends_with(&format!("{}{}", super::BRANCH_NAMESPACE_SEPARATOR, name))
-        {
+        if branch_name != name {
             return Err(WorktreeRemoveFailureReason::Error(format!(
-                "Branch \"{}\" is checked out in worktree, this does not look correct",
-                &branch_name
+                "Branch \"{}\" is checked out in worktree \"{}\", this does not look correct",
+                &branch_name,
+                &worktree_dir.display(),
             )));
         }
 
@@ -1251,13 +1253,47 @@ impl RepoHandle {
             }
         }
 
-        if let Err(e) = std::fs::remove_dir_all(&worktree_dir) {
+        // worktree_dir is a relative path, starting from base_dir. We walk it
+        // upwards (from subdirectory to parent directories) and remove each
+        // component, in case it is empty. Only the leaf directory can be
+        // removed unconditionally (as it contains the worktree itself).
+        if let Err(e) = std::fs::remove_dir_all(&fullpath) {
             return Err(WorktreeRemoveFailureReason::Error(format!(
                 "Error deleting {}: {}",
                 &worktree_dir.display(),
                 e
             )));
         }
+
+        if let Some(current_dir) = worktree_dir.parent() {
+            for current_dir in current_dir.ancestors() {
+                let current_dir = base_dir.join(current_dir);
+                println!("deleting {}", current_dir.display());
+                if current_dir
+                    .read_dir()
+                    .map_err(|error| {
+                        WorktreeRemoveFailureReason::Error(format!(
+                            "Error reading {}: {}",
+                            &current_dir.display(),
+                            error
+                        ))
+                    })?
+                    .next()
+                    .is_none()
+                {
+                    if let Err(e) = std::fs::remove_dir_all(&current_dir) {
+                        return Err(WorktreeRemoveFailureReason::Error(format!(
+                            "Error deleting {}: {}",
+                            &worktree_dir.display(),
+                            e
+                        )));
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
         self.prune_worktree(name)
             .map_err(WorktreeRemoveFailureReason::Error)?;
         branch
@@ -1310,7 +1346,13 @@ impl RepoHandle {
         {
             let repo_dir = &directory.join(&worktree.name());
             if repo_dir.exists() {
-                match self.remove_worktree(worktree.name(), repo_dir, false, &config) {
+                match self.remove_worktree(
+                    directory,
+                    worktree.name(),
+                    Path::new(worktree.name()),
+                    false,
+                    &config,
+                ) {
                     Ok(_) => print_success(&format!("Worktree {} deleted", &worktree.name())),
                     Err(error) => match error {
                         WorktreeRemoveFailureReason::Changes(changes) => {
@@ -1435,11 +1477,20 @@ impl<'a> Branch<'a> {
     }
 }
 
-impl Branch<'_> {
+impl<'a> Branch<'a> {
     pub fn commit(&self) -> Result<Commit, String> {
         Ok(Commit(
             self.0
                 .get()
+                .peel_to_commit()
+                .map_err(convert_libgit2_error)?,
+        ))
+    }
+
+    pub fn commit_owned(self) -> Result<Commit<'a>, String> {
+        Ok(Commit(
+            self.0
+                .into_reference()
                 .peel_to_commit()
                 .map_err(convert_libgit2_error)?,
         ))

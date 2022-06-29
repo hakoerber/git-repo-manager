@@ -73,7 +73,7 @@ def test_repos_find(configtype, default):
             mkdir repo1
             (
                 cd ./repo1
-                git init
+                git -c init.defaultBranch=master init
                 echo test > test
                 git add test
                 git commit -m "commit1"
@@ -83,7 +83,7 @@ def test_repos_find(configtype, default):
             mkdir repo2
             (
                 cd ./repo2
-                git init
+                git -c init.defaultBranch=master init
                 git checkout -b main
                 echo test > test
                 git add test
@@ -203,7 +203,7 @@ def test_repos_find_with_invalid_repo(configtype, default):
             mkdir repo1
             (
                 cd ./repo1
-                git init
+                git -c init.defaultBranch=master init
                 echo test > test
                 git add test
                 git commit -m "commit1"
@@ -213,7 +213,7 @@ def test_repos_find_with_invalid_repo(configtype, default):
             mkdir repo2
             (
                 cd ./repo2
-                git init
+                git -c init.defaultBranch=master init
                 git checkout -b main
                 echo test > test
                 git add test

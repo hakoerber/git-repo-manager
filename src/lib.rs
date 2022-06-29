@@ -1,5 +1,6 @@
 #![feature(io_error_more)]
 #![feature(const_option_ext)]
+#![forbid(unsafe_code)]
 
 use std::path::Path;
 
@@ -12,8 +13,6 @@ pub mod repo;
 pub mod table;
 pub mod tree;
 pub mod worktree;
-
-const BRANCH_NAMESPACE_SEPARATOR: &str = "/";
 
 /// Find all git repositories under root, recursively
 ///

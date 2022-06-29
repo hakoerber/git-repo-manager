@@ -5,10 +5,24 @@ import os.path
 import subprocess
 import tempfile
 import hashlib
+import shutil
+import inspect
 
 import git
 
 binary = os.environ["GRM_BINARY"]
+
+
+def funcname():
+    return inspect.stack()[1][3]
+
+
+def copytree(src, dest):
+    shutil.copytree(src, dest, dirs_exist_ok=True)
+
+
+def get_temporary_directory(dir=None):
+    return tempfile.TemporaryDirectory(dir=dir)
 
 
 def grm(args, cwd=None, is_invalid=False):
@@ -25,8 +39,12 @@ def grm(args, cwd=None, is_invalid=False):
 
 
 def shell(script):
-    script = "set -o errexit\nset -o nounset\n" + script
-    subprocess.run(["bash"], input=script, text=True, check=True)
+    script = "set -o errexit\nset -o nounset\nset -o pipefail\n" + script
+    cmd = subprocess.run(["bash"], input=script, text=True, capture_output=True)
+    if cmd.returncode != 0:
+        print(cmd.stdout)
+        print(cmd.stderr)
+    cmd.check_returncode()
 
 
 def checksum_directory(path):
@@ -112,78 +130,204 @@ def checksum_directory(path):
 class TempGitRepository:
     def __init__(self, dir=None):
         self.dir = dir
-        pass
 
     def __enter__(self):
-        self.tmpdir = tempfile.TemporaryDirectory(dir=self.dir)
-        self.remote_1_dir = tempfile.TemporaryDirectory()
-        self.remote_2_dir = tempfile.TemporaryDirectory()
-        shell(
-            f"""
+        self.tmpdir = get_temporary_directory(self.dir)
+        self.remote_1 = get_temporary_directory()
+        self.remote_2 = get_temporary_directory()
+        cmd = f"""
             cd {self.tmpdir.name}
-            git init
+            git -c init.defaultBranch=master init
             echo test > root-commit
             git add root-commit
             git commit -m "root-commit"
-            git remote add origin file://{self.remote_1_dir.name}
-            git remote add otherremote file://{self.remote_2_dir.name}
+            git remote add origin file://{self.remote_1.name}
+            git remote add otherremote file://{self.remote_2.name}
         """
-        )
+
+        shell(cmd)
         return self.tmpdir.name
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        del self.tmpdir
-        del self.remote_1_dir
-        del self.remote_2_dir
+        pass
+
+
+class TempGitRemote:
+    obj = {}
+
+    def __init__(self, tmpdir, remoteid=None):
+        self.tmpdir = tmpdir
+        self.remoteid = remoteid
+
+    @classmethod
+    def get(cls, cachekey=None, initfunc=None):
+        if cachekey is None:
+            tmpdir = get_temporary_directory()
+            shell(
+                f"""
+                cd {tmpdir.name}
+                git -c init.defaultBranch=master init --bare
+            """
+            )
+            newobj = cls(tmpdir)
+            remoteid = None
+            if initfunc is not None:
+                remoteid = newobj.init(initfunc)
+            newobj.remoteid = remoteid
+            return newobj, remoteid
+        else:
+            refresh = False
+            if cachekey not in cls.obj:
+                tmpdir = get_temporary_directory()
+                shell(
+                    f"""
+                    cd {tmpdir.name}
+                    git -c init.defaultBranch=master init --bare
+                """
+                )
+                newobj = cls(tmpdir)
+                remoteid = newobj.init(initfunc)
+                newobj.remoteid = remoteid
+                cls.obj[cachekey] = newobj
+            return cls.clone(cls.obj[cachekey])
+
+    @classmethod
+    def clone(cls, source):
+        new_remote = get_temporary_directory()
+        copytree(source.tmpdir.name, new_remote.name)
+        return cls(new_remote, source.remoteid), source.remoteid
+
+    def init(self, func):
+        return func(self.tmpdir.name)
+
+    def __enter__(self):
+        return self.tmpdir
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
 
 class TempGitRepositoryWorktree:
-    def __init__(self):
-        pass
+    obj = {}
+
+    def __init__(self, remotes, tmpdir, commit, remote1, remote2, remote1id, remote2id):
+        self.remotes = remotes
+        self.tmpdir = tmpdir
+        self.commit = commit
+        self.remote1 = remote1
+        self.remote2 = remote2
+        self.remote1id = remote1id
+        self.remote2id = remote2id
+
+    @classmethod
+    def get(cls, cachekey, branch=None, remotes=2, basedir=None, remote_setup=None):
+        if cachekey not in cls.obj:
+            tmpdir = get_temporary_directory()
+            shell(
+                f"""
+                cd {tmpdir.name}
+                git -c init.defaultBranch=master init
+                echo test > root-commit-in-worktree-1
+                git add root-commit-in-worktree-1
+                git commit -m "root-commit-in-worktree-1"
+                echo test > root-commit-in-worktree-2
+                git add root-commit-in-worktree-2
+                git commit -m "root-commit-in-worktree-2"
+
+                git ls-files | xargs rm -rf
+                mv .git .git-main-working-tree
+                git --git-dir .git-main-working-tree config core.bare true
+            """
+            )
+
+            repo = git.Repo(f"{tmpdir.name}/.git-main-working-tree")
+
+            commit = repo.head.commit.hexsha
+            if branch is not None:
+                repo.create_head(branch)
+
+            remote1 = None
+            remote2 = None
+            remote1id = None
+            remote2id = None
+
+            if remotes >= 1:
+                cachekeyremote, initfunc = (remote_setup or ((None, None),))[0]
+                remote1, remote1id = TempGitRemote.get(
+                    cachekey=cachekeyremote, initfunc=initfunc
+                )
+                remote1 = remote1
+                remote1id = remote1id
+                shell(
+                    f"""
+                    cd {tmpdir.name}
+                    git --git-dir .git-main-working-tree remote add origin file://{remote1.tmpdir.name}
+                """
+                )
+                repo.remotes.origin.fetch()
+                repo.remotes.origin.push("master")
+
+            if remotes >= 2:
+                cachekeyremote, initfunc = (remote_setup or (None, (None, None)))[1]
+                remote2, remote2id = TempGitRemote.get(
+                    cachekey=cachekeyremote, initfunc=initfunc
+                )
+                remote2 = remote2
+                remote2id = remote2id
+                shell(
+                    f"""
+                    cd {tmpdir.name}
+                    git --git-dir .git-main-working-tree remote add otherremote file://{remote2.tmpdir.name}
+                """
+                )
+                repo.remotes.otherremote.fetch()
+                repo.remotes.otherremote.push("master")
+
+            cls.obj[cachekey] = cls(
+                remotes, tmpdir, commit, remote1, remote2, remote1id, remote2id
+            )
+
+        return cls.clone(cls.obj[cachekey], remote_setup=remote_setup)
+
+    @classmethod
+    def clone(cls, source, remote_setup):
+        newdir = get_temporary_directory()
+
+        copytree(source.tmpdir.name, newdir.name)
+
+        remote1 = None
+        remote2 = None
+        remote1id = None
+        remote2id = None
+        repo = git.Repo(os.path.join(newdir.name, ".git-main-working-tree"))
+        if source.remotes >= 1:
+            cachekey, initfunc = (remote_setup or ((None, None),))[0]
+            remote1, remote1id = TempGitRemote.get(cachekey=cachekey, initfunc=initfunc)
+            if remote1id != source.remote1id:
+                repo.remotes.origin.fetch()
+                repo.remotes.origin.push("master")
+        if source.remotes >= 2:
+            cachekey, initfunc = (remote_setup or (None, (None, None)))[1]
+            remote2, remote2id = TempGitRemote.get(cachekey=cachekey, initfunc=initfunc)
+            if remote2id != source.remote2id:
+                repo.remotes.otherremote.fetch()
+                repo.remotes.otherremote.push("master")
+
+        return cls(
+            source.remotes,
+            newdir,
+            source.commit,
+            remote1,
+            remote2,
+            remote1id,
+            remote2id,
+        )
 
     def __enter__(self):
-        self.tmpdir = tempfile.TemporaryDirectory()
-        self.remote_1_dir = tempfile.TemporaryDirectory()
-        self.remote_2_dir = tempfile.TemporaryDirectory()
-        shell(
-            f"""
-            cd {self.remote_1_dir.name}
-            git init --bare
-        """
-        )
-        shell(
-            f"""
-            cd {self.remote_2_dir.name}
-            git init --bare
-        """
-        )
-        shell(
-            f"""
-            cd {self.tmpdir.name}
-            git init
-            echo test > root-commit-in-worktree-1
-            git add root-commit-in-worktree-1
-            git commit -m "root-commit-in-worktree-1"
-            echo test > root-commit-in-worktree-2
-            git add root-commit-in-worktree-2
-            git commit -m "root-commit-in-worktree-2"
-            git remote add origin file://{self.remote_1_dir.name}
-            git remote add otherremote file://{self.remote_2_dir.name}
-            git push origin HEAD:master
-            git ls-files | xargs rm -rf
-            mv .git .git-main-working-tree
-            git --git-dir .git-main-working-tree config core.bare true
-        """
-        )
-        commit = git.Repo(
-            f"{self.tmpdir.name}/.git-main-working-tree"
-        ).head.commit.hexsha
-        return (self.tmpdir.name, commit)
+        return (self.tmpdir.name, self.commit)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        del self.tmpdir
-        del self.remote_1_dir
-        del self.remote_2_dir
+        pass
 
 
 class RepoTree:
@@ -191,7 +335,7 @@ class RepoTree:
         pass
 
     def __enter__(self):
-        self.root = tempfile.TemporaryDirectory()
+        self.root = get_temporary_directory()
         self.config = tempfile.NamedTemporaryFile()
         with open(self.config.name, "w") as f:
             f.write(
@@ -222,7 +366,7 @@ class EmptyDir:
         pass
 
     def __enter__(self):
-        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmpdir = get_temporary_directory()
         return self.tmpdir.name
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -234,7 +378,7 @@ class NonGitDir:
         pass
 
     def __enter__(self):
-        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmpdir = get_temporary_directory()
         shell(
             f"""
             cd {self.tmpdir.name}
@@ -254,11 +398,11 @@ class TempGitFileRemote:
         pass
 
     def __enter__(self):
-        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmpdir = get_temporary_directory()
         shell(
             f"""
             cd {self.tmpdir.name}
-            git init
+            git -c init.defaultBranch=master init
             echo test > root-commit-in-remote-1
             git add root-commit-in-remote-1
             git commit -m "root-commit-in-remote-1"

@@ -14,7 +14,7 @@ import git
 @pytest.mark.parametrize("has_changes", [True, False])
 @pytest.mark.parametrize("stash", [True, False])
 def test_worktree_rebase(pull, rebase, ffable, has_changes, stash):
-    with TempGitRepositoryWorktree() as (base_dir, _root_commit):
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _root_commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
             f.write('persistent_branches = ["mybasebranch"]')
 

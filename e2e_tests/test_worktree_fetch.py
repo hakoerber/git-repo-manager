@@ -9,7 +9,7 @@ import git
 
 
 def test_worktree_fetch():
-    with TempGitRepositoryWorktree() as (base_dir, root_commit):
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, root_commit):
         with TempGitFileRemote() as (remote_path, _remote_sha):
             shell(
                 f"""
@@ -56,7 +56,7 @@ def test_worktree_fetch():
 @pytest.mark.parametrize("has_changes", [True, False])
 @pytest.mark.parametrize("stash", [True, False])
 def test_worktree_pull(rebase, ffable, has_changes, stash):
-    with TempGitRepositoryWorktree() as (base_dir, root_commit):
+    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, root_commit):
         with TempGitFileRemote() as (remote_path, _remote_sha):
             shell(
                 f"""
