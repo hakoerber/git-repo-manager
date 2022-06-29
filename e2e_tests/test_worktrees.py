@@ -9,13 +9,21 @@ import datetime
 import os.path
 
 
-@pytest.mark.parametrize("config_enabled", [True, False])
-@pytest.mark.parametrize("config_has_default_remote_prefix", [True, False])
-@pytest.mark.parametrize("config_has_default_track_enabled", [True, False])
+@pytest.mark.parametrize(
+    "config_setup",
+    (
+        (False, False, False),
+        (True, False, False),
+        (True, False, True),
+        (True, True, False),
+        (True, True, True),
+    ),
+)
 @pytest.mark.parametrize("explicit_notrack", [True, False])
 @pytest.mark.parametrize("explicit_track", [True, False])
-@pytest.mark.parametrize("local_branch_exists", [True, False])
-@pytest.mark.parametrize("local_branch_has_tracking_branch", [True, False])
+@pytest.mark.parametrize(
+    "local_branch_setup", ((False, False), (True, False), (True, True))
+)
 @pytest.mark.parametrize("remote_branch_already_exists", [True, False])
 @pytest.mark.parametrize("remote_branch_with_prefix_already_exists", [True, False])
 @pytest.mark.parametrize(
@@ -32,13 +40,10 @@ import os.path
 @pytest.mark.parametrize("track_differs_from_existing_branch_upstream", [True, False])
 @pytest.mark.parametrize("worktree_with_slash", [True, False])
 def test_worktree_add(
-    config_enabled,
-    config_has_default_remote_prefix,
-    config_has_default_track_enabled,
+    config_setup,
     explicit_notrack,
     explicit_track,
-    local_branch_exists,
-    local_branch_has_tracking_branch,
+    local_branch_setup,
     remote_branch_already_exists,
     remote_branch_with_prefix_already_exists,
     remote_setup,
@@ -46,6 +51,12 @@ def test_worktree_add(
     worktree_with_slash,
 ):
     (remote_count, default_remote, remotes_differ) = remote_setup
+    (
+        config_enabled,
+        config_has_default_remote_prefix,
+        config_has_default_track_enabled,
+    ) = config_setup
+    (local_branch_exists, local_branch_has_tracking_branch) = local_branch_setup
     has_remotes = True if remote_count > 0 else False
 
     if worktree_with_slash:
