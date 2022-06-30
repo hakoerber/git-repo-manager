@@ -26,11 +26,14 @@ lint:
 lint-fix:
     cargo clippy --no-deps --fix
 
-release:
+build-release:
     cargo build --release
 
-release-static:
+build-release-static:
     cargo build --release --target {{static_target}} --features=static-build
+
+release-patch:
+    ./release.sh patch
 
 test-binary:
     env \
