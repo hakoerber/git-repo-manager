@@ -94,8 +94,6 @@ if ((changes == 0)); then
     exit 1
 fi
 
-just check
-
 sed -i "0,/^version/{s/^version.*$/version = \"${new_version}\"/}" Cargo.toml
 
 cargo update --package git-repo-manager --precise "${new_version}"
