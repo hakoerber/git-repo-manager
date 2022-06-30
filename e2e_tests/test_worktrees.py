@@ -691,7 +691,7 @@ def test_worktree_delete_refusal_uncommited_changes_deleted_file():
         assert before == after
 
 
-def test_worktree_delete_refusal_commited_changes():
+def test_worktree_delete_refusal_committed_changes():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
