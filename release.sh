@@ -5,7 +5,7 @@ set -o errexit
 set -o pipefail
 
 usage() {
-    printf '%s\n' "usage: $0 (master|minor|patch)" >&2
+    printf '%s\n' "usage: $0 (major|minor|patch)" >&2
 }
 
 if (($# != 1)); then
@@ -24,6 +24,9 @@ major)
     ((major++)) || true
     minor=0
     patch=0
+
+    printf '%s\n' "Are you sure you want to release 1.x?" >&2
+    exit 1
     ;;
 minor)
     ((minor++)) || true
@@ -90,10 +93,6 @@ if ((changes == 0)); then
     printf '%s\n' 'No changes between master and develop?' >&2
     exit 1
 fi
-
-just update-dependencies
-
-just check
 
 sed -i "0,/^version/{s/^version.*$/version = \"${new_version}\"/}" Cargo.toml
 

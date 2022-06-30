@@ -581,6 +581,7 @@ def test_worktree_delete():
 
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode == 0
+        assert len(cmd.stdout.strip().split("\n")) == 1
         assert "test" not in os.listdir(base_dir)
 
         cmd = grm(["wt", "add", "check"], cwd=base_dir)
@@ -607,6 +608,7 @@ def test_worktree_delete_in_subfolder(has_other_worktree):
 
         cmd = grm(["wt", "delete", "dir/test"], cwd=base_dir)
         assert cmd.returncode == 0
+        assert len(cmd.stdout.strip().split("\n")) == 1
         if has_other_worktree is True:
             assert {"test2"} == set(os.listdir(os.path.join(base_dir, "dir")))
         else:
@@ -621,6 +623,7 @@ def test_worktree_delete_refusal_no_tracking_branch():
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
         stderr = cmd.stderr.lower()
         assert "refuse" in stderr or "refusing" in stderr
         assert "test" in os.listdir(base_dir)
@@ -629,94 +632,45 @@ def test_worktree_delete_refusal_no_tracking_branch():
         assert before == after
 
 
-def test_worktree_delete_refusal_uncommited_changes_new_file():
+@pytest.mark.parametrize(
+    "reason",
+    (
+        "new_file",
+        "changed_file",
+        "deleted_file",
+        "new_commit",
+        "tracking_branch_mismatch",
+    ),
+)
+def test_worktree_delete_refusal(reason):
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        shell(f"cd {base_dir}/test && touch changed_file")
+        if reason == "new_file":
+            shell(f"cd {base_dir}/test && touch changed_file")
+        elif reason == "changed_file":
+            shell(
+                f"cd {base_dir}/test && git ls-files | shuf | head | while read f ; do echo $RANDOM > $f ; done"
+            )
+        elif reason == "deleted_file":
+            shell(f"cd {base_dir}/test && git ls-files | shuf | head | xargs rm -rf")
+        elif reason == "new_commit":
+            shell(
+                f'cd {base_dir}/test && touch changed_file && git add changed_file && git commit -m "commitmsg"'
+            )
+        elif reason == "tracking_branch_mismatch":
+            shell(
+                f"cd {base_dir}/test && git push origin test && git reset --hard origin/test^"
+            )
+
+        else:
+            raise NotImplementedError()
 
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode != 0
-        stderr = cmd.stderr.lower()
-        assert "refuse" in stderr or "refusing" in stderr
-        assert "test" in os.listdir(base_dir)
-
-        after = checksum_directory(f"{base_dir}/test")
-        assert before == after
-
-
-def test_worktree_delete_refusal_uncommited_changes_changed_file():
-    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
-        cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
-        assert cmd.returncode == 0
-
-        shell(f"cd {base_dir}/test && git ls-files | shuf | head | xargs rm -rf")
-
-        before = checksum_directory(f"{base_dir}/test")
-        cmd = grm(["wt", "delete", "test"], cwd=base_dir)
-        assert cmd.returncode != 0
-        stderr = cmd.stderr.lower()
-        assert "refuse" in stderr or "refusing" in stderr
-        assert "test" in os.listdir(base_dir)
-
-        after = checksum_directory(f"{base_dir}/test")
-        assert before == after
-
-
-def test_worktree_delete_refusal_uncommited_changes_deleted_file():
-    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
-        cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
-        assert cmd.returncode == 0
-
-        shell(
-            f"cd {base_dir}/test && git ls-files | shuf | head | while read f ; do echo $RANDOM > $f ; done"
-        )
-
-        before = checksum_directory(f"{base_dir}/test")
-        cmd = grm(["wt", "delete", "test"], cwd=base_dir)
-        assert cmd.returncode != 0
-        stderr = cmd.stderr.lower()
-        assert "refuse" in stderr or "refusing" in stderr
-        assert "test" in os.listdir(base_dir)
-
-        after = checksum_directory(f"{base_dir}/test")
-        assert before == after
-
-
-def test_worktree_delete_refusal_commited_changes():
-    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
-        cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
-        assert cmd.returncode == 0
-
-        shell(
-            f'cd {base_dir}/test && touch changed_file && git add changed_file && git commit -m "commitmsg"'
-        )
-
-        before = checksum_directory(f"{base_dir}/test")
-        cmd = grm(["wt", "delete", "test"], cwd=base_dir)
-        assert cmd.returncode != 0
-        stderr = cmd.stderr.lower()
-        assert "refuse" in stderr or "refusing" in stderr
-        assert "test" in os.listdir(base_dir)
-
-        after = checksum_directory(f"{base_dir}/test")
-        assert before == after
-
-
-def test_worktree_delete_refusal_tracking_branch_mismatch():
-    with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
-        cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
-        assert cmd.returncode == 0
-
-        shell(
-            f"cd {base_dir}/test && git push origin test && git reset --hard origin/test^"
-        )
-
-        before = checksum_directory(f"{base_dir}/test")
-        cmd = grm(["wt", "delete", "test"], cwd=base_dir)
-        assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
         stderr = cmd.stderr.lower()
         assert "refuse" in stderr or "refusing" in stderr
         assert "test" in os.listdir(base_dir)
@@ -732,6 +686,7 @@ def test_worktree_delete_force_refusal():
 
         cmd = grm(["wt", "delete", "test", "--force"], cwd=base_dir)
         assert cmd.returncode == 0
+        assert len(cmd.stdout.strip().split("\n")) == 1
         assert "test" not in os.listdir(base_dir)
 
 

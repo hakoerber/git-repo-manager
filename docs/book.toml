@@ -7,3 +7,8 @@ title = "Git Repo Manager"
 
 [output.html]
 mathjax-support = true
+
+# [output.linkcheck]
+# follow-web-links = true
+# traverse-parent-directories = false
+# warning-policy = "error"

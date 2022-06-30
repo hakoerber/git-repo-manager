@@ -1268,7 +1268,6 @@ impl RepoHandle {
         if let Some(current_dir) = worktree_dir.parent() {
             for current_dir in current_dir.ancestors() {
                 let current_dir = base_dir.join(current_dir);
-                println!("deleting {}", current_dir.display());
                 if current_dir
                     .read_dir()
                     .map_err(|error| {
@@ -1281,7 +1280,7 @@ impl RepoHandle {
                     .next()
                     .is_none()
                 {
-                    if let Err(e) = std::fs::remove_dir_all(&current_dir) {
+                    if let Err(e) = std::fs::remove_dir(&current_dir) {
                         return Err(WorktreeRemoveFailureReason::Error(format!(
                             "Error deleting {}: {}",
                             &worktree_dir.display(),

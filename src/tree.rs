@@ -60,7 +60,11 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, S
 
         match find_unmanaged_repos(&root_path, &repos) {
             Ok(repos) => {
-                unmanaged_repos_absolute_paths.extend(repos);
+                for path in repos.into_iter() {
+                    if !unmanaged_repos_absolute_paths.contains(&path) {
+                        unmanaged_repos_absolute_paths.push(path);
+                    }
+                }
             }
             Err(error) => {
                 print_error(&format!("Error getting unmanaged repos: {}", error));
