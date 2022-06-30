@@ -80,3 +80,6 @@ update-cargo-dependencies:
     && . ./venv/bin/activate \
     && pip --disable-pip-version-check install -r ./requirements.txt > /dev/null \
     && ./update-cargo-dependencies.py
+
+wait:
+    read -p "[ENTER] to continue "
