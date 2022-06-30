@@ -77,7 +77,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">1.</strong> Overview</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Repository trees</a></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">5.</strong> Forge Integrations</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contributing.html"><strong aria-hidden="true">7.</strong> Contributing</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behaviour.html"><strong aria-hidden="true">4.3.</strong> Behaviour Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -138,14 +138,15 @@
                     <main>
                         <h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
 <h2 id="installation-1"><a class="header" href="#installation-1">Installation</a></h2>
-<p>Building GRM currently requires the nightly Rust toolchain. The easiest way
-is using <a href="https://rustup.rs/"><code>rustup</code></a>. Make sure that rustup is properly installed.</p>
+<p>Building GRM currently requires the nightly Rust toolchain. The easiest way is
+using <a href="https://rustup.rs/"><code>rustup</code></a>. Make sure that rustup is properly
+installed.</p>
 <p>Make sure that the nightly toolchain is installed:</p>
 <pre><code>$ rustup toolchain install nightly
 </code></pre>
 <p>Then, install the build dependencies:</p>
 <table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
-<tr><td>Archlinux</td><td><code>pacman -S --needed gcc openssl pkg-config</code></td></tr>
+<tr><td>Arch Linux</td><td><code>pacman -S --needed gcc openssl pkg-config</code></td></tr>
 <tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends pkg-config gcc libssl-dev zlib1g-dev</code></td></tr>
 </tbody></table>
 <p>Then, it's a simple command to install the latest stable version:</p>
@@ -156,10 +157,10 @@ is using <a href="https://rustup.rs/"><code>rustup</code></a>. Make sure that ru
 </code></pre>
 <h2 id="static-build"><a class="header" href="#static-build">Static build</a></h2>
 <p>Note that by default, you will get a  dynamically linked executable.
-Alternatively, you can also build a statically linked binary. For this, you
-will need <code>musl</code> and a few other build dependencies installed installed:</p>
+Alternatively, you can also build a statically linked binary. For this, you will
+need <code>musl</code> and a few other build dependencies installed installed:</p>
 <table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
-<tr><td>Archlinux</td><td><code>pacman -S --needed gcc musl perl make</code></td></tr>
+<tr><td>Arch Linux</td><td><code>pacman -S --needed gcc musl perl make</code></td></tr>
 <tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends gcc musl-tools libc-dev perl make</code></td></tr>
 </tbody></table>
 <p>(<code>perl</code> and <code>make</code> are required for the OpenSSL build script)</p>
@@ -177,7 +178,7 @@ will need <code>musl</code> and a few other build dependencies installed install
                             <a rel="prev" href="overview.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
-                            <a rel="next" href="repos.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="tutorial.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         <div style="clear: both"></div>
@@ -189,7 +190,7 @@ will need <code>musl</code> and a few other build dependencies installed install
                     <a rel="prev" href="overview.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
-                    <a rel="next" href="repos.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="tutorial.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

@@ -1,0 +1,310 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Tutorial - Git Repo Manager</title>
+        <!-- Custom HTML head -->
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html" class="active"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behaviour.html"><strong aria-hidden="true">4.3.</strong> Behaviour Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Git Repo Manager</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="tutorial"><a class="header" href="#tutorial">Tutorial</a></h1>
+<p>Here, you'll find a quick overview over the most common functionality of GRM.</p>
+<h2 id="managing-existing-repositories"><a class="header" href="#managing-existing-repositories">Managing existing repositories</a></h2>
+<p>Let's say you have your git repositories at <code>~/code</code>. To start managing them via
+GRM, first create a configuration:</p>
+<pre><code class="language-bash">grm repos find local ~/code --format yaml &gt; ~/code/config.yml
+</code></pre>
+<p>The result may look something like this:</p>
+<pre><code class="language-yaml">---
+trees:
+  - root: ~/code
+    repos:
+      - name: git-repo-manager
+        worktree_setup: true
+        remotes:
+          - name: origin
+            url: &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+            type: https
+</code></pre>
+<p>To apply the configuration and check whether all repositories are in sync, run
+the following:</p>
+<pre><code class="language-bash">$ grm repos sync config --config ~/code/config.yml
+[✔] git-repo-manager: OK
+</code></pre>
+<p>Well, obiously there are no changes. To check how changes would be applied,
+let's change the name of the remote (currently <code>origin</code>):</p>
+<pre><code class="language-bash">$ sed -i 's/name: origin/name: github/' ~/code/config.yml
+$ grm repos sync config --config ~/code/config.yml
+[⚙] git-repo-manager: Setting up new remote &quot;github&quot; to &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+[⚙] git-repo-manager: Deleting remote &quot;origin&quot;
+[✔] git-repo-manager: OK
+</code></pre>
+<p>GRM replaced the <code>origin</code> remote with <code>github</code>.</p>
+<p>The configuration (<code>~/code/config.yml</code> in this example) would usually be
+something you'd track in git or synchronize between machines via some other
+means. Then, on every machine, all your repositories are a single <code>grm repos sync</code> away!</p>
+<h2 id="getting-repositories-from-a-forge"><a class="header" href="#getting-repositories-from-a-forge">Getting repositories from a forge</a></h2>
+<p>Let's say you have a bunch of repositories on GitHub and you'd like to clone
+them all to your local machine.</p>
+<p>To authenticate, you'll need to get a personal access token, as described in
+<a href="./forge_integration.html#github">the forge documentation</a>. Let's assume you put
+your token into <code>~/.github_token</code> (please don't if you're doing this &quot;for
+real&quot;!)</p>
+<p>Let's first see what kind of repos we can find:</p>
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/ --format yaml
+---
+trees: []
+$
+</code></pre>
+<p>Ummm, ok? No repos? This is because you have to <em>tell</em> GRM what to look for (if
+you don't, GRM will just relax, as it's lazy).</p>
+<p>There are different filters (see <a href="./forge_integration.html#filters">the forge
+documentation</a> for more info). In our case,
+we'll just use the <code>--owner</code> filter to get all repos that belong to us:</p>
+<pre><code class="language-bash">$ grm repos find remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/ --format yaml
+---
+trees:
+  - root: ~/code/github.com
+    repos:
+      - name: git-repo-manager
+        worktree_setup: false
+        remotes:
+          - name: origin
+            url: &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+            type: https
+</code></pre>
+<p>Nice! The format is the same as we got from <code>grm repos find local</code> above. So if
+we wanted, we could save this file and use it with <code>grm repos sync config</code> as
+above. But there is an even easier way: We can directly clone the repositories!</p>
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/
+[⚙] Cloning into &quot;~/code/github.com/git-repo-manager&quot; from &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+[✔] git-repo-manager: Repository successfully cloned
+[✔] git-repo-manager: OK
+</code></pre>
+<p>Nice! Just to make sure, let's run the same command again:</p>
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/
+[✔] git-repo-manager: OK
+</code></pre>
+<p>GRM saw that the repository is already there and did nothing (remember, it's
+lazy).</p>
+<h2 id="using-worktrees"><a class="header" href="#using-worktrees">Using worktrees</a></h2>
+<p>Worktrees are something that make it easier to work with multiple branches at
+the same time in a repository.  Let's say we wanted to hack on the codebase of
+GRM:</p>
+<pre><code class="language-bash">$ cd ~/code/github.com/git-repo-manager
+$ ls
+.gitignore
+Cargo.toml
+...
+</code></pre>
+<p>Well, this is just a normal git repository. But let's try worktrees! First, we
+have to convert the existing repository to use the special worktree setup. For
+all worktree operations, we will use <code>grm worktree</code> (or <code>grm wt</code> for short):</p>
+<pre><code class="language-bash">$ grm wt convert
+[✔] Conversion done
+$ ls
+$
+</code></pre>
+<p>So, the code is gone? Not really, there is just no active worktree right now. So
+let's add one for <code>master</code>:</p>
+<pre><code class="language-bash">$ grm wt add master --track origin/master
+[✔] Conversion done
+$ ls
+master
+$ (cd ./master &amp;&amp; git status)
+On branch master
+nothing to commit, working tree clean
+</code></pre>
+<p>Now, a single worktree is kind of pointless (if we only have one, we could also
+just use the normal setup, without worktrees). So let's another one for
+<code>develop</code>:</p>
+<pre><code class="language-bash">$ grm wt add develop --track origin/develop
+[✔] Conversion done
+$ ls
+develop
+master
+$ (cd ./develop &amp;&amp; git status)
+On branch develop
+nothing to commit, working tree clean
+</code></pre>
+<p>What's the point? The cool thing is that we can now start working in the
+<code>develop</code> worktree, without affecting the <code>master</code> worktree at all. If you're
+working on <code>develop</code> and want to quickly see what a certain file looks like in
+<code>master</code>, just look inside <code>./master</code>, it's all there!</p>
+<p>This becomes especially interesting when you have many feature branches and are
+working on multiple features at the same time.</p>
+<p>There are a lot of options that influence how worktrees are handled. Maybe you
+want to automatically track <code>origin/master</code> when you add a worktree called
+<code>master</code>?  Maybe you want your feature branches to have a prefix, so when you're
+working on the <code>feature1</code> worktree, the remote branch will be
+<code>origin/awesomefeatures/feature1</code>? Check out <a href="./worktrees.html">the chapter on
+worktrees</a> for all the things that are possible.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                            <a rel="next" href="repos.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                    <a rel="next" href="repos.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+    </body>
+</html>

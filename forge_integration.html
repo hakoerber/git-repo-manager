@@ -77,7 +77,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">1.</strong> Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Repository trees</a></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li class="chapter-item expanded "><a href="forge_integration.html" class="active"><strong aria-hidden="true">5.</strong> Forge Integrations</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">6.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contributing.html"><strong aria-hidden="true">7.</strong> Contributing</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html" class="active"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behaviour.html"><strong aria-hidden="true">4.3.</strong> Behaviour Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -137,17 +137,18 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="forge-integrations"><a class="header" href="#forge-integrations">Forge Integrations</a></h1>
-<p>In addition to manging repositories locally, <code>grm</code> also integrates with source
+<p>In addition to managing repositories locally, <code>grm</code> also integrates with source
 code hosting platforms. Right now, the following platforms are supported:</p>
 <ul>
 <li><a href="https://github.com/">GitHub</a></li>
 <li><a href="https://gitlab.com/">GitLab</a></li>
 </ul>
-<p>Imagine you are just starting out with <code>grm</code> and want to clone all your repositories
-from GitHub. This is as simple as:</p>
+<p>Imagine you are just starting out with <code>grm</code> and want to clone all your
+repositories from GitHub. This is as simple as:</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --owner --token-command &quot;pass show github_grm_access_token&quot; --path ~/projects
 </code></pre>
-<p>You will end up with your projects cloned into <code>~/projects/{your_github_username}/</code></p>
+<p>You will end up with your projects cloned into
+<code>~/projects/{your_github_username}/</code></p>
 <h2 id="authentication"><a class="header" href="#authentication">Authentication</a></h2>
 <p>The only currently supported authentication option is using a personal access
 token.</p>
@@ -160,12 +161,8 @@ token.</p>
 <a href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html">Link</a>.</p>
 <p>The required scopes are a bit weird. Actually, the following should suffice:</p>
 <ul>
-<li>
-<ul>
-<li><code>read_user</code> to get user information (required to get the current authenticated
-user name for the <code>--owner</code> filter.</li>
-</ul>
-</li>
+<li><code>read_user</code> to get user information (required to get the current
+authenticated user name for the <code>--owner</code> filter.</li>
 <li>A scope that allows reading private repositories. (<code>read_repository</code> is just
 for <em>cloning</em> private repos). This unfortunately does not exist.</li>
 </ul>
@@ -217,7 +214,7 @@ groups = [
 </code></pre>
 <p>The options in the file map to the command line options of the <code>grm repos sync remote</code> command.</p>
 <p>You'd then run the <code>grm repos sync</code> command the same way as with a list of
-repositories in a config:</p>
+repositories in a configuration:</p>
 <pre><code class="language-bash">$ grm repos sync --config example.config.toml
 </code></pre>
 <p>You can even use that file to generate a repository list that you can feed into
@@ -225,10 +222,10 @@ repositories in a config:</p>
 <pre><code class="language-bash">$ grm repos find config --config example.config.toml &gt; repos.toml
 $ grm repos sync config --config repos.toml
 </code></pre>
-<h2 id="using-with-selfhosted-gitlab"><a class="header" href="#using-with-selfhosted-gitlab">Using with selfhosted GitLab</a></h2>
+<h2 id="using-with-self-hosted-gitlab"><a class="header" href="#using-with-self-hosted-gitlab">Using with self-hosted GitLab</a></h2>
 <p>By default, <code>grm</code> uses the default GitLab API endpoint
-(<a href="https://gitlab.com">https://gitlab.com</a>). You can override the
-endpoint by specifying the <code>--api-url</code> parameter. Like this:</p>
+(<a href="https://gitlab.com">https://gitlab.com</a>). You can override the endpoint by
+specifying the <code>--api-url</code> parameter. Like this:</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider gitlab --api-url https://gitlab.example.com [...]
 </code></pre>
 <h2 id="the-cloning-protocol"><a class="header" href="#the-cloning-protocol">The cloning protocol</a></h2>
@@ -236,19 +233,21 @@ endpoint by specifying the <code>--api-url</code> parameter. Like this:</p>
 can be overridden with the <code>--force-ssh</code> switch.</p>
 <h2 id="about-the-token-command"><a class="header" href="#about-the-token-command">About the token command</a></h2>
 <p>To ensure maximum flexibility, <code>grm</code> has a single way to get the token it uses
-to authenticate: Specify a command that returns the token via stdout. This easily
-integrates with password managers like <a href="https://www.passwordstore.org/"><code>pass</code></a>.</p>
+to authenticate: Specify a command that returns the token via stdout. This
+easily integrates with password managers like
+<a href="https://www.passwordstore.org/"><code>pass</code></a>.</p>
 <p>Of course, you are also free to specify something like <code>echo mytoken</code> as the
-command, as long as you are ok with the security implications (like having the
-token in cleartext in your shell history). It may be better to have the token
+command, as long as you are OK with the security implications (like having the
+token in clear text in your shell history). It may be better to have the token
 in a file instead and read it: <code>cat ~/.gitlab_token</code>.</p>
-<p>Generally, use whatever you want. The command just has to return sucessfully and
-return the token as the first line of stdout.</p>
+<p>Generally, use whatever you want. The command just has to return successfully
+and return the token as the first line of stdout.</p>
 <h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
-<p>Maybe you just want to locally clone all repos from your github user?</p>
+<p>Maybe you just want to locally clone all repos from your GitHub user?</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --owner --root ~/github_projects --token-command &quot;pass show github_grm_access_token&quot;
 </code></pre>
-<p>This will clone all repositories into <code>~/github_projects/{your_github_username}</code>.</p>
+<p>This will clone all repositories into
+<code>~/github_projects/{your_github_username}</code>.</p>
 <p>If instead you want to clone <strong>all</strong> repositories you have access to (e.g. via
 organizations or other users' private repos you have access to), just change the
 filter a little bit:</p>
@@ -257,11 +256,12 @@ filter a little bit:</p>
 <h2 id="limitations"><a class="header" href="#limitations">Limitations</a></h2>
 <h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>
 <p>Unfortunately, GitHub does not have a nice API endpoint to get <strong>private</strong>
-repositories for a certain user (<a href="https://docs.github.com/en/rest/repos/repos#list-repositories-for-a-user"><code>/users/{user}/repos/</code></a> only returns public
-repositories).</p>
+repositories for a certain user
+(<a href="https://docs.github.com/en/rest/repos/repos#list-repositories-for-a-user"><code>/users/{user}/repos/</code></a>
+only returns public repositories).</p>
 <p>Therefore, using <code>--user {user}</code> will only show public repositories for GitHub.
-Note that this does not apply to <code>--access</code>: If you have access to another user's
-private repository, it will be listed.</p>
+Note that this does not apply to <code>--access</code>: If you have access to another
+user's private repository, it will be listed.</p>
 <h2 id="adding-integrations"><a class="header" href="#adding-integrations">Adding integrations</a></h2>
 <p>Adding a new integration involves writing some Rust code. Most of the logic is
 generic, so you will not have to reinvent the wheel. Generally, you will need to
@@ -278,21 +278,21 @@ gather the following information:</p>
 <ul>
 <li>A name (which also acts as the identifier for diff between local and remote
 repositories)</li>
-<li>An SSH url to push to</li>
-<li>An HTTPS url to clone and fetch from</li>
+<li>An SSH URL to push to</li>
+<li>An HTTPS URL to clone and fetch from</li>
 <li>A flag that marks the repository as private</li>
 </ul>
-<p>If you plan to implement another forge, please first open an issue so we can
-go through the required setup. I'm happy to help!</p>
+<p>If you plan to implement another forge, please first open an issue so we can go
+through the required setup. I'm happy to help!</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="worktrees.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="local_configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
-                            <a rel="next" href="faq.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="worktrees.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         <div style="clear: both"></div>
@@ -301,10 +301,10 @@ go through the required setup. I'm happy to help!</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="worktrees.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="local_configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
-                    <a rel="next" href="faq.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="worktrees.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
