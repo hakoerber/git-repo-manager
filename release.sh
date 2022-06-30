@@ -5,7 +5,7 @@ set -o errexit
 set -o pipefail
 
 usage() {
-    printf '%s\n' "usage: $0 (master|minor|patch)" >&2
+    printf '%s\n' "usage: $0 (major|minor|patch)" >&2
 }
 
 if (($# != 1)); then
