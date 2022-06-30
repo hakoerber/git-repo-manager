@@ -70,7 +70,7 @@ def test_worktree_add(
         explicit_track_branch_name = f"{default_remote}/{worktree_name}"
 
     timestamp = datetime.datetime.now().replace(microsecond=0).isoformat()
-    # GitPython has some weird behaviour here. It is not possible to use kwargs
+    # GitPython has some weird behavior here. It is not possible to use kwargs
     # to set the commit and author date.
     #
     # `committer_date=x` (which is documented) does not work, as `git commit`
@@ -79,7 +79,7 @@ def test_worktree_add(
     # `author_date=x` does not work, as it's now called --date in `git commit`
     #
     # `date=x` should work, but is refused by GitPython, as it does not know
-    # about the new behaviour in `git commit`
+    # about the new behavior in `git commit`
     #
     # Fortunately, there are env variables that control those timestamps.
     os.environ["GIT_COMMITTER_DATE"] = str(timestamp)

@@ -81,9 +81,9 @@
 //! * Instead of just picking `origin/prefix/foobar`, grm will complain because
 //!   it also selected `remote2/foobar`.
 //!
-//! This is just emergent behaviour of the logic above. Fixing it would require
+//! This is just emergent behavior of the logic above. Fixing it would require
 //! additional logic for that edge case. I assume that it's just so rare to get
-//! that behaviour that it's acceptable for now.
+//! that behavior that it's acceptable for now.
 //!
 //! Now we either have a commit, we aborted, or we do not have commit. In the
 //! last case, as stated above, we check out the "default" branch.
@@ -137,7 +137,7 @@
 //! `foobar`. As both `remote1/foobar` and `remote2/foobar` as the same, the new
 //! worktree will use that as the state of the new branch. But as `grm` cannot
 //! tell which remote branch to track, it will not set up remote tracking. This
-//! behaviour may be a bit confusing, but first, there is no good way to resolve
+//! behavior may be a bit confusing, but first, there is no good way to resolve
 //! this, and second, the situation should be really rare (when having multiple
 //! remotes, you would generally have a `default_remote` configured).
 //!
@@ -463,7 +463,7 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                 //
                 // > failed to make directory '/{repo}/.git-main-working-tree/worktrees/dir/test
                 //
-                // This is a discrepancy between the behaviour of libgit2 and the
+                // This is a discrepancy between the behavior of libgit2 and the
                 // git CLI when creating worktrees with slashes:
                 //
                 // The git CLI will create the worktree's configuration directory
