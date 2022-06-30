@@ -1,19 +1,20 @@
 # Forge Integrations
 
-In addition to manging repositories locally, `grm` also integrates with source
+In addition to managing repositories locally, `grm` also integrates with source
 code hosting platforms. Right now, the following platforms are supported:
 
 * [GitHub](https://github.com/)
 * [GitLab](https://gitlab.com/)
 
-Imagine you are just starting out with `grm` and want to clone all your repositories
-from GitHub. This is as simple as:
+Imagine you are just starting out with `grm` and want to clone all your
+repositories from GitHub. This is as simple as:
 
 ```bash
 $ grm repos sync remote --provider github --owner --token-command "pass show github_grm_access_token" --path ~/projects
 ```
 
-You will end up with your projects cloned into `~/projects/{your_github_username}/`
+You will end up with your projects cloned into
+`~/projects/{your_github_username}/`
 
 ## Authentication
 
@@ -34,8 +35,8 @@ See the GitLab documentation for personal access tokens:
 
 The required scopes are a bit weird. Actually, the following should suffice:
 
-* * `read_user` to get user information (required to get the current authenticated
-  user name for the `--owner` filter.
+* `read_user` to get user information (required to get the current
+  authenticated user name for the `--owner` filter.
 * A scope that allows reading private repositories. (`read_repository` is just
   for *cloning* private repos). This unfortunately does not exist.
 
@@ -106,7 +107,7 @@ The options in the file map to the command line options of the `grm repos sync
 remote` command.
 
 You'd then run the `grm repos sync` command the same way as with a list of
-repositories in a config:
+repositories in a configuration:
 
 ```bash
 $ grm repos sync --config example.config.toml
@@ -120,11 +121,11 @@ $ grm repos find config --config example.config.toml > repos.toml
 $ grm repos sync config --config repos.toml
 ```
 
-## Using with selfhosted GitLab
+## Using with self-hosted GitLab
 
 By default, `grm` uses the default GitLab API endpoint
-([https://gitlab.com](https://gitlab.com)). You can override the
-endpoint by specifying the `--api-url` parameter. Like this:
+([https://gitlab.com](https://gitlab.com)). You can override the endpoint by
+specifying the `--api-url` parameter. Like this:
 
 ```bash
 $ grm repos sync remote --provider gitlab --api-url https://gitlab.example.com [...]
@@ -138,26 +139,28 @@ can be overridden with the `--force-ssh` switch.
 ## About the token command
 
 To ensure maximum flexibility, `grm` has a single way to get the token it uses
-to authenticate: Specify a command that returns the token via stdout. This easily
-integrates with password managers like [`pass`](https://www.passwordstore.org/).
+to authenticate: Specify a command that returns the token via stdout. This
+easily integrates with password managers like
+[`pass`](https://www.passwordstore.org/).
 
 Of course, you are also free to specify something like `echo mytoken` as the
-command, as long as you are ok with the security implications (like having the
-token in cleartext in your shell history). It may be better to have the token
+command, as long as you are OK with the security implications (like having the
+token in clear text in your shell history). It may be better to have the token
 in a file instead and read it: `cat ~/.gitlab_token`.
 
-Generally, use whatever you want. The command just has to return sucessfully and
-return the token as the first line of stdout.
+Generally, use whatever you want. The command just has to return successfully
+and return the token as the first line of stdout.
 
 ## Examples
 
-Maybe you just want to locally clone all repos from your github user?
+Maybe you just want to locally clone all repos from your GitHub user?
 
 ```bash
 $ grm repos sync remote --provider github --owner --root ~/github_projects --token-command "pass show github_grm_access_token"
 ```
 
-This will clone all repositories into `~/github_projects/{your_github_username}`.
+This will clone all repositories into
+`~/github_projects/{your_github_username}`.
 
 If instead you want to clone **all** repositories you have access to (e.g. via
 organizations or other users' private repos you have access to), just change the
@@ -172,12 +175,13 @@ $ grm repos sync remote --provider github --access --root ~/github_projects --to
 ### GitHub
 
 Unfortunately, GitHub does not have a nice API endpoint to get **private**
-repositories for a certain user ([`/users/{user}/repos/`](https://docs.github.com/en/rest/repos/repos#list-repositories-for-a-user) only returns public
-repositories).
+repositories for a certain user
+([`/users/{user}/repos/`](https://docs.github.com/en/rest/repos/repos#list-repositories-for-a-user)
+only returns public repositories).
 
 Therefore, using `--user {user}` will only show public repositories for GitHub.
-Note that this does not apply to `--access`: If you have access to another user's
-private repository, it will be listed.
+Note that this does not apply to `--access`: If you have access to another
+user's private repository, it will be listed.
 
 ## Adding integrations
 
@@ -197,9 +201,9 @@ Each repo has to have the following properties:
 
 * A name (which also acts as the identifier for diff between local and remote
   repositories)
-* An SSH url to push to
-* An HTTPS url to clone and fetch from
+* An SSH URL to push to
+* An HTTPS URL to clone and fetch from
 * A flag that marks the repository as private
 
-If you plan to implement another forge, please first open an issue so we can
-go through the required setup. I'm happy to help!
+If you plan to implement another forge, please first open an issue so we can go
+through the required setup. I'm happy to help!

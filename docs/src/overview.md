@@ -1,8 +1,8 @@
 # Overview
 
 Welcome! This is the documentation for [Git Repo
-Manager](https://github.com/hakoerber/git-repo-manager/) (GRM for short), a
-tool that helps you manage git repositories.
+Manager](https://github.com/hakoerber/git-repo-manager/) (GRM for short), a tool
+that helps you manage git repositories in a declarative way.
 
 GRM helps you manage git repositories in a declarative way. Configure your
 repositories in a TOML or YAML file, GRM does the rest. Take a look at [the
@@ -12,12 +12,12 @@ to get a feel for the way you configure your repositories. See the [repository
 tree chapter](./repos.md) for details.
 
 GRM also provides some tooling to work with single git repositories using
-`git-worktree`. See [the worktree chapter](./worktree.md) for more details.
+`git-worktree`. See [the worktree chapter](./worktrees.md) for more details.
 
 ## Why use GRM?
 
-If you're working with a lot of git repositories, GRM can help you to manage them
-in an easy way:
+If you're working with a lot of git repositories, GRM can help you to manage
+them in an easy way:
 
 * You want to easily clone many repositories to a new machine.
 * You want to change remotes for multiple repositories (e.g. because your GitLab
