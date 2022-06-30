@@ -24,6 +24,9 @@ major)
     ((major++)) || true
     minor=0
     patch=0
+
+    printf '%s\n' "Are you sure you want to release 1.x?" >&2
+    exit 1
     ;;
 minor)
     ((minor++)) || true
