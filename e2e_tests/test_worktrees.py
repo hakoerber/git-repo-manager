@@ -581,6 +581,7 @@ def test_worktree_delete():
 
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode == 0
+        assert len(cmd.stdout.strip().split("\n")) == 1
         assert "test" not in os.listdir(base_dir)
 
         cmd = grm(["wt", "add", "check"], cwd=base_dir)
@@ -607,6 +608,7 @@ def test_worktree_delete_in_subfolder(has_other_worktree):
 
         cmd = grm(["wt", "delete", "dir/test"], cwd=base_dir)
         assert cmd.returncode == 0
+        assert len(cmd.stdout.strip().split("\n")) == 1
         if has_other_worktree is True:
             assert {"test2"} == set(os.listdir(os.path.join(base_dir, "dir")))
         else:
@@ -621,6 +623,7 @@ def test_worktree_delete_refusal_no_tracking_branch():
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
         stderr = cmd.stderr.lower()
         assert "refuse" in stderr or "refusing" in stderr
         assert "test" in os.listdir(base_dir)
@@ -639,6 +642,7 @@ def test_worktree_delete_refusal_uncommited_changes_new_file():
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
         stderr = cmd.stderr.lower()
         assert "refuse" in stderr or "refusing" in stderr
         assert "test" in os.listdir(base_dir)
@@ -657,6 +661,7 @@ def test_worktree_delete_refusal_uncommited_changes_changed_file():
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
         stderr = cmd.stderr.lower()
         assert "refuse" in stderr or "refusing" in stderr
         assert "test" in os.listdir(base_dir)
@@ -677,6 +682,7 @@ def test_worktree_delete_refusal_uncommited_changes_deleted_file():
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
         stderr = cmd.stderr.lower()
         assert "refuse" in stderr or "refusing" in stderr
         assert "test" in os.listdir(base_dir)
@@ -697,6 +703,7 @@ def test_worktree_delete_refusal_commited_changes():
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
         stderr = cmd.stderr.lower()
         assert "refuse" in stderr or "refusing" in stderr
         assert "test" in os.listdir(base_dir)
@@ -717,6 +724,7 @@ def test_worktree_delete_refusal_tracking_branch_mismatch():
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode != 0
+        assert len(cmd.stdout) == 0
         stderr = cmd.stderr.lower()
         assert "refuse" in stderr or "refusing" in stderr
         assert "test" in os.listdir(base_dir)
@@ -732,6 +740,7 @@ def test_worktree_delete_force_refusal():
 
         cmd = grm(["wt", "delete", "test", "--force"], cwd=base_dir)
         assert cmd.returncode == 0
+        assert len(cmd.stdout.strip().split("\n")) == 1
         assert "test" not in os.listdir(base_dir)
 
 
