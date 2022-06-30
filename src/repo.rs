@@ -1280,7 +1280,7 @@ impl RepoHandle {
                     .next()
                     .is_none()
                 {
-                    if let Err(e) = std::fs::remove_dir_all(&current_dir) {
+                    if let Err(e) = std::fs::remove_dir(&current_dir) {
                         return Err(WorktreeRemoveFailureReason::Error(format!(
                             "Error deleting {}: {}",
                             &worktree_dir.display(),
