@@ -233,7 +233,7 @@ impl Worktree {
                     let operation = operation.map_err(convert_libgit2_error)?;
 
                     // This is required to preserve the commiter of the rebased
-                    // commits, which is the expected behaviour.
+                    // commits, which is the expected behavior.
                     let rebased_commit = repo
                         .0
                         .find_commit(operation.id())
@@ -357,7 +357,7 @@ impl Worktree {
             let operation = operation.map_err(convert_libgit2_error)?;
 
             // This is required to preserve the commiter of the rebased
-            // commits, which is the expected behaviour.
+            // commits, which is the expected behavior.
             let rebased_commit = repo
                 .0
                 .find_commit(operation.id())

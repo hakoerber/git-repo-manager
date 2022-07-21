@@ -16,7 +16,7 @@ functions (like validation of certain input).
 ## E2E tests
 
 The main focus of the testing setup lays on the e2e tests. Each user-facing
-behaviour *should* have a corresponding e2e test. These are the most important
+behavior *should* have a corresponding e2e test. These are the most important
 tests, as they test functionality the user will use in the end.
 
 The test suite is written in python and uses
@@ -28,7 +28,7 @@ Effectively, each tests works like this:
 * Set up some prerequisites (e.g. different git repositories or configuration
   files)
 * Run `grm`
-* Check that everything is according to expected behaviour (e.g. that `grm` had
+* Check that everything is according to expected behavior (e.g. that `grm` had
   certain output and exit code, that the target repositories have certain
   branches, heads and remotes, ...)
 
@@ -39,8 +39,8 @@ configuration exists, what a config value is set to, how the repository looks
 like, ...)
 
 Whenever you write a new test, think about the different circumstances that can
-happen. What are the failure modes? What affects the behaviour? Parametrize each
-of these behaviours.
+happen. What are the failure modes? What affects the behavior? Parametrize each
+of these behaviors.
 
 ### Optimization
 

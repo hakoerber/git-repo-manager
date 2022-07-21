@@ -10,7 +10,7 @@
 - [Git Worktrees](./worktrees.md)
   - [Working with Worktrees](./worktree_working.md)
   - [Worktrees and Remotes](./worktree_remotes.md)
-  - [Behaviour Details](./worktree_behaviour.md)
+  - [Behavior Details](./worktree_behavior.md)
 - [FAQ](./faq.md)
 - [Developer Documentation](./developing.md)
   - [Testing](./testing.md)
