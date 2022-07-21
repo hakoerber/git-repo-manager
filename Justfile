@@ -32,6 +32,13 @@ build-release:
 build-release-static:
     cargo build --release --target {{static_target}} --features=static-build
 
+pushall:
+    for r in $(git remote) ; do \
+        for branch in develop master ; do \
+            git push $r $branch ; \
+        done ; \
+    done
+
 release-patch:
     ./release.sh patch
 
