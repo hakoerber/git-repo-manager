@@ -1,7 +1,10 @@
 # GRM — Git Repository Manager
 
 GRM helps you manage git repositories in a declarative way. Configure your
-repositories in a [TOML](https://toml.io/) file, GRM does the rest.
+repositories in a [TOML](https://toml.io/) or YAML file, GRM does the rest.
+
+Also, GRM can be used to work with git worktrees in an opinionated,
+straightforward fashion.
 
 **Take a look at the [official documentation](https://hakoerber.github.io/git-repo-manager/)
 for installation & quickstart.**
@@ -34,23 +37,26 @@ like Terraform for your local git repositories. Write a config, run the tool, an
 your repos are ready. The only thing that is tracked by git it the list of
 repositories itself.
 
-# Future & Ideas
-
-* Operations over all repos (e.g. pull)
-* Show status of managed repositories (dirty, compare to remotes, ...)
-
-# Optional Features
-
-* Support multiple file formats (YAML, JSON).
-* Add systemd timer unit to run regular syncs
-
 # Crates
 
-* [`toml`](https://docs.rs/toml/) for the configuration file
-* [`serde`](https://docs.rs/serde/) because we're using Rust, after all
-* [`git2`](https://docs.rs/git2/), a safe wrapper around `libgit2`, for all git operations
-* [`clap`](https://docs.rs/clap/), [`console`](https://docs.rs/console/) and [`shellexpand`](https://docs.rs/shellexpand) for good UX
+* [`toml`](https://docs.rs/toml/) for the configuration file.
+* [`serde`](https://docs.rs/serde/), together with
+  [`serde_yaml`](https://docs.rs/serde_yaml/) and
+  [`serde_json`](https://docs.rs/serde_json/). Because we're using Rust, after
+  all.
+* [`git2`](https://docs.rs/git2/), a safe wrapper around `libgit2`, for all git operations.
+* [`clap`](https://docs.rs/clap/), [`console`](https://docs.rs/console/), [`comfy_table`](https://docs.rs/comfy-table/) and [`shellexpand`](https://docs.rs/shellexpand) for good UX.
+* [`isahc`](https://docs.rs/isahc/) as the HTTP client for forge integrations.
 
 # Links
 
 * [crates.io](https://crates.io/crates/git-repo-manager)
+
+# Mirrors
+
+This repository can be found on multiple forges:
+
+* https://github.com/hakoerber/git-repo-manager
+* https://code.hkoerber.de/hannes/git-repo-manager/
+* https://codeberg.org/hakoerber/git-repo-manager
+* https://git.sr.ht/~hkoerber/git-repo-manager
