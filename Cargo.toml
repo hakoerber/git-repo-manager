@@ -58,7 +58,7 @@ version = "=3.2.18"
 features = ["derive", "cargo"]
 
 [dependencies.console]
-version = "=0.15.0"
+version = "=0.15.1"
 
 [dependencies.regex]
 version = "=1.6.0"
