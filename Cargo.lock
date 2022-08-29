@@ -330,7 +330,7 @@ dependencies = [
 
 [[package]]
 name = "git-repo-manager"
-version = "0.7.6"
+version = "0.7.7"
 dependencies = [
  "clap",
  "comfy-table",
