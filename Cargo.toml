@@ -44,7 +44,7 @@ path = "src/grm/main.rs"
 version = "=0.5.9"
 
 [dependencies.serde]
-version = "=1.0.144"
+version = "=1.0.145"
 features = ["derive"]
 
 [dependencies.git2]
