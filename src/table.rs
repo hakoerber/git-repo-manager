@@ -185,7 +185,11 @@ pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<Strin
                 }
             };
 
-            add_repo_status(&mut table, &repo.name, &repo_handle, repo.worktree_setup)?;
+            if let Err(err) =
+                add_repo_status(&mut table, &repo.name, &repo_handle, repo.worktree_setup)
+            {
+                errors.push(format!("{}: Couldn't add repo status: {}", &repo.name, err));
+            }
         }
 
         tables.push(table);
