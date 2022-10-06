@@ -1,4 +1,4 @@
-use clap::{AppSettings, Parser};
+use clap::Parser;
 
 #[derive(Parser)]
 #[clap(
@@ -7,7 +7,6 @@ use clap::{AppSettings, Parser};
     author = clap::crate_authors!("\n"),
     about = clap::crate_description!(),
     long_version = clap::crate_version!(),
-    global_setting(AppSettings::DeriveDisplayOrder),
     propagate_version = true,
 )]
 pub struct Opts {
@@ -65,7 +64,7 @@ pub struct FindLocalArgs {
     pub path: String,
 
     #[clap(
-        arg_enum,
+        value_enum,
         short,
         long,
         help = "Format to produce",
@@ -85,7 +84,7 @@ pub struct FindConfigArgs {
     pub config: String,
 
     #[clap(
-        arg_enum,
+        value_enum,
         short,
         long,
         help = "Format to produce",
@@ -100,14 +99,14 @@ pub struct FindRemoteArgs {
     #[clap(short, long, help = "Path to the configuration file")]
     pub config: Option<String>,
 
-    #[clap(arg_enum, short, long, help = "Remote provider to use")]
+    #[clap(value_enum, short, long, help = "Remote provider to use")]
     pub provider: RemoteProvider,
 
     #[clap(short, long, help = "Name of the remote to use")]
     pub remote_name: Option<String>,
 
     #[clap(
-        multiple_occurrences = true,
+        action = clap::ArgAction::Append,
         name = "user",
         long,
         help = "Users to get repositories from"
@@ -115,7 +114,7 @@ pub struct FindRemoteArgs {
     pub users: Vec<String>,
 
     #[clap(
-        multiple_occurrences = true,
+        action = clap::ArgAction::Append,
         name = "group",
         long,
         help = "Groups to get repositories from"
@@ -138,7 +137,7 @@ pub struct FindRemoteArgs {
     pub root: String,
 
     #[clap(
-        arg_enum,
+        value_enum,
         short,
         long,
         help = "Format to produce",
@@ -149,11 +148,10 @@ pub struct FindRemoteArgs {
     #[clap(
         long,
         help = "Use worktree setup for repositories",
-        possible_values = &["true", "false"],
+        value_parser = ["true", "false"],
         default_value = "false",
         default_missing_value = "true",
-        min_values = 0,
-        max_values = 1,
+        num_args = 0..=1,
     )]
     pub worktree: String,
 
@@ -174,12 +172,11 @@ pub struct Config {
 
     #[clap(
         long,
+        value_parser = ["true", "false"],
         help = "Check out the default worktree after clone",
-        possible_values = &["true", "false"],
         default_value = "true",
         default_missing_value = "true",
-        min_values = 0,
-        max_values = 1,
+        num_args = 0..=1,
     )]
     pub init_worktree: String,
 }
@@ -189,14 +186,14 @@ pub type RemoteProvider = super::provider::RemoteProvider;
 #[derive(Parser)]
 #[clap()]
 pub struct SyncRemoteArgs {
-    #[clap(arg_enum, short, long, help = "Remote provider to use")]
+    #[clap(value_enum, short, long, help = "Remote provider to use")]
     pub provider: RemoteProvider,
 
     #[clap(short, long, help = "Name of the remote to use")]
     pub remote_name: Option<String>,
 
     #[clap(
-        multiple_occurrences = true,
+        action = clap::ArgAction::Append,
         name = "user",
         long,
         help = "Users to get repositories from"
@@ -204,7 +201,7 @@ pub struct SyncRemoteArgs {
     pub users: Vec<String>,
 
     #[clap(
-        multiple_occurrences = true,
+        action = clap::ArgAction::Append,
         name = "group",
         long,
         help = "Groups to get repositories from"
@@ -229,11 +226,10 @@ pub struct SyncRemoteArgs {
     #[clap(
         long,
         help = "Use worktree setup for repositories",
-        possible_values = &["true", "false"],
+        value_parser = ["true", "false"],
         default_value = "false",
         default_missing_value = "true",
-        min_values = 0,
-        max_values = 1,
+        num_args = 0..=1,
     )]
     pub worktree: String,
 
@@ -243,11 +239,10 @@ pub struct SyncRemoteArgs {
     #[clap(
         long,
         help = "Check out the default worktree after clone",
-        possible_values = &["true", "false"],
+        value_parser = ["true", "false"],
         default_value = "true",
         default_missing_value = "true",
-        min_values = 0,
-        max_values = 1,
+        num_args = 0..=1,
     )]
     pub init_worktree: String,
 }
@@ -259,7 +254,7 @@ pub struct OptionalConfig {
     pub config: Option<String>,
 }
 
-#[derive(clap::ArgEnum, Clone)]
+#[derive(clap::ValueEnum, Clone)]
 pub enum ConfigFormat {
     Yaml,
     Toml,
@@ -299,7 +294,7 @@ pub struct WorktreeAddArgs {
     #[clap(short = 't', long = "track", help = "Remote branch to track")]
     pub track: Option<String>,
 
-    #[clap(long = "--no-track", help = "Disable tracking")]
+    #[clap(long = "no-track", help = "Disable tracking")]
     pub no_track: bool,
 }
 #[derive(Parser)]
@@ -328,22 +323,19 @@ pub struct WorktreeFetchArgs {}
 
 #[derive(Parser)]
 pub struct WorktreePullArgs {
-    #[clap(long = "--rebase", help = "Perform a rebase instead of a fast-forward")]
+    #[clap(long = "rebase", help = "Perform a rebase instead of a fast-forward")]
     pub rebase: bool,
-    #[clap(long = "--stash", help = "Stash & unstash changes before & after pull")]
+    #[clap(long = "stash", help = "Stash & unstash changes before & after pull")]
     pub stash: bool,
 }
 
 #[derive(Parser)]
 pub struct WorktreeRebaseArgs {
-    #[clap(long = "--pull", help = "Perform a pull before rebasing")]
+    #[clap(long = "pull", help = "Perform a pull before rebasing")]
     pub pull: bool,
-    #[clap(long = "--rebase", help = "Perform a rebase when doing a pull")]
+    #[clap(long = "rebase", help = "Perform a rebase when doing a pull")]
     pub rebase: bool,
-    #[clap(
-        long = "--stash",
-        help = "Stash & unstash changes before & after rebase"
-    )]
+    #[clap(long = "stash", help = "Stash & unstash changes before & after rebase")]
     pub stash: bool,
 }
 
