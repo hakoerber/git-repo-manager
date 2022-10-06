@@ -1,5 +1,7 @@
 set positional-arguments
 
+set shell := ["/bin/bash", "-c"]
+
 static_target := "x86_64-unknown-linux-musl"
 
 check: fmt-check lint test
