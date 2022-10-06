@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 const DEFAULT_REMOTE_NAME: &str = "origin";
 
-#[derive(Debug, Deserialize, Serialize, clap::ArgEnum, Clone)]
+#[derive(Debug, Deserialize, Serialize, clap::ValueEnum, Clone)]
 pub enum RemoteProvider {
     #[serde(alias = "github", alias = "GitHub")]
     Github,

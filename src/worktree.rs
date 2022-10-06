@@ -372,7 +372,7 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                 // TECHDEBT
                 // We must not call this with `Some()` without a valid target.
                 // I'm sure this can be improved, just not sure how.
-                &*self.extra.target_commit.unwrap(),
+                &self.extra.target_commit.unwrap(),
             )?
         };
 

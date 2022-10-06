@@ -28,7 +28,7 @@ def get_temporary_directory(dir=None):
 def grm(args, cwd=None, is_invalid=False):
     cmd = subprocess.run([binary] + args, cwd=cwd, capture_output=True, text=True)
     if not is_invalid:
-        assert "USAGE" not in cmd.stderr
+        assert "usage" not in cmd.stderr.lower()
     print(f"grmcmd: {args}")
     print(f"stdout:\n{cmd.stdout}")
     print(f"stderr:\n{cmd.stderr}")

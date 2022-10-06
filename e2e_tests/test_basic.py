@@ -5,9 +5,9 @@ from helpers import *
 
 def test_invalid_command():
     cmd = grm(["whatever"], is_invalid=True)
-    assert "USAGE" in cmd.stderr
+    assert "usage" in cmd.stderr.lower()
 
 
 def test_help():
     cmd = grm(["--help"])
-    assert "USAGE" in cmd.stdout
+    assert "usage" in cmd.stdout.lower()
