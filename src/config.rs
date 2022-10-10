@@ -52,7 +52,6 @@ pub struct ConfigProvider {
     pub api_url: Option<String>,
 
     pub worktree: Option<bool>,
-    pub init_worktree: Option<bool>,
 
     pub remote_name: Option<String>,
 }

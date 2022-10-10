@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.7.9"
+version = "0.7.10"
 edition = "2021"
 
 authors = [
@@ -54,7 +54,7 @@ version = "=0.15.0"
 version = "=2.1.2"
 
 [dependencies.clap]
-version = "=4.0.10"
+version = "=4.0.11"
 features = ["derive", "cargo"]
 
 [dependencies.console]
@@ -70,7 +70,7 @@ version = "=6.1.0"
 version = "=0.9.13"
 
 [dependencies.serde_json]
-version = "=1.0.85"
+version = "=1.0.86"
 
 [dependencies.isahc]
 version = "=1.7.2"
