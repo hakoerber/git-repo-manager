@@ -67,7 +67,7 @@ fi
 
 for remote in $(git remote); do
     if git ls-remote --tags "${remote}" | grep -q "refs/tags/v${new_version}$"; then
-        printf 'Tag %s already exists on %s' "v${new_version}" "${remote}" >&2
+        printf 'Tag %s already exists on %s\n' "v${new_version}" "${remote}" >&2
         exit 1
     fi
 done
