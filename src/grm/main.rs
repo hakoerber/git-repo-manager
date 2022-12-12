@@ -38,7 +38,7 @@ fn main() {
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Error syncing trees: {}", error));
+                            print_error(&format!("Sync error: {}", error));
                             process::exit(1);
                         }
                     }
@@ -62,7 +62,7 @@ fn main() {
                             match provider::Github::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Sync error: {}", error));
                                     process::exit(1);
                                 }
                             }
@@ -76,7 +76,7 @@ fn main() {
                             match provider::Gitlab::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Sync error: {}", error));
                                     process::exit(1);
                                 }
                             }
@@ -112,13 +112,13 @@ fn main() {
                                     }
                                 }
                                 Err(error) => {
-                                    print_error(&format!("Error syncing trees: {}", error));
+                                    print_error(&format!("Sync error: {}", error));
                                     process::exit(1);
                                 }
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Error: {}", error));
+                            print_error(&format!("Sync error: {}", error));
                             process::exit(1);
                         }
                     }
