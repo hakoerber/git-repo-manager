@@ -78,7 +78,7 @@ default-features = false
 features = ["json", "http2", "text-decoding"]
 
 [dependencies.parse_link_header]
-version = "=0.3.2"
+version = "=0.3.3"
 
 [dependencies.url-escape]
 version = "=0.1.1"
