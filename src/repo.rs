@@ -785,7 +785,7 @@ impl RepoHandle {
             ))
         })?;
 
-        for entry in match std::fs::read_dir(&root_dir) {
+        for entry in match std::fs::read_dir(root_dir) {
             Ok(iterator) => iterator,
             Err(error) => {
                 return Err(WorktreeConversionFailureReason::Error(format!(
@@ -1343,7 +1343,7 @@ impl RepoHandle {
                 },
             })
         {
-            let repo_dir = &directory.join(&worktree.name());
+            let repo_dir = &directory.join(worktree.name());
             if repo_dir.exists() {
                 match self.remove_worktree(
                     directory,
@@ -1387,12 +1387,12 @@ impl RepoHandle {
             .map_err(|error| format!("Getting worktrees failed: {}", error))?;
 
         let mut unmanaged_worktrees = Vec::new();
-        for entry in std::fs::read_dir(&directory).map_err(|error| error.to_string())? {
+        for entry in std::fs::read_dir(directory).map_err(|error| error.to_string())? {
             let dirname = path::path_as_string(
                 entry
                     .map_err(|error| error.to_string())?
                     .path()
-                    .strip_prefix(&directory)
+                    .strip_prefix(directory)
                     // that unwrap() is safe as each entry is
                     // guaranteed to be a subentry of &directory
                     .unwrap(),

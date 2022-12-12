@@ -298,7 +298,7 @@ pub fn read_config<'a, T>(path: &str) -> Result<T, String>
 where
     T: for<'de> serde::Deserialize<'de>,
 {
-    let content = match std::fs::read_to_string(&path) {
+    let content = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => {
             return Err(format!(
