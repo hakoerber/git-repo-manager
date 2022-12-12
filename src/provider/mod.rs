@@ -89,6 +89,10 @@ impl Filter {
             access,
         }
     }
+
+    pub fn empty(&self) -> bool {
+        self.users.is_empty() && self.groups.is_empty() && !self.owner && !self.access
+    }
 }
 
 pub enum ApiErrorResponse<T>

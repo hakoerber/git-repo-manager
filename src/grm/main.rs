@@ -55,6 +55,10 @@ fn main() {
                     let filter =
                         provider::Filter::new(args.users, args.groups, args.owner, args.access);
 
+                    if filter.empty() {
+                        print_warning("You did not specify any filters, so no repos will match");
+                    }
+
                     let worktree = args.worktree == "true";
 
                     let repos = match args.provider {
@@ -278,6 +282,10 @@ fn main() {
                         filters.access.unwrap_or(false),
                     );
 
+                    if filter.empty() {
+                        print_warning("You did not specify any filters, so no repos will match");
+                    }
+
                     let repos = match config.provider {
                         provider::RemoteProvider::Github => {
                             match match provider::Github::new(filter, token, config.api_url) {
@@ -382,6 +390,10 @@ fn main() {
 
                     let filter =
                         provider::Filter::new(args.users, args.groups, args.owner, args.access);
+
+                    if filter.empty() {
+                        print_warning("You did not specify any filters, so no repos will match");
+                    }
 
                     let worktree = args.worktree == "true";
 

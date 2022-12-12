@@ -183,6 +183,12 @@ impl Config {
                     filters.access.unwrap_or(false),
                 );
 
+                if filter.empty() {
+                    print_warning(
+                        "The configuration does not contain any filters, so no repos will match",
+                    );
+                }
+
                 let repos = match config.provider {
                     RemoteProvider::Github => {
                         match provider::Github::new(filter, token, config.api_url) {
