@@ -61,7 +61,7 @@ features = ["derive", "cargo"]
 version = "=0.15.2"
 
 [dependencies.regex]
-version = "=1.6.0"
+version = "=1.7.0"
 
 [dependencies.comfy-table]
 version = "=6.1.0"
