@@ -106,7 +106,7 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)
                         },
                     )
                 } else {
-                    let name = path.strip_prefix(&root).unwrap();
+                    let name = path.strip_prefix(root).unwrap();
                     let namespace = name.parent().unwrap();
                     (
                         if namespace != Path::new("") {

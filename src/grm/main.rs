@@ -38,7 +38,7 @@ fn main() {
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Error syncing trees: {}", error));
+                            print_error(&format!("Sync error: {}", error));
                             process::exit(1);
                         }
                     }
@@ -55,6 +55,10 @@ fn main() {
                     let filter =
                         provider::Filter::new(args.users, args.groups, args.owner, args.access);
 
+                    if filter.empty() {
+                        print_warning("You did not specify any filters, so no repos will match");
+                    }
+
                     let worktree = args.worktree == "true";
 
                     let repos = match args.provider {
@@ -62,7 +66,7 @@ fn main() {
                             match provider::Github::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Sync error: {}", error));
                                     process::exit(1);
                                 }
                             }
@@ -76,7 +80,7 @@ fn main() {
                             match provider::Gitlab::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Sync error: {}", error));
                                     process::exit(1);
                                 }
                             }
@@ -112,13 +116,13 @@ fn main() {
                                     }
                                 }
                                 Err(error) => {
-                                    print_error(&format!("Error syncing trees: {}", error));
+                                    print_error(&format!("Sync error: {}", error));
                                     process::exit(1);
                                 }
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Error: {}", error));
+                            print_error(&format!("Sync error: {}", error));
                             process::exit(1);
                         }
                     }
@@ -278,6 +282,10 @@ fn main() {
                         filters.access.unwrap_or(false),
                     );
 
+                    if filter.empty() {
+                        print_warning("You did not specify any filters, so no repos will match");
+                    }
+
                     let repos = match config.provider {
                         provider::RemoteProvider::Github => {
                             match match provider::Github::new(filter, token, config.api_url) {
@@ -382,6 +390,10 @@ fn main() {
 
                     let filter =
                         provider::Filter::new(args.users, args.groups, args.owner, args.access);
+
+                    if filter.empty() {
+                        print_warning("You did not specify any filters, so no repos will match");
+                    }
 
                     let worktree = args.worktree == "true";
 

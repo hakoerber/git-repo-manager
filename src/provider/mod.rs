@@ -89,6 +89,10 @@ impl Filter {
             access,
         }
     }
+
+    pub fn empty(&self) -> bool {
+        self.users.is_empty() && self.groups.is_empty() && !self.owner && !self.access
+    }
 }
 
 pub enum ApiErrorResponse<T>
@@ -270,12 +274,16 @@ pub trait Provider {
         }
 
         for group in &self.filter().groups {
-            let group_projects = self
-                .get_group_projects(group)
-                .map_err(|error| match error {
-                    ApiErrorResponse::Json(x) => x.to_string(),
-                    ApiErrorResponse::String(s) => s,
-                })?;
+            let group_projects = self.get_group_projects(group).map_err(|error| {
+                format!(
+                    "group \"{}\": {}",
+                    group,
+                    match error {
+                        ApiErrorResponse::Json(x) => x.to_string(),
+                        ApiErrorResponse::String(s) => s,
+                    }
+                )
+            })?;
             for group_project in group_projects {
                 let mut already_present = false;
                 for repo in &repos {

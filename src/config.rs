@@ -33,6 +33,7 @@ pub struct ConfigTrees {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigProviderFilter {
     pub access: Option<bool>,
     pub owner: Option<bool>,
@@ -41,6 +42,7 @@ pub struct ConfigProviderFilter {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigProvider {
     pub provider: RemoteProvider,
     pub token_command: String,
@@ -181,6 +183,12 @@ impl Config {
                     filters.access.unwrap_or(false),
                 );
 
+                if filter.empty() {
+                    print_warning(
+                        "The configuration does not contain any filters, so no repos will match",
+                    );
+                }
+
                 let repos = match config.provider {
                     RemoteProvider::Github => {
                         match provider::Github::new(filter, token, config.api_url) {
@@ -240,7 +248,7 @@ impl Config {
 
     pub fn normalize(&mut self) {
         if let Config::ConfigTrees(config) = self {
-            let home = path::env_home().display().to_string();
+            let home = path::env_home();
             for tree in &mut config.trees_mut().iter_mut() {
                 if tree.root.starts_with(&home) {
                     // The tilde is not handled differently, it's just a normal path component for `Path`.
@@ -298,7 +306,7 @@ pub fn read_config<'a, T>(path: &str) -> Result<T, String>
 where
     T: for<'de> serde::Deserialize<'de>,
 {
-    let content = match std::fs::read_to_string(&path) {
+    let content = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => {
             return Err(format!(

@@ -166,7 +166,7 @@ def test_repos_find_remote_no_filter(provider, configtype, default, use_config):
         cmd = grm(args)
 
     assert cmd.returncode == 0
-    assert len(cmd.stderr) == 0
+    assert "did not specify any filters" in cmd.stderr.lower()
 
     if default or configtype == "toml":
         output = toml.loads(cmd.stdout)

@@ -111,7 +111,7 @@ pub fn get_worktree_status_table(
 
     add_worktree_table_header(&mut table);
     for worktree in &worktrees {
-        let worktree_dir = &directory.join(&worktree.name());
+        let worktree_dir = &directory.join(worktree.name());
         if worktree_dir.exists() {
             let repo = match repo::RepoHandle::open(worktree_dir, false) {
                 Ok(repo) => repo,

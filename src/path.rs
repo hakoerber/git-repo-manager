@@ -47,9 +47,9 @@ pub fn path_as_string(path: &Path) -> String {
     path.to_path_buf().into_os_string().into_string().unwrap()
 }
 
-pub fn env_home() -> PathBuf {
+pub fn env_home() -> String {
     match std::env::var("HOME") {
-        Ok(path) => Path::new(&path).to_path_buf(),
+        Ok(path) => path,
         Err(e) => {
             print_error(&format!("Unable to read HOME: {}", e));
             process::exit(1);
@@ -58,16 +58,12 @@ pub fn env_home() -> PathBuf {
 }
 
 pub fn expand_path(path: &Path) -> PathBuf {
-    fn home_dir() -> Option<PathBuf> {
-        Some(env_home())
-    }
-
     let expanded_path = match shellexpand::full_with_context(
         &path_as_string(path),
-        home_dir,
+        || Some(env_home()),
         |name| -> Result<Option<String>, &'static str> {
             match name {
-                "HOME" => Ok(Some(path_as_string(home_dir().unwrap().as_path()))),
+                "HOME" => Ok(Some(env_home())),
                 _ => Ok(None),
             }
         },
