@@ -240,7 +240,7 @@ impl Config {
 
     pub fn normalize(&mut self) {
         if let Config::ConfigTrees(config) = self {
-            let home = path::env_home().display().to_string();
+            let home = path::env_home();
             for tree in &mut config.trees_mut().iter_mut() {
                 if tree.root.starts_with(&home) {
                     // The tilde is not handled differently, it's just a normal path component for `Path`.

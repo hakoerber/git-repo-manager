@@ -51,7 +51,7 @@ features = ["derive"]
 version = "=0.15.0"
 
 [dependencies.shellexpand]
-version = "=2.1.2"
+version = "=3.0.0"
 
 [dependencies.clap]
 version = "=4.0.11"
