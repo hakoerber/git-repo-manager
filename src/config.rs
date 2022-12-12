@@ -33,6 +33,7 @@ pub struct ConfigTrees {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigProviderFilter {
     pub access: Option<bool>,
     pub owner: Option<bool>,
@@ -41,6 +42,7 @@ pub struct ConfigProviderFilter {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigProvider {
     pub provider: RemoteProvider,
     pub token_command: String,
