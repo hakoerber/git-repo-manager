@@ -199,7 +199,7 @@ fn main() {
                         }
                     };
 
-                    let (found_repos, warnings) = match find_in_tree(&path) {
+                    let (found_repos, warnings) = match find_in_tree(&path, &args.exclude) {
                         Ok((repos, warnings)) => (repos, warnings),
                         Err(error) => {
                             print_error(&error);
