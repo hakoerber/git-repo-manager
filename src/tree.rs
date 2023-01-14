@@ -100,43 +100,43 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, String> {
 
     if git_dir.exists() || git_worktree.exists() {
         repos.push(path.to_path_buf());
-    } else {
-        match fs::read_dir(path) {
-            Ok(contents) => {
-                for content in contents {
-                    match content {
-                        Ok(entry) => {
-                            let path = entry.path();
-                            if path.is_symlink() {
-                                continue;
-                            }
-                            if path.is_dir() {
-                                match find_repo_paths(&path) {
-                                    Ok(ref mut r) => repos.append(r),
-                                    Err(error) => return Err(error),
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            return Err(format!("Error accessing directory: {}", e));
-                        }
-                    };
-                }
-            }
-            Err(e) => {
-                return Err(format!(
-                    "Failed to open \"{}\": {}",
-                    &path.display(),
-                    match e.kind() {
-                        std::io::ErrorKind::NotADirectory =>
-                            String::from("directory expected, but path is not a directory"),
-                        std::io::ErrorKind::NotFound => String::from("not found"),
-                        _ => format!("{:?}", e.kind()),
-                    }
-                ));
-            }
-        };
     }
+
+    match fs::read_dir(path) {
+        Ok(contents) => {
+            for content in contents {
+                match content {
+                    Ok(entry) => {
+                        let path = entry.path();
+                        if path.is_symlink() {
+                            continue;
+                        }
+                        if path.is_dir() {
+                            match find_repo_paths(&path) {
+                                Ok(ref mut r) => repos.append(r),
+                                Err(error) => return Err(error),
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        return Err(format!("Error accessing directory: {}", e));
+                    }
+                };
+            }
+        }
+        Err(e) => {
+            return Err(format!(
+                "Failed to open \"{}\": {}",
+                &path.display(),
+                match e.kind() {
+                    std::io::ErrorKind::NotADirectory =>
+                        String::from("directory expected, but path is not a directory"),
+                    std::io::ErrorKind::NotFound => String::from("not found"),
+                    _ => format!("{:?}", e.kind()),
+                }
+            ));
+        }
+    };
 
     Ok(repos)
 }
