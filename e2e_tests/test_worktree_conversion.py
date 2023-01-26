@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 
-import tempfile
+import os
 
-from helpers import *
+from helpers import (
+    EmptyDir,
+    NonGitDir,
+    TempGitRepository,
+    TempGitRepositoryWorktree,
+    checksum_directory,
+    funcname,
+    grm,
+)
 
 
 def test_convert():

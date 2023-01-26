@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
+import hashlib
+import inspect
 import os
 import os.path
+import shutil
 import subprocess
 import tempfile
-import hashlib
-import shutil
-import inspect
 
 import git
 
@@ -176,7 +176,6 @@ class TempGitRemote:
             newobj.remoteid = remoteid
             return newobj, remoteid
         else:
-            refresh = False
             if cachekey not in cls.obj:
                 tmpdir = get_temporary_directory()
                 shell(

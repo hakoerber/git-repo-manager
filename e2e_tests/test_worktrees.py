@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 
-from helpers import *
+import datetime
+import os.path
 
 import git
 import pytest
-import datetime
-
-import os.path
+from helpers import (
+    TempGitRepositoryWorktree,
+    checksum_directory,
+    funcname,
+    grm,
+    shell,
+    tempfile,
+)
 
 
 @pytest.mark.parametrize(
@@ -151,18 +157,20 @@ def test_worktree_add(
             ]
         )
 
-    cachefn = lambda nr: "_".join(
-        [
-            str(nr),
-            str(default_remote),
-            str(local_branch_exists),
-            str(remote_branch_already_exists),
-            str(remote_branch_with_prefix_already_exists),
-            str(remote_count),
-            str(remotes_differ),
-            str(worktree_name),
-        ]
-    )
+    def cachefn(nr):
+        return "_".join(
+            [
+                str(nr),
+                str(default_remote),
+                str(local_branch_exists),
+                str(remote_branch_already_exists),
+                str(remote_branch_with_prefix_already_exists),
+                str(remote_count),
+                str(remotes_differ),
+                str(worktree_name),
+            ]
+        )
+
     remote1_cache_key = cachefn(1)
     remote2_cache_key = cachefn(2)
 
@@ -281,7 +289,7 @@ def test_worktree_add(
                 and remotes_differ
             ):
                 assert (
-                    f"branch exists on multiple remotes, but they deviate"
+                    "branch exists on multiple remotes, but they deviate"
                     in cmd.stderr.lower()
                 )
                 assert len(cmd.stderr.strip().split("\n")) == base + 1

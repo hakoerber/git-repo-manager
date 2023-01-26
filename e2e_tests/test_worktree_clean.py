@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 
-import pytest
+import os
 
-from helpers import *
+import pytest
+from helpers import (
+    NonGitDir,
+    TempGitRepository,
+    TempGitRepositoryWorktree,
+    checksum_directory,
+    funcname,
+    grm,
+    shell,
+)
 
 
 def test_worktree_clean():
@@ -153,13 +162,13 @@ def test_worktree_clean_configured_default_branch(
             with open(os.path.join(base_dir, "grm.toml"), "w") as f:
                 if branch_list_empty:
                     f.write(
-                        f"""
+                        """
                         persistent_branches = []
                     """
                     )
                 else:
                     f.write(
-                        f"""
+                        """
                         persistent_branches = [
                             "mybranch"
                         ]

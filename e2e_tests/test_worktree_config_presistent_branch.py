@@ -2,7 +2,8 @@
 
 import os.path
 
-from helpers import *
+import git
+from helpers import TempGitRepositoryWorktree, checksum_directory, funcname, grm, shell
 
 
 def test_worktree_never_clean_persistent_branches():

@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 
+import os
 import re
 
-from helpers import *
-
 import pytest
+from helpers import (
+    NonGitDir,
+    TempGitRepository,
+    TempGitRepositoryWorktree,
+    funcname,
+    grm,
+    shell,
+)
 
 
 @pytest.mark.parametrize("has_config", [True, False])
