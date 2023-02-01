@@ -21,15 +21,14 @@ pub mod worktree;
 #[allow(clippy::type_complexity)]
 fn find_repos(
     root: &Path,
-    exclusion_pattern: &Option<String>,
+    exclusion_pattern: Option<&str>,
 ) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)>, String> {
     let mut repos: Vec<repo::Repo> = Vec::new();
     let mut repo_in_root = false;
     let mut warnings = Vec::new();
 
-    let exlusion_regex: regex::Regex =
-        regex::Regex::new(&exclusion_pattern.clone().unwrap_or(r"^$".to_string()))
-            .unwrap_or_else(|_| regex::Regex::new(r"^$").unwrap());
+    let exlusion_regex: regex::Regex = regex::Regex::new(&exclusion_pattern.unwrap_or(r"^$"))
+        .unwrap_or_else(|_| regex::Regex::new(r"^$").unwrap());
     for path in tree::find_repo_paths(root)? {
         if exclusion_pattern.is_some() && exlusion_regex.is_match(&path::path_as_string(&path)) {
             warnings.push(format!("[skipped] {}", &path::path_as_string(&path)));
@@ -143,7 +142,7 @@ fn find_repos(
 
 pub fn find_in_tree(
     path: &Path,
-    exclusion_pattern: &Option<String>,
+    exclusion_pattern: Option<&str>,
 ) -> Result<(tree::Tree, Vec<String>), String> {
     let mut warnings = Vec::new();
 
