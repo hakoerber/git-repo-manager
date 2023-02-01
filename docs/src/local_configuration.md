@@ -11,7 +11,7 @@ Let's try it out:
 ## Get the example configuration
 
 ```bash
-$ curl --proto '=https' --tlsv1.2 -sSfO https://raw.githubusercontent.com/hakoerber/git-repo-manager/master/example.config.toml
+curl --proto '=https' --tlsv1.2 -sSfO https://raw.githubusercontent.com/hakoerber/git-repo-manager/master/example.config.toml
 ```
 
 Then, you're ready to run the first sync. This will clone all configured
@@ -30,7 +30,7 @@ $ grm repos sync config --config example.config.toml
 
 If you run it again, it will report no changes:
 
-```
+```bash
 $ grm repos sync config -c example.config.toml
 [✔] git-repo-manager: OK
 [✔] dotfiles: OK
@@ -43,10 +43,17 @@ write a configuration from scratch. Luckily, GRM has a way to generate a
 configuration from an existing file tree:
 
 ```bash
-$ grm repos find local ~/your/project/root > config.toml
+grm repos find local ~/your/project/root > config.toml
 ```
 
 This will detect all repositories and remotes and write them to `config.toml`.
+
+You can exclude repositories from the generated configuration by providing
+a regex that will be test against the path of each discovered repository:
+
+```bash
+grm repos find local ~/your/project/root --exclude "^.*/subdir/match-(foo|bar)/.*$" > config.toml
+```
 
 ### Show the state of your projects
 
@@ -65,7 +72,7 @@ $ grm repos status --config example.config.toml
 You can also use `status` without `--config` to check the repository you're
 currently in:
 
-```
+```bash
 $ cd ~/example-projects/dotfiles
 $ grm repos status
 ╭──────────┬──────────┬────────┬──────────┬───────┬─────────╮
@@ -79,5 +86,5 @@ $ grm repos status
 
 By default, the repo configuration uses TOML. If you prefer YAML, just give it a
 YAML file instead (file ending does not matter, `grm` will figure out the
-format).  For generating a configuration, pass `--format yaml` to `grm repo
+format). For generating a configuration, pass `--format yaml` to `grm repo
 find` which generates a YAML configuration instead of a TOML configuration.
