@@ -27,7 +27,7 @@ fn find_repos(
     let mut repo_in_root = false;
     let mut warnings = Vec::new();
 
-    let exlusion_regex: regex::Regex = regex::Regex::new(&exclusion_pattern.unwrap_or(r"^$"))
+    let exlusion_regex: regex::Regex = regex::Regex::new(exclusion_pattern.unwrap_or(r"^$"))
         .map_err(|e| format!("invalid regex: {e}"))?;
     for path in tree::find_repo_paths(root)? {
         if exclusion_pattern.is_some() && exlusion_regex.is_match(&path::path_as_string(&path)) {
