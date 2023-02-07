@@ -49,7 +49,7 @@ Note: You will most likely not need to read this.
 Each test parameter will exponentially increase the number of tests that will be
 run. As a general rule, comprehensiveness is more important than test suite
 runtime (so if in doubt, better to add another parameter to catch every edge
-case). But try to keep the total runtime sane. Currently, the whole `just e2e`
+case). But try to keep the total runtime sane. Currently, the whole `just test-e2e`
 target runs ~8'000 tests and takes around 5 minutes on my machine, exlucding
 binary and docker build time. I'd say that keeping it under 10 minutes is a good
 idea.

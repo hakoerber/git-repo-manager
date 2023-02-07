@@ -1,10 +1,8 @@
 import os.path
 
-from app import app
-
-from flask import Flask, request, abort, jsonify, make_response
-
 import jinja2
+from app import app
+from flask import abort, jsonify, make_response, request
 
 
 def check_headers():
@@ -48,7 +46,7 @@ def add_pagination(response, page, last_page):
 
 def read_project_files(namespaces=[]):
     last_page = 4
-    page = username = int(request.args.get("page", "1"))
+    page = int(request.args.get("page", "1"))
     response_file = f"./github_api_page_{page}.json.j2"
     if not os.path.exists(response_file):
         return jsonify([])

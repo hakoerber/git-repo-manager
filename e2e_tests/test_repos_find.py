@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+import os
+import re
 import tempfile
 
-import toml
 import pytest
+import toml
 import yaml
-
-from helpers import *
+from helpers import NonExistentPath, TempGitRepository, grm, shell
 
 
 def test_repos_find_nonexistent():
@@ -63,9 +64,10 @@ def test_repos_find_non_git_repos():
         assert len(cmd.stderr) != 0
 
 
-@pytest.mark.parametrize("default", [True, False])
+@pytest.mark.parametrize("default_format", [True, False])
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
-def test_repos_find(configtype, default):
+@pytest.mark.parametrize("exclude", [None, "^.*/repo2$", "^not_matching$"])
+def test_repos_find(configtype, exclude, default_format):
     with tempfile.TemporaryDirectory() as tmpdir:
         shell(
             f"""
@@ -99,13 +101,19 @@ def test_repos_find(configtype, default):
         )
 
         args = ["repos", "find", "local", tmpdir]
-        if not default:
+        if not default_format:
             args += ["--format", configtype]
+        if exclude:
+            args += ["--exclude", exclude]
         cmd = grm(args)
         assert cmd.returncode == 0
-        assert len(cmd.stderr) == 0
+        if exclude == "^.*/repo2$":
+            assert re.match(r"^.*\[skipped\] .*\/repo2$", cmd.stderr.lower())
+            assert "repo2" in cmd.stderr.lower()
+        else:
+            assert len(cmd.stderr) == 0
 
-        if default or configtype == "toml":
+        if default_format or configtype == "toml":
             output = toml.loads(cmd.stdout)
         elif configtype == "yaml":
             output = yaml.safe_load(cmd.stdout)
@@ -120,7 +128,7 @@ def test_repos_find(configtype, default):
             assert set(tree.keys()) == {"root", "repos"}
             assert tree["root"] == tmpdir
             assert isinstance(tree["repos"], list)
-            assert len(tree["repos"]) == 2
+            assert len(tree["repos"]) == (1 if exclude == "^.*/repo2$" else 2)
 
             repo1 = [r for r in tree["repos"] if r["name"] == "repo1"][0]
             assert repo1["worktree_setup"] is False
@@ -137,30 +145,33 @@ def test_repos_find(configtype, default):
             assert someremote["type"] == "ssh"
             assert someremote["url"] == "ssh://example.com/repo2.git"
 
-            repo2 = [r for r in tree["repos"] if r["name"] == "repo2"][0]
-            assert repo2["worktree_setup"] is False
-            assert isinstance(repo1["remotes"], list)
-            assert len(repo2["remotes"]) == 1
+            if exclude == "^.*/repo2$":
+                assert [r for r in tree["repos"] if r["name"] == "repo2"] == []
+            else:
+                repo2 = [r for r in tree["repos"] if r["name"] == "repo2"][0]
+                assert repo2["worktree_setup"] is False
+                assert isinstance(repo1["remotes"], list)
+                assert len(repo2["remotes"]) == 1
 
-            origin = [r for r in repo2["remotes"] if r["name"] == "origin"][0]
-            assert set(origin.keys()) == {"name", "type", "url"}
-            assert origin["type"] == "https"
-            assert origin["url"] == "https://example.com/repo2.git"
+                origin = [r for r in repo2["remotes"] if r["name"] == "origin"][0]
+                assert set(origin.keys()) == {"name", "type", "url"}
+                assert origin["type"] == "https"
+                assert origin["url"] == "https://example.com/repo2.git"
 
 
-@pytest.mark.parametrize("default", [True, False])
+@pytest.mark.parametrize("default_format", [True, False])
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
-def test_repos_find_in_root(configtype, default):
+def test_repos_find_in_root(configtype, default_format):
     with TempGitRepository() as repo_dir:
 
         args = ["repos", "find", "local", repo_dir]
-        if not default:
+        if not default_format:
             args += ["--format", configtype]
         cmd = grm(args)
         assert cmd.returncode == 0
         assert len(cmd.stderr) == 0
 
-        if default or configtype == "toml":
+        if default_format or configtype == "toml":
             output = toml.loads(cmd.stdout)
         elif configtype == "yaml":
             output = yaml.safe_load(cmd.stdout)
@@ -194,8 +205,8 @@ def test_repos_find_in_root(configtype, default):
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
-@pytest.mark.parametrize("default", [True, False])
-def test_repos_find_with_invalid_repo(configtype, default):
+@pytest.mark.parametrize("default_format", [True, False])
+def test_repos_find_with_invalid_repo(configtype, default_format):
     with tempfile.TemporaryDirectory() as tmpdir:
         shell(
             f"""
@@ -229,13 +240,13 @@ def test_repos_find_with_invalid_repo(configtype, default):
         )
 
         args = ["repos", "find", "local", tmpdir]
-        if not default:
+        if not default_format:
             args += ["--format", configtype]
         cmd = grm(args)
         assert cmd.returncode == 0
         assert "broken" in cmd.stderr
 
-        if default or configtype == "toml":
+        if default_format or configtype == "toml":
             output = toml.loads(cmd.stdout)
         elif configtype == "yaml":
             output = yaml.safe_load(cmd.stdout)

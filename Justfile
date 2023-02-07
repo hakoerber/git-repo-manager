@@ -13,6 +13,7 @@ clean:
 
 fmt:
     cargo fmt
+    git ls-files | grep '\.py$' | xargs isort
     git ls-files | grep '\.py$' | xargs black
     git ls-files | grep '\.sh$' | xargs -L 1 shfmt --indent 4 --write
 
@@ -23,6 +24,7 @@ fmt-check:
 
 lint:
     cargo clippy --no-deps -- -Dwarnings
+    git ls-files | grep '\.py$' | xargs ruff --ignore E501
     git ls-files | grep '\.sh$' | xargs -L 1 shellcheck --norc
 
 lint-fix:

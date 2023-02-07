@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 
-import tempfile
+import os
 import re
+import subprocess
+import tempfile
 import textwrap
 
-import pytest
-import toml
 import git
-
-from helpers import *
+import pytest
+from helpers import (
+    NonExistentPath,
+    TempGitFileRemote,
+    TempGitRepository,
+    checksum_directory,
+    grm,
+    shell,
+)
 
 templates = {
     "repo_simple": {
@@ -291,7 +298,9 @@ def test_repos_sync_unmanaged_repos(configtype):
                 # this removes the prefix (root) from the path (unmanaged_repo)
                 unmanaged_repo_name = os.path.relpath(unmanaged_repo, root)
                 regex = f".*unmanaged.*{unmanaged_repo_name}"
-                assert any([re.match(regex, l) for l in cmd.stderr.lower().split("\n")])
+                assert any(
+                    [re.match(regex, line) for line in cmd.stderr.lower().split("\n")]
+                )
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
@@ -374,7 +383,7 @@ def test_repos_sync_repo_in_subdirectory(configtype):
                     assert urls[0] == f"file://{remote}"
 
                 cmd = grm(["repos", "sync", "config", "--config", config.name])
-                assert not "found unmanaged repository" in cmd.stderr.lower()
+                assert "found unmanaged repository" not in cmd.stderr.lower()
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
@@ -419,7 +428,7 @@ def test_repos_sync_nested_clone(configtype):
                     cmd = grm(["repos", "sync", "config", "--config", config.name])
                     print(cmd.stdout)
                     print(cmd.stderr)
-                    assert not "found unmanaged repository" in cmd.stderr.lower()
+                    assert "found unmanaged repository" not in cmd.stderr.lower()
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
@@ -720,14 +729,14 @@ def test_repos_sync_invalid_syntax(configtype):
         with open(config.name, "w") as f:
             if configtype == "toml":
                 f.write(
-                    f"""
+                    """
                     [[trees]]
                     root = invalid as there are no quotes ;)
                 """
                 )
             elif configtype == "yaml":
                 f.write(
-                    f"""
+                    """
                     trees:
                     wrong:
                     indentation:
@@ -779,8 +788,6 @@ def test_repos_sync_normal_change_to_worktree(configtype):
                     cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
 
-                    git_dir = os.path.join(target, "test")
-
                     with open(config.name, "w") as f:
                         f.write(
                             templates["worktree_repo_with_remote"][configtype].format(
@@ -809,8 +816,6 @@ def test_repos_sync_worktree_change_to_normal(configtype):
 
                     cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
-
-                    git_dir = os.path.join(target, "test")
 
                     with open(config.name, "w") as f:
                         f.write(
