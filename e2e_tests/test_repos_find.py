@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import tempfile
 
 import pytest
 import toml
 import yaml
-import re
 from helpers import NonExistentPath, TempGitRepository, grm, shell
 
 
