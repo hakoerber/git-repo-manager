@@ -66,7 +66,7 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)
                                 Ok(t) => t,
                                 Err(e) => {
                                     warnings.push(format!(
-                                        "{}: Could not detect remote type of \"{}\". Reason: {}",
+                                        "{}: Could not handle URL {}. Reason: {}",
                                         &path::path_as_string(&path),
                                         &url,
                                         e
