@@ -9,8 +9,10 @@ use super::Project;
 use super::Provider;
 
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
-const GITHUB_API_BASEURL: &str =
-    option_env!("GITHUB_API_BASEURL").unwrap_or("https://api.github.com");
+const GITHUB_API_BASEURL: &str = match option_env!("GITHUB_API_BASEURL") {
+    Some(url) => url,
+    None => "https://api.github.com",
+};
 
 #[derive(Deserialize)]
 pub struct GithubProject {
