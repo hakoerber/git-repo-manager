@@ -406,50 +406,78 @@ mod tests {
     fn check_ssh_remote() {
         assert_eq!(
             detect_remote_type("ssh://git@example.com"),
-            Some(RemoteType::Ssh)
+            Ok(RemoteType::Ssh)
         );
-        assert_eq!(detect_remote_type("git@example.git"), Some(RemoteType::Ssh));
+        assert_eq!(detect_remote_type("git@example.git"), Ok(RemoteType::Ssh));
     }
 
     #[test]
     fn check_https_remote() {
         assert_eq!(
             detect_remote_type("https://example.com"),
-            Some(RemoteType::Https)
+            Ok(RemoteType::Https)
         );
         assert_eq!(
             detect_remote_type("https://example.com/test.git"),
-            Some(RemoteType::Https)
+            Ok(RemoteType::Https)
         );
     }
 
     #[test]
     fn check_file_remote() {
-        assert_eq!(
-            detect_remote_type("file:///somedir"),
-            Some(RemoteType::File)
-        );
+        assert_eq!(detect_remote_type("file:///somedir"), Ok(RemoteType::File));
     }
 
     #[test]
     fn check_invalid_remotes() {
-        assert_eq!(detect_remote_type("https//example.com"), None);
-        assert_eq!(detect_remote_type("https:example.com"), None);
-        assert_eq!(detect_remote_type("ssh//example.com"), None);
-        assert_eq!(detect_remote_type("ssh:example.com"), None);
-        assert_eq!(detect_remote_type("git@example.com"), None);
+        assert_eq!(
+            detect_remote_type("https//example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol"
+            ))
+        );
+        assert_eq!(
+            detect_remote_type("https:example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol",
+            ))
+        );
+        assert_eq!(
+            detect_remote_type("ssh//example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol",
+            ))
+        );
+        assert_eq!(
+            detect_remote_type("ssh:example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol",
+            ))
+        );
+        assert_eq!(
+            detect_remote_type("git@example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol",
+            ))
+        );
     }
 
     #[test]
-    #[should_panic]
     fn check_unsupported_protocol_http() {
-        detect_remote_type("http://example.com");
+        assert_eq!(
+            detect_remote_type("http://example.com"),
+            Err(String::from(
+                "Remotes using HTTP protocol are not supported",
+            ))
+        );
     }
 
     #[test]
-    #[should_panic]
     fn check_unsupported_protocol_git() {
-        detect_remote_type("git://example.com");
+        assert_eq!(
+            detect_remote_type("git://example.com"),
+            Err(String::from("Remotes using git protocol are not supported"))
+        );
     }
 
     #[test]
@@ -473,27 +501,31 @@ mod tests {
     }
 }
 
-pub fn detect_remote_type(remote_url: &str) -> Option<RemoteType> {
+pub fn detect_remote_type(remote_url: &str) -> Result<RemoteType, String> {
     let git_regex = regex::Regex::new(r"^[a-zA-Z]+@.*$").unwrap();
     if remote_url.starts_with("ssh://") {
-        return Some(RemoteType::Ssh);
+        return Ok(RemoteType::Ssh);
     }
     if git_regex.is_match(remote_url) && remote_url.ends_with(".git") {
-        return Some(RemoteType::Ssh);
+        return Ok(RemoteType::Ssh);
     }
     if remote_url.starts_with("https://") {
-        return Some(RemoteType::Https);
+        return Ok(RemoteType::Https);
     }
     if remote_url.starts_with("file://") {
-        return Some(RemoteType::File);
+        return Ok(RemoteType::File);
     }
     if remote_url.starts_with("http://") {
-        unimplemented!("Remotes using HTTP protocol are not supported");
+        return Err(String::from(
+            "Remotes using HTTP protocol are not supported",
+        ));
     }
     if remote_url.starts_with("git://") {
-        unimplemented!("Remotes using git protocol are not supported");
+        return Err(String::from("Remotes using git protocol are not supported"));
     }
-    None
+    Err(String::from(
+        "The remote URL starts with an unimplemented protocol",
+    ))
 }
 
 pub struct RepoHandle(git2::Repository);
@@ -1588,7 +1620,7 @@ impl RemoteHandle<'_> {
 
     pub fn is_pushable(&self) -> Result<bool, String> {
         let remote_type = detect_remote_type(self.0.url().expect("Remote name is not valid utf-8"))
-            .ok_or_else(|| String::from("Could not detect remote type"))?;
+            .expect("Could not detect remote type");
         Ok(matches!(remote_type, RemoteType::Ssh | RemoteType::File))
     }
 

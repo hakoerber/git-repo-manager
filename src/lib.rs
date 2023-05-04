@@ -72,12 +72,13 @@ fn find_repos(
                             let name = remote.name();
                             let url = remote.url();
                             let remote_type = match repo::detect_remote_type(&url) {
-                                Some(t) => t,
-                                None => {
+                                Ok(t) => t,
+                                Err(e) => {
                                     warnings.push(format!(
-                                        "{}: Could not detect remote type of \"{}\"",
+                                        "{}: Could not handle URL {}. Reason: {}",
                                         &path::path_as_string(&path),
-                                        &url
+                                        &url,
+                                        e
                                     ));
                                     continue;
                                 }
