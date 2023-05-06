@@ -41,7 +41,7 @@ path = "src/grm/main.rs"
 [dependencies]
 
 [dependencies.toml]
-version = "=0.5.9"
+version = "=0.7.3"
 
 [dependencies.serde]
 version = "=1.0.150"
