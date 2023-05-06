@@ -41,7 +41,7 @@ def test_repos_find_invalid_format():
         )
         assert cmd.returncode != 0
         assert len(cmd.stdout) == 0
-        assert "isn't a valid value" in cmd.stderr
+        assert "invalid value 'invalidformat'" in cmd.stderr
 
 
 def test_repos_find_non_git_repos():
