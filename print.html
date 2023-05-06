@@ -5,7 +5,10 @@
         <meta charset="UTF-8">
         <title>Git Repo Manager</title>
         <meta name="robots" content="noindex" />
+
+
         <!-- Custom HTML head -->
+        
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
@@ -16,19 +19,23 @@
         <link rel="stylesheet" href="css/general.css">
         <link rel="stylesheet" href="css/chrome.css">
         <link rel="stylesheet" href="css/print.css" media="print">
+
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
         <link rel="stylesheet" href="fonts/fonts.css">
+
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
         <link rel="stylesheet" href="tomorrow-night.css">
         <link rel="stylesheet" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
+
         <!-- MathJax -->
         <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     </head>
     <body>
+    <div id="body-container">
         <!-- Provide site root to javascript -->
         <script>
             var path_to_root = "";
@@ -66,10 +73,12 @@
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
             var html = document.querySelector('html');
-            var sidebar = 'hidden';
+            var sidebar = null;
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
             }
             html.classList.remove('sidebar-visible');
             html.classList.add("sidebar-" + sidebar);
@@ -85,7 +94,7 @@
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
+                                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky bordered">
                     <div class="left-buttons">
                         <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
@@ -112,6 +121,7 @@
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+
                     </div>
                 </div>
 
@@ -125,6 +135,7 @@
                         </ul>
                     </div>
                 </div>
+
                 <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
                 <script>
                     document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
@@ -351,7 +362,7 @@ yet, it will clone them. It will also make sure that all remotes are configured
 properly.</p>
 <p>Let's try it out:</p>
 <h2 id="get-the-example-configuration"><a class="header" href="#get-the-example-configuration">Get the example configuration</a></h2>
-<pre><code class="language-bash">$ curl --proto '=https' --tlsv1.2 -sSfO https://raw.githubusercontent.com/hakoerber/git-repo-manager/master/example.config.toml
+<pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSfO https://raw.githubusercontent.com/hakoerber/git-repo-manager/master/example.config.toml
 </code></pre>
 <p>Then, you're ready to run the first sync. This will clone all configured
 repositories and set up the remotes.</p>
@@ -365,7 +376,7 @@ repositories and set up the remotes.</p>
 [✔] dotfiles: OK
 </code></pre>
 <p>If you run it again, it will report no changes:</p>
-<pre><code>$ grm repos sync config -c example.config.toml
+<pre><code class="language-bash">$ grm repos sync config -c example.config.toml
 [✔] git-repo-manager: OK
 [✔] dotfiles: OK
 </code></pre>
@@ -373,9 +384,13 @@ repositories and set up the remotes.</p>
 <p>Now, if you already have a few repositories, it would be quite laborious to
 write a configuration from scratch. Luckily, GRM has a way to generate a
 configuration from an existing file tree:</p>
-<pre><code class="language-bash">$ grm repos find local ~/your/project/root &gt; config.toml
+<pre><code class="language-bash">grm repos find local ~/your/project/root &gt; config.toml
 </code></pre>
 <p>This will detect all repositories and remotes and write them to <code>config.toml</code>.</p>
+<p>You can exclude repositories from the generated configuration by providing
+a regex that will be test against the path of each discovered repository:</p>
+<pre><code class="language-bash">grm repos find local ~/your/project/root --exclude &quot;^.*/subdir/match-(foo|bar)/.*$&quot; &gt; config.toml
+</code></pre>
 <h3 id="show-the-state-of-your-projects"><a class="header" href="#show-the-state-of-your-projects">Show the state of your projects</a></h3>
 <pre><code class="language-bash">$ grm repos status --config example.config.toml
 ╭──────────────────┬──────────┬────────┬───────────────────┬────────┬─────────╮
@@ -389,7 +404,7 @@ configuration from an existing file tree:</p>
 </code></pre>
 <p>You can also use <code>status</code> without <code>--config</code> to check the repository you're
 currently in:</p>
-<pre><code>$ cd ~/example-projects/dotfiles
+<pre><code class="language-bash">$ cd ~/example-projects/dotfiles
 $ grm repos status
 ╭──────────┬──────────┬────────┬──────────┬───────┬─────────╮
 │ Repo     ┆ Worktree ┆ Status ┆ Branches ┆ HEAD  ┆ Remotes │
@@ -400,7 +415,7 @@ $ grm repos status
 <h2 id="yaml"><a class="header" href="#yaml">YAML</a></h2>
 <p>By default, the repo configuration uses TOML. If you prefer YAML, just give it a
 YAML file instead (file ending does not matter, <code>grm</code> will figure out the
-format).  For generating a configuration, pass <code>--format yaml</code> to <code>grm repo find</code> which generates a YAML configuration instead of a TOML configuration.</p>
+format). For generating a configuration, pass <code>--format yaml</code> to <code>grm repo find</code> which generates a YAML configuration instead of a TOML configuration.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="forge-integrations"><a class="header" href="#forge-integrations">Forge Integrations</a></h1>
 <p>In addition to managing repositories locally, <code>grm</code> also integrates with source
 code hosting platforms. Right now, the following platforms are supported:</p>
@@ -847,8 +862,8 @@ discuss it.</p>
 <a href="https://github.com/casey/just#installation">here</a> for installation
 instructions (it's most likely just a simple <code>cargo install just</code>).</li>
 <li>Docker &amp; docker-compose for the e2e tests</li>
-<li><code>black</code> and <code>shfmt</code> for formatting.</li>
-<li><code>shellcheck</code> for shell script linting</li>
+<li><code>isort</code>, <code>black</code> and <code>shfmt</code> for formatting.</li>
+<li><code>ruff</code> and <code>shellcheck</code> for linting.</li>
 <li><code>mdbook</code> for the documentation</li>
 </ul>
 <p>Here are the tools:</p>
@@ -913,7 +928,7 @@ of these behaviors.</p>
 <p>Each test parameter will exponentially increase the number of tests that will be
 run. As a general rule, comprehensiveness is more important than test suite
 runtime (so if in doubt, better to add another parameter to catch every edge
-case). But try to keep the total runtime sane. Currently, the whole <code>just e2e</code>
+case). But try to keep the total runtime sane. Currently, the whole <code>just test-e2e</code>
 target runs ~8'000 tests and takes around 5 minutes on my machine, exlucding
 binary and docker build time. I'd say that keeping it under 10 minutes is a good
 idea.</p>
@@ -1036,27 +1051,37 @@ homepage</a> via GitHub pages. See
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+
+
                         <div style="clear: both"></div>
                     </nav>
                 </div>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
             </nav>
 
         </div>
 
+
+
+
         <script>
             window.playground_copyable = true;
         </script>
+
+
         <script src="elasticlunr.min.js"></script>
         <script src="mark.min.js"></script>
         <script src="searcher.js"></script>
+
         <script src="clipboard.min.js"></script>
         <script src="highlight.js"></script>
         <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
+
         <script>
         window.addEventListener('load', function() {
             MathJax.Hub.Register.StartupHook('End', function() {
@@ -1064,5 +1089,7 @@ homepage</a> via GitHub pages. See
             });
         });
         </script>
+
+    </div>
     </body>
 </html>
