@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-import tempfile
-
-from helpers import *
+from helpers import RepoTree, grm
 
 
 def test_repos_sync_worktree_clone():

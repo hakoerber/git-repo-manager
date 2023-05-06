@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-import subprocess
-import os
 import json
-import sys
+import os
+import subprocess
 
 import semver
 import tomlkit

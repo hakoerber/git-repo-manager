@@ -1,7 +1,5 @@
 import os
 
-from helpers import *
-
 
 def pytest_configure(config):
     os.environ["GIT_AUTHOR_NAME"] = "Example user"

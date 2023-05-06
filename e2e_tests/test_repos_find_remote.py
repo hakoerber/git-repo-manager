@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-import re
 import os
+import re
+import tempfile
 
-import toml
 import pytest
+import toml
 import yaml
-
-from helpers import *
-
+from helpers import grm
 
 ALTERNATE_DOMAIN = os.environ["ALTERNATE_DOMAIN"]
 PROVIDERS = ["github", "gitlab"]
@@ -44,7 +43,7 @@ def test_repos_find_remote_invalid_provider(use_config):
     assert cmd.returncode != 0
     assert len(cmd.stdout) == 0
     if not use_config:
-        assert re.match(".*isn't a valid value for.*provider", cmd.stderr)
+        assert re.match(".*invalid value 'thisproviderdoesnotexist' for.*provider", cmd.stderr)
 
 
 @pytest.mark.parametrize("provider", PROVIDERS)
@@ -67,7 +66,7 @@ def test_repos_find_remote_invalid_format(provider):
     )
     assert cmd.returncode != 0
     assert len(cmd.stdout) == 0
-    assert "isn't a valid value" in cmd.stderr
+    assert "invalid value 'invalidformat'" in cmd.stderr
 
 
 @pytest.mark.parametrize("provider", PROVIDERS)
@@ -275,9 +274,9 @@ def test_repos_find_remote_user(
                 if not worktree_default:
                     cfg += f"worktree = {str(worktree).lower()}\n"
                 if force_ssh:
-                    cfg += f"force_ssh = true\n"
+                    cfg += "force_ssh = true\n"
                 if override_remote_name:
-                    cfg += f'remote_name = "otherremote"\n'
+                    cfg += 'remote_name = "otherremote"\n'
                 if use_owner:
                     cfg += """
                         [filters]
@@ -475,7 +474,7 @@ def test_repos_find_remote_group(
                 if not worktree_default:
                     cfg += f"worktree = {str(worktree).lower()}\n"
                 if force_ssh:
-                    cfg += f"force_ssh = true\n"
+                    cfg += "force_ssh = true\n"
                 if use_alternate_endpoint:
                     cfg += f'api_url = "http://{ALTERNATE_DOMAIN}:5000/{provider}"\n'
                 cfg += """
@@ -591,7 +590,7 @@ def test_repos_find_remote_user_and_group(
                 if not worktree_default:
                     cfg += f"worktree = {str(worktree).lower()}\n"
                 if force_ssh:
-                    cfg += f"force_ssh = true\n"
+                    cfg += "force_ssh = true\n"
                 if use_alternate_endpoint:
                     cfg += f'api_url = "http://{ALTERNATE_DOMAIN}:5000/{provider}"\n'
                 cfg += """
@@ -742,7 +741,7 @@ def test_repos_find_remote_owner(
                 if not worktree_default:
                     cfg += f"worktree = {str(worktree).lower()}\n"
                 if force_ssh:
-                    cfg += f"force_ssh = true\n"
+                    cfg += "force_ssh = true\n"
                 if use_alternate_endpoint:
                     cfg += f'api_url = "http://{ALTERNATE_DOMAIN}:5000/{provider}"\n'
                 cfg += """
@@ -873,13 +872,11 @@ def test_repos_find_remote_owner(
     assert repo["remotes"][0]["name"] == "origin"
     if force_ssh:
         assert (
-            repo["remotes"][0]["url"] == f"ssh://git@example.com/myuser2/myproject3.git"
+            repo["remotes"][0]["url"] == "ssh://git@example.com/myuser2/myproject3.git"
         )
         assert repo["remotes"][0]["type"] == "ssh"
     else:
-        assert (
-            repo["remotes"][0]["url"] == f"https://example.com/myuser2/myproject3.git"
-        )
+        assert repo["remotes"][0]["url"] == "https://example.com/myuser2/myproject3.git"
         assert repo["remotes"][0]["type"] == "https"
 
     group_namespace_1 = [t for t in output["trees"] if t["root"] == "/myroot/mygroup1"][
@@ -923,13 +920,13 @@ def test_repos_find_remote_owner(
         if force_ssh:
             assert (
                 repo["remotes"][0]["url"]
-                == f"ssh://git@example.com/mygroup1/myproject4.git"
+                == "ssh://git@example.com/mygroup1/myproject4.git"
             )
             assert repo["remotes"][0]["type"] == "ssh"
         else:
             assert (
                 repo["remotes"][0]["url"]
-                == f"https://example.com/mygroup1/myproject4.git"
+                == "https://example.com/mygroup1/myproject4.git"
             )
             assert repo["remotes"][0]["type"] == "https"
 
@@ -948,12 +945,11 @@ def test_repos_find_remote_owner(
     assert repo["remotes"][0]["name"] == "origin"
     if force_ssh:
         assert (
-            repo["remotes"][0]["url"]
-            == f"ssh://git@example.com/mygroup2/myproject5.git"
+            repo["remotes"][0]["url"] == "ssh://git@example.com/mygroup2/myproject5.git"
         )
         assert repo["remotes"][0]["type"] == "ssh"
     else:
         assert (
-            repo["remotes"][0]["url"] == f"https://example.com/mygroup2/myproject5.git"
+            repo["remotes"][0]["url"] == "https://example.com/mygroup2/myproject5.git"
         )
         assert repo["remotes"][0]["type"] == "https"

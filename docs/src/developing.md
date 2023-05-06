@@ -34,8 +34,8 @@ You will need the following tools:
   [here](https://github.com/casey/just#installation) for installation
   instructions (it's most likely just a simple `cargo install just`).
 * Docker & docker-compose for the e2e tests
-* `black` and `shfmt` for formatting.
-* `shellcheck` for shell script linting
+* `isort`, `black` and `shfmt` for formatting.
+* `ruff` and `shellcheck` for linting.
 * `mdbook` for the documentation
 
 Here are the tools:

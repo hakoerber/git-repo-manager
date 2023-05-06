@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from helpers import *
+from helpers import grm
 
 
 def test_invalid_command():

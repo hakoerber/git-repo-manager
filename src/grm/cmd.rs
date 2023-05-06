@@ -64,6 +64,14 @@ pub struct FindLocalArgs {
     pub path: String,
 
     #[clap(
+        short,
+        long,
+        help = "Exclude repositories that match the given regex",
+        name = "REGEX"
+    )]
+    pub exclude: Option<String>,
+
+    #[clap(
         value_enum,
         short,
         long,

@@ -1,5 +1,4 @@
 #![feature(io_error_more)]
-#![feature(const_option_ext)]
 #![forbid(unsafe_code)]
 
 use std::path::Path;
@@ -19,12 +18,22 @@ pub mod worktree;
 /// The bool in the return value specifies whether there is a repository
 /// in root itself.
 #[allow(clippy::type_complexity)]
-fn find_repos(root: &Path) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)>, String> {
+fn find_repos(
+    root: &Path,
+    exclusion_pattern: Option<&str>,
+) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)>, String> {
     let mut repos: Vec<repo::Repo> = Vec::new();
     let mut repo_in_root = false;
     let mut warnings = Vec::new();
 
+    let exlusion_regex: regex::Regex = regex::Regex::new(exclusion_pattern.unwrap_or(r"^$"))
+        .map_err(|e| format!("invalid regex: {e}"))?;
     for path in tree::find_repo_paths(root)? {
+        if exclusion_pattern.is_some() && exlusion_regex.is_match(&path::path_as_string(&path)) {
+            warnings.push(format!("[skipped] {}", &path::path_as_string(&path)));
+            continue;
+        }
+
         let is_worktree = repo::RepoHandle::detect_worktree(&path);
         if path == root {
             repo_in_root = true;
@@ -63,12 +72,13 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)
                             let name = remote.name();
                             let url = remote.url();
                             let remote_type = match repo::detect_remote_type(&url) {
-                                Some(t) => t,
-                                None => {
+                                Ok(t) => t,
+                                Err(e) => {
                                     warnings.push(format!(
-                                        "{}: Could not detect remote type of \"{}\"",
+                                        "{}: Could not handle URL {}. Reason: {}",
                                         &path::path_as_string(&path),
-                                        &url
+                                        &url,
+                                        e
                                     ));
                                     continue;
                                 }
@@ -130,10 +140,14 @@ fn find_repos(root: &Path) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)
     Ok(Some((repos, warnings, repo_in_root)))
 }
 
-pub fn find_in_tree(path: &Path) -> Result<(tree::Tree, Vec<String>), String> {
+pub fn find_in_tree(
+    path: &Path,
+    exclusion_pattern: Option<&str>,
+) -> Result<(tree::Tree, Vec<String>), String> {
     let mut warnings = Vec::new();
 
-    let (repos, repo_in_root): (Vec<repo::Repo>, bool) = match find_repos(path)? {
+    let (repos, repo_in_root): (Vec<repo::Repo>, bool) = match find_repos(path, exclusion_pattern)?
+    {
         Some((vec, mut repo_warnings, repo_in_root)) => {
             warnings.append(&mut repo_warnings);
             (vec, repo_in_root)
