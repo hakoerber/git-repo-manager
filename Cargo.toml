@@ -64,7 +64,7 @@ version = "=0.15.7"
 version = "=1.9.3"
 
 [dependencies.comfy-table]
-version = "=6.1.4"
+version = "=7.0.1"
 
 [dependencies.serde_yaml]
 version = "=0.9.21"
