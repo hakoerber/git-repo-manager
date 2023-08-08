@@ -1,4 +1,3 @@
-#![feature(io_error_more)]
 #![forbid(unsafe_code)]
 
 use std::path::Path;

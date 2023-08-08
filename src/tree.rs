@@ -128,8 +128,6 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, String> {
                     "Failed to open \"{}\": {}",
                     &path.display(),
                     match e.kind() {
-                        std::io::ErrorKind::NotADirectory =>
-                            String::from("directory expected, but path is not a directory"),
                         std::io::ErrorKind::NotFound => String::from("not found"),
                         _ => format!("{:?}", e.kind()),
                     }

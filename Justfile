@@ -4,7 +4,7 @@ set shell := ["/bin/bash", "-c"]
 
 static_target := "x86_64-unknown-linux-musl"
 
-cargo := "cargo +nightly"
+cargo := "cargo"
 
 check: fmt-check lint test
     {{cargo}} check

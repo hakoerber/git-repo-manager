@@ -93,15 +93,7 @@ for tier in ["dependencies", "dev-dependencies"]:
 
             try:
                 cmd = subprocess.run(
-                    [
-                        "cargo",
-                        "update",
-                        "-Z",
-                        "no-index-update",
-                        "--aggressive",
-                        "--package",
-                        name,
-                    ],
+                    ["cargo", "update", "--offline", "--aggressive", "--package", name],
                     check=True,
                     capture_output=True,
                     text=True,
@@ -135,15 +127,7 @@ while True:
         spec = f"{package['name']}:{package['version']}"
         try:
             cmd = subprocess.run(
-                [
-                    "cargo",
-                    "update",
-                    "-Z",
-                    "no-index-update",
-                    "--aggressive",
-                    "--package",
-                    spec,
-                ],
+                ["cargo", "update", "--offline", "--aggressive", "--package", spec],
                 check=True,
                 capture_output=True,
                 text=True,
