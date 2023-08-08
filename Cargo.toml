@@ -67,7 +67,7 @@ version = "=1.9.3"
 version = "=7.0.1"
 
 [dependencies.serde_yaml]
-version = "=0.9.21"
+version = "=0.9.25"
 
 [dependencies.serde_json]
 version = "=1.0.96"
