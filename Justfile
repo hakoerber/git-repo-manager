@@ -4,7 +4,7 @@ set shell := ["/bin/bash", "-c"]
 
 static_target := "x86_64-unknown-linux-musl"
 
-cargo := "cargo +nightly"
+cargo := "cargo"
 
 check: fmt-check lint test
     {{cargo}} check
@@ -76,14 +76,14 @@ test-integration:
 
 test-e2e +tests=".": test-binary
     cd ./e2e_tests \
-    && docker-compose rm --stop -f \
-    && docker-compose build \
-    && docker-compose run \
+    && docker compose rm --stop -f \
+    && docker compose build \
+    && docker compose run \
         --rm \
         -v $PWD/../target/x86_64-unknown-linux-musl/e2e-tests/grm:/grm \
             pytest \
             "GRM_BINARY=/grm ALTERNATE_DOMAIN=alternate-rest python3 -m pytest --exitfirst -p no:cacheprovider --color=yes "$@"" \
-    && docker-compose rm --stop -f
+    && docker compose rm --stop -f
 
 update-dependencies: update-cargo-dependencies
 

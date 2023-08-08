@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.7.13"
+version = "0.7.14"
 edition = "2021"
 
 authors = [
@@ -23,7 +23,7 @@ repository = "https://github.com/hakoerber/git-repo-manager"
 readme = "README.md"
 
 # Required for `std::path::Path::is_symlink()`. Will be released with 1.57.
-rust-version = "1.57"
+rust-version = "1.58"
 
 license = "GPL-3.0-only"
 
@@ -41,36 +41,36 @@ path = "src/grm/main.rs"
 [dependencies]
 
 [dependencies.toml]
-version = "=0.7.3"
+version = "=0.7.6"
 
 [dependencies.serde]
-version = "=1.0.162"
+version = "=1.0.183"
 features = ["derive"]
 
 [dependencies.git2]
-version = "=0.17.1"
+version = "=0.17.2"
 
 [dependencies.shellexpand]
 version = "=3.1.0"
 
 [dependencies.clap]
-version = "=4.2.7"
+version = "=4.3.21"
 features = ["derive", "cargo"]
 
 [dependencies.console]
-version = "=0.15.5"
+version = "=0.15.7"
 
 [dependencies.regex]
-version = "=1.8.1"
+version = "=1.9.3"
 
 [dependencies.comfy-table]
-version = "=6.1.4"
+version = "=7.0.1"
 
 [dependencies.serde_yaml]
-version = "=0.9.21"
+version = "=0.9.25"
 
 [dependencies.serde_json]
-version = "=1.0.96"
+version = "=1.0.104"
 
 [dependencies.isahc]
 version = "=1.7.2"

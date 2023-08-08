@@ -2,14 +2,14 @@
 
 ## Installation
 
-Building GRM currently requires the nightly Rust toolchain. The easiest way is
+Building GRM requires the Rust toolchain to be installed. The easiest way is
 using [`rustup`](https://rustup.rs/). Make sure that rustup is properly
 installed.
 
-Make sure that the nightly toolchain is installed:
+Make sure that the stable toolchain is installed:
 
 ```
-$ rustup toolchain install nightly
+$ rustup toolchain install stable
 ```
 
 Then, install the build dependencies:
@@ -22,13 +22,13 @@ Then, install the build dependencies:
 Then, it's a simple command to install the latest stable version:
 
 ```bash
-$ cargo +nightly install git-repo-manager
+$ cargo install git-repo-manager
 ```
 
 If you're brave, you can also run the development build:
 
 ```bash
-$ cargo +nightly install --git https://github.com/hakoerber/git-repo-manager.git --branch develop
+$ cargo install --git https://github.com/hakoerber/git-repo-manager.git --branch develop
 ```
 
 ## Static build
@@ -47,11 +47,11 @@ need `musl` and a few other build dependencies installed installed:
 The, add the musl target via `rustup`:
 
 ```
-$ rustup +nightly target add x86_64-unknown-linux-musl
+$ rustup target add x86_64-unknown-linux-musl
 ```
 
 Then, use a modified build command to get a statically linked binary:
 
 ```
-$ cargo +nightly install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
+$ cargo install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
 ```

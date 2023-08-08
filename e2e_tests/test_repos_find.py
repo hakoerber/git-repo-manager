@@ -163,7 +163,6 @@ def test_repos_find(configtype, exclude, default_format):
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
 def test_repos_find_in_root(configtype, default_format):
     with TempGitRepository() as repo_dir:
-
         args = ["repos", "find", "local", repo_dir]
         if not default_format:
             args += ["--format", configtype]
