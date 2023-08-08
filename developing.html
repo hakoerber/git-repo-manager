@@ -90,11 +90,33 @@
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
                                 <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky bordered">
+                <div id="menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
                         <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
                             <i class="fa fa-bars"></i>
@@ -168,7 +190,7 @@ discuss it.</p>
 <h2 id="required-tooling"><a class="header" href="#required-tooling">Required tooling</a></h2>
 <p>You will need the following tools:</p>
 <ul>
-<li>Rust (obviously) (easiest via <code>rustup</code>), with the nightly toolchain</li>
+<li>Rust (obviously) (easiest via <code>rustup</code>)</li>
 <li>Python3</li>
 <li><a href="https://github.com/casey/just"><code>just</code></a>, a command runner like <code>make</code>. See
 <a href="https://github.com/casey/just#installation">here</a> for installation
@@ -189,18 +211,6 @@ via <code>cargo install just mdbook</code> if your rust build environment is set
 correctly). Same for <code>shfmt</code>, which may just be a <code>go install mvdan.cc/sh/v3/cmd/shfmt@latest</code>, depending on your go build environment.</p>
 <p>For details about rustup and the toolchains, see <a href="./installation.html">the installation
 section</a>.</p>
-<h2 id="faq"><a class="header" href="#faq">FAQ</a></h2>
-<h3 id="why-nightly"><a class="header" href="#why-nightly">Why nightly?</a></h3>
-<p>For now, GRM requires the nightly toolchain for two reasons:</p>
-<ul>
-<li><a href="https://github.com/rust-lang/rust/issues/86442"><code>io_error_more</code></a> to get
-better error messages on IO errors</li>
-<li><a href="https://github.com/rust-lang/rust/issues/91930"><code>const_option_ext</code></a> to have
-static variables read from the environment that fall back to hard coded
-defaults</li>
-</ul>
-<p>Honestly, both of those are not really necessary or can be handled without
-nightly. It's just that I'm using nightly anyway.</p>
 
                     </main>
 

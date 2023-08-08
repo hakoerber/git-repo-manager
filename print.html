@@ -91,11 +91,33 @@
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
                                 <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky bordered">
+                <div id="menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
                         <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
                             <i class="fa fa-bars"></i>
@@ -179,11 +201,11 @@ using the stash or temporary commits.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
 <h2 id="installation-1"><a class="header" href="#installation-1">Installation</a></h2>
-<p>Building GRM currently requires the nightly Rust toolchain. The easiest way is
+<p>Building GRM requires the Rust toolchain to be installed. The easiest way is
 using <a href="https://rustup.rs/"><code>rustup</code></a>. Make sure that rustup is properly
 installed.</p>
-<p>Make sure that the nightly toolchain is installed:</p>
-<pre><code>$ rustup toolchain install nightly
+<p>Make sure that the stable toolchain is installed:</p>
+<pre><code>$ rustup toolchain install stable
 </code></pre>
 <p>Then, install the build dependencies:</p>
 <div class="table-wrapper"><table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
@@ -192,10 +214,10 @@ installed.</p>
 </tbody></table>
 </div>
 <p>Then, it's a simple command to install the latest stable version:</p>
-<pre><code class="language-bash">$ cargo +nightly install git-repo-manager
+<pre><code class="language-bash">$ cargo install git-repo-manager
 </code></pre>
 <p>If you're brave, you can also run the development build:</p>
-<pre><code class="language-bash">$ cargo +nightly install --git https://github.com/hakoerber/git-repo-manager.git --branch develop
+<pre><code class="language-bash">$ cargo install --git https://github.com/hakoerber/git-repo-manager.git --branch develop
 </code></pre>
 <h2 id="static-build"><a class="header" href="#static-build">Static build</a></h2>
 <p>Note that by default, you will get a  dynamically linked executable.
@@ -208,10 +230,10 @@ need <code>musl</code> and a few other build dependencies installed installed:</
 </div>
 <p>(<code>perl</code> and <code>make</code> are required for the OpenSSL build script)</p>
 <p>The, add the musl target via <code>rustup</code>:</p>
-<pre><code>$ rustup +nightly target add x86_64-unknown-linux-musl
+<pre><code>$ rustup target add x86_64-unknown-linux-musl
 </code></pre>
 <p>Then, use a modified build command to get a statically linked binary:</p>
-<pre><code>$ cargo +nightly install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
+<pre><code>$ cargo install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="tutorial"><a class="header" href="#tutorial">Tutorial</a></h1>
 <p>Here, you'll find a quick overview over the most common functionality of GRM.</p>
@@ -856,7 +878,7 @@ discuss it.</p>
 <h2 id="required-tooling"><a class="header" href="#required-tooling">Required tooling</a></h2>
 <p>You will need the following tools:</p>
 <ul>
-<li>Rust (obviously) (easiest via <code>rustup</code>), with the nightly toolchain</li>
+<li>Rust (obviously) (easiest via <code>rustup</code>)</li>
 <li>Python3</li>
 <li><a href="https://github.com/casey/just"><code>just</code></a>, a command runner like <code>make</code>. See
 <a href="https://github.com/casey/just#installation">here</a> for installation
@@ -877,18 +899,6 @@ via <code>cargo install just mdbook</code> if your rust build environment is set
 correctly). Same for <code>shfmt</code>, which may just be a <code>go install mvdan.cc/sh/v3/cmd/shfmt@latest</code>, depending on your go build environment.</p>
 <p>For details about rustup and the toolchains, see <a href="./installation.html">the installation
 section</a>.</p>
-<h2 id="faq-1"><a class="header" href="#faq-1">FAQ</a></h2>
-<h3 id="why-nightly"><a class="header" href="#why-nightly">Why nightly?</a></h3>
-<p>For now, GRM requires the nightly toolchain for two reasons:</p>
-<ul>
-<li><a href="https://github.com/rust-lang/rust/issues/86442"><code>io_error_more</code></a> to get
-better error messages on IO errors</li>
-<li><a href="https://github.com/rust-lang/rust/issues/91930"><code>const_option_ext</code></a> to have
-static variables read from the environment that fall back to hard coded
-defaults</li>
-</ul>
-<p>Honestly, both of those are not really necessary or can be handled without
-nightly. It's just that I'm using nightly anyway.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="testing"><a class="header" href="#testing">Testing</a></h1>
 <p>There are two distinct test suites: One for unit test (<code>just test-unit</code>) and
 integration tests (<code>just test-integration</code>) that is part of the rust crate, and
