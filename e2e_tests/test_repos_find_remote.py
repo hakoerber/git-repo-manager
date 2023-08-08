@@ -43,7 +43,9 @@ def test_repos_find_remote_invalid_provider(use_config):
     assert cmd.returncode != 0
     assert len(cmd.stdout) == 0
     if not use_config:
-        assert re.match(".*invalid value 'thisproviderdoesnotexist' for.*provider", cmd.stderr)
+        assert re.match(
+            ".*invalid value 'thisproviderdoesnotexist' for.*provider", cmd.stderr
+        )
 
 
 @pytest.mark.parametrize("provider", PROVIDERS)
