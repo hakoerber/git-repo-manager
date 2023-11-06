@@ -4,6 +4,7 @@ use super::repo;
 
 use comfy_table::{Cell, Table};
 
+use std::fmt::Write;
 use std::path::Path;
 
 fn add_table_header(table: &mut Table) {
@@ -56,9 +57,10 @@ fn add_repo_status(
         repo_status
             .branches
             .iter()
-            .map(|(branch_name, remote_branch)| {
-                format!(
-                    "branch: {}{}\n",
+            .fold(String::new(), |mut s, (branch_name, remote_branch)| {
+                writeln!(
+                    &mut s,
+                    "branch: {}{}",
                     &branch_name,
                     &match remote_branch {
                         None => String::from(" <!local>"),
@@ -78,8 +80,9 @@ fn add_repo_status(
                         }
                     }
                 )
+                .unwrap();
+                s
             })
-            .collect::<String>()
             .trim(),
         &match is_worktree {
             true => String::from(""),
@@ -91,8 +94,10 @@ fn add_repo_status(
         repo_status
             .remotes
             .iter()
-            .map(|r| format!("{}\n", r))
-            .collect::<String>()
+            .fold(String::new(), |mut s, r| {
+                writeln!(&mut s, "{r}").unwrap();
+                s
+            })
             .trim(),
     ]);
 

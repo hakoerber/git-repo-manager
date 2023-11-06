@@ -179,7 +179,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                 "Repo already exists, but is not using a worktree setup",
             ));
         };
-    } else if matches!(&repo.remotes, None) || repo.remotes.as_ref().unwrap().is_empty() {
+    } else if repo.remotes.is_none() || repo.remotes.as_ref().unwrap().is_empty() {
         print_repo_action(
             &repo.name,
             "Repository does not have remotes configured, initializing new",

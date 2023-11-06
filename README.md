@@ -34,7 +34,7 @@ in once place?
 
 This is how GRM came to be. I'm a fan of infrastructure-as-code, and GRM is a bit
 like Terraform for your local git repositories. Write a config, run the tool, and
-your repos are ready. The only thing that is tracked by git it the list of
+your repos are ready. The only thing that is tracked by git is the list of
 repositories itself.
 
 # Crates
