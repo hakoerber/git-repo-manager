@@ -41,36 +41,36 @@ path = "src/grm/main.rs"
 [dependencies]
 
 [dependencies.toml]
-version = "=0.7.6"
+version = "=0.8.6"
 
 [dependencies.serde]
-version = "=1.0.183"
+version = "=1.0.190"
 features = ["derive"]
 
 [dependencies.git2]
-version = "=0.17.2"
+version = "=0.18.1"
 
 [dependencies.shellexpand]
 version = "=3.1.0"
 
 [dependencies.clap]
-version = "=4.3.21"
+version = "=4.4.7"
 features = ["derive", "cargo"]
 
 [dependencies.console]
 version = "=0.15.7"
 
 [dependencies.regex]
-version = "=1.9.3"
+version = "=1.10.2"
 
 [dependencies.comfy-table]
-version = "=7.0.1"
+version = "=7.1.0"
 
 [dependencies.serde_yaml]
-version = "=0.9.25"
+version = "=0.9.27"
 
 [dependencies.serde_json]
-version = "=1.0.104"
+version = "=1.0.108"
 
 [dependencies.isahc]
 version = "=1.7.2"

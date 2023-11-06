@@ -313,7 +313,7 @@ pub trait Provider {
             // about the data exchange format here.
             repo.remove_namespace();
 
-            ret.entry(namespace).or_insert(vec![]).push(repo);
+            ret.entry(namespace).or_default().push(repo);
         }
 
         Ok(ret)
