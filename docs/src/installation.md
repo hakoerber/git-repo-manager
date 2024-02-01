@@ -55,3 +55,42 @@ Then, use a modified build command to get a statically linked binary:
 ```bash
 $ cargo install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
 ```
+
+## [Nix](https://nixos.org/)
+
+Run from github without downloading:
+
+```bash
+$ nix run github:hakoerber/git-repo-manager/develop -- --version
+git-repo-manager 0.7.15
+```
+
+Run from local source directory:
+
+```bash
+$ nix run . -- --version
+git-repo-manager 0.7.15
+```
+
+Integrate into a [Nix Flake](https://nixos.wiki/wiki/Flakes):
+
+```nix
+{
+  inputs = {
+    ...
+    git-repo-manager = {
+      url = "github:hakoerber/git-repo-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
+  };
+
+  outputs = {
+    ...
+    pkgs = import inputs.nixpkgs {
+        ...
+        overlays = [ inputs.git-repo-manager.overlays.git-repo-manager ];
+    };
+  };
+}
+```

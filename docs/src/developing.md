@@ -52,3 +52,59 @@ mvdan.cc/sh/v3/cmd/shfmt@latest`, depending on your go build environment.
 
 For details about rustup and the toolchains, see [the installation
 section](./installation.md).
+
+## Development Environment with [Nix](https://nixos.org)
+
+Enter a development shell with all tools and dependencies:
+
+```bash
+$ nix develop
+```
+
+From within the nix shell:
+
+```bash
+$ just [TARGET]
+```
+
+or
+
+```bash
+$ cargo build
+```
+
+Update toolchain and dependencies:
+
+```bash
+$ nix flake update
+```
+
+Build:
+
+```bash
+$ nix build
+```
+
+Run:
+
+```bash
+$ nix run . -- [ARGUMENTS]
+```
+
+Find more documentation about Nix Flakes here: https://nixos.wiki/wiki/Flakes
+
+### Caveats
+
+The current Nix environment does not source:
+
+- aarch64-unknown-linux-musl
+- x86_64-unknown-linux-musl
+- docker and related tools
+
+If interest develops this can be added.
+
+### Developing Nix
+
+The crate is built using [Crane](https://github.com/ipetkov/crane).
+
+Format code with [alejandra](https://github.com/kamadorueda/alejandra).
