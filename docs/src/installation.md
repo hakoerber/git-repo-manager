@@ -8,7 +8,7 @@ installed.
 
 Make sure that the stable toolchain is installed:
 
-```
+```bash
 $ rustup toolchain install stable
 ```
 
@@ -46,12 +46,12 @@ need `musl` and a few other build dependencies installed installed:
 
 The, add the musl target via `rustup`:
 
-```
+```bash
 $ rustup target add x86_64-unknown-linux-musl
 ```
 
 Then, use a modified build command to get a statically linked binary:
 
-```
+```bash
 $ cargo install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
 ```
