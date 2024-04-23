@@ -153,7 +153,7 @@ def test_worktree_rebase(pull, rebase, ffable, has_changes, stash):
             assert len(cmd.stderr) != 0
         elif has_changes and not stash:
             assert cmd.returncode != 0
-            assert re.match(r".*myfeatbranch.*contains changes.*", cmd.stderr)
+            assert re.search(r".*myfeatbranch.*contains changes.*", cmd.stderr)
         else:
             repo = git.Repo(f"{base_dir}/myfeatbranch")
             if has_changes:
