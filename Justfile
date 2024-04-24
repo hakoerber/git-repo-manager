@@ -26,7 +26,7 @@ fmt-check:
 
 lint:
     {{cargo}} clippy --no-deps -- -Dwarnings
-    git ls-files | grep '\.py$' | xargs ruff --ignore E501
+    git ls-files | grep '\.py$' | xargs ruff check --ignore E501
     git ls-files | grep '\.sh$' | xargs -L 1 shellcheck --norc
 
 lint-fix:
