@@ -1478,7 +1478,7 @@ impl RepoHandle {
 
 pub struct RemoteHandle<'a>(git2::Remote<'a>);
 pub struct Commit<'a>(git2::Commit<'a>);
-pub struct Reference<'a>(git2::Reference<'a>);
+pub struct Reference();
 pub struct Oid(git2::Oid);
 
 impl Oid {
