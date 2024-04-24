@@ -1141,7 +1141,7 @@ impl RepoHandle {
             }
         }
 
-        for branch_name in &vec!["main", "master"] {
+        for branch_name in &["main", "master"] {
             if let Ok(branch) = self.0.find_branch(branch_name, git2::BranchType::Local) {
                 return Ok(Branch(branch));
             }

@@ -11,7 +11,7 @@ fn add_table_header(table: &mut Table) {
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
         .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-        .set_header(vec![
+        .set_header([
             Cell::new("Repo"),
             Cell::new("Worktree"),
             Cell::new("Status"),
@@ -29,7 +29,7 @@ fn add_repo_status(
 ) -> Result<(), String> {
     let repo_status = repo_handle.status(is_worktree)?;
 
-    table.add_row(vec![
+    table.add_row([
         repo_name,
         match is_worktree {
             true => "\u{2714}",
@@ -207,7 +207,7 @@ fn add_worktree_table_header(table: &mut Table) {
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
         .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
-        .set_header(vec![
+        .set_header([
             Cell::new("Worktree"),
             Cell::new("Status"),
             Cell::new("Branch"),
@@ -250,7 +250,7 @@ fn add_worktree_status(
         Err(_) => String::from(""),
     };
 
-    table.add_row(vec![
+    table.add_row([
         worktree.name(),
         &match repo_status.changes {
             Some(changes) => {
