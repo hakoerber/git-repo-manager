@@ -92,7 +92,9 @@
             <div class="sidebar-scrollbox">
                 <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html" class="active"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behavior.html"><strong aria-hidden="true">4.3.</strong> Behavior Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
 
         <!-- Track and set sidebar scroll position -->
@@ -189,11 +191,11 @@ issue).  But you get the following:</p>
 <p>Now you can create a temporary commit or stash your changes. In any case, you
 have some mental overhead before you can work on something else. Especially with
 stashes, you'll have to remember to do a <code>git stash pop</code> before resuming your
-work (I cannot count the number of times where I &quot;rediscovered&quot; some code hidden
+work (I cannot count the number of times where I "rediscovered" some code hidden
 in some old stash I forgot about). Also, conflicts on a <code>git stash pop</code> are just
 horrible.</p>
 <p>And even worse: If you're currently in the process of resolving merge conflicts
-or an interactive rebase, there is just no way to &quot;pause&quot; this work to check out
+or an interactive rebase, there is just no way to "pause" this work to check out
 a different branch.</p>
 <p>Sometimes, it's crucial to have an unchanging state of your repository until
 some long-running process finishes. I'm thinking of Ansible and Terraform runs.
@@ -216,18 +218,18 @@ worktree setup quite easy:</p>
 worktree.</strong></p>
 <p>In other words: If you're checking out branch <code>mybranch</code> into a new worktree,
 the worktree directory will be named <code>mybranch</code>.</p>
-<p>GRM can be used with both &quot;normal&quot; and worktree-enabled repositories. But note
+<p>GRM can be used with both "normal" and worktree-enabled repositories. But note
 that a single repository can be either the former or the latter. You'll have to
 decide during the initial setup which way you want to go for that repository.</p>
 <p>If you want to clone your repository in a worktree-enabled way, specify
 <code>worktree_setup = true</code> for the repository in your <code>config.toml</code>:</p>
 <pre><code class="language-toml">[[trees.repos]]
-name = &quot;git-repo-manager&quot;
+name = "git-repo-manager"
 worktree_setup = true
 </code></pre>
 <p>Now, when you run a <code>grm sync</code>, you'll notice that the directory of the
 repository is empty! Well, not totally, there is a hidden directory called
-<code>.git-main-working-tree</code>.  This is where the repository actually &quot;lives&quot; (it's a
+<code>.git-main-working-tree</code>.  This is where the repository actually "lives" (it's a
 bare checkout).</p>
 <p>Note that there are few specific things you can configure for a certain
 workspace.  This is all done in an optional <code>grm.toml</code> file right in the root of

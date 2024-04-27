@@ -92,7 +92,9 @@
             <div class="sidebar-scrollbox">
                 <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html" class="active"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behavior.html"><strong aria-hidden="true">4.3.</strong> Behavior Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
 
         <!-- Track and set sidebar scroll position -->
@@ -189,7 +191,7 @@ trees:
         worktree_setup: true
         remotes:
           - name: origin
-            url: &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+            url: "https://github.com/hakoerber/git-repo-manager.git"
             type: https
 </code></pre>
 <p>To apply the configuration and check whether all repositories are in sync, run
@@ -201,8 +203,8 @@ the following:</p>
 let's change the name of the remote (currently <code>origin</code>):</p>
 <pre><code class="language-bash">$ sed -i 's/name: origin/name: github/' ~/code/config.yml
 $ grm repos sync config --config ~/code/config.yml
-[⚙] git-repo-manager: Setting up new remote &quot;github&quot; to &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
-[⚙] git-repo-manager: Deleting remote &quot;origin&quot;
+[⚙] git-repo-manager: Setting up new remote "github" to "https://github.com/hakoerber/git-repo-manager.git"
+[⚙] git-repo-manager: Deleting remote "origin"
 [✔] git-repo-manager: OK
 </code></pre>
 <p>GRM replaced the <code>origin</code> remote with <code>github</code>.</p>
@@ -214,10 +216,10 @@ means. Then, on every machine, all your repositories are a single <code>grm repo
 them all to your local machine.</p>
 <p>To authenticate, you'll need to get a personal access token, as described in
 <a href="./forge_integration.html#github">the forge documentation</a>. Let's assume you put
-your token into <code>~/.github_token</code> (please don't if you're doing this &quot;for
-real&quot;!)</p>
+your token into <code>~/.github_token</code> (please don't if you're doing this "for
+real"!)</p>
 <p>Let's first see what kind of repos we can find:</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/ --format yaml
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/ --format yaml
 ---
 trees: []
 $
@@ -227,7 +229,7 @@ you don't, GRM will just relax, as it's lazy).</p>
 <p>There are different filters (see <a href="./forge_integration.html#filters">the forge
 documentation</a> for more info). In our case,
 we'll just use the <code>--owner</code> filter to get all repos that belong to us:</p>
-<pre><code class="language-bash">$ grm repos find remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/ --format yaml
+<pre><code class="language-bash">$ grm repos find remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/ --format yaml
 ---
 trees:
   - root: ~/code/github.com
@@ -236,19 +238,19 @@ trees:
         worktree_setup: false
         remotes:
           - name: origin
-            url: &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+            url: "https://github.com/hakoerber/git-repo-manager.git"
             type: https
 </code></pre>
 <p>Nice! The format is the same as we got from <code>grm repos find local</code> above. So if
 we wanted, we could save this file and use it with <code>grm repos sync config</code> as
 above. But there is an even easier way: We can directly clone the repositories!</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/
-[⚙] Cloning into &quot;~/code/github.com/git-repo-manager&quot; from &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/
+[⚙] Cloning into "~/code/github.com/git-repo-manager" from "https://github.com/hakoerber/git-repo-manager.git"
 [✔] git-repo-manager: Repository successfully cloned
 [✔] git-repo-manager: OK
 </code></pre>
 <p>Nice! Just to make sure, let's run the same command again:</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/
 [✔] git-repo-manager: OK
 </code></pre>
 <p>GRM saw that the repository is already there and did nothing (remember, it's

@@ -93,7 +93,9 @@
             <div class="sidebar-scrollbox">
                 <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behavior.html"><strong aria-hidden="true">4.3.</strong> Behavior Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
 
         <!-- Track and set sidebar scroll position -->
@@ -210,7 +212,7 @@ using the stash or temporary commits.</li>
 using <a href="https://rustup.rs/"><code>rustup</code></a>. Make sure that rustup is properly
 installed.</p>
 <p>Make sure that the stable toolchain is installed:</p>
-<pre><code>$ rustup toolchain install stable
+<pre><code class="language-bash">$ rustup toolchain install stable
 </code></pre>
 <p>Then, install the build dependencies:</p>
 <div class="table-wrapper"><table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
@@ -235,10 +237,39 @@ need <code>musl</code> and a few other build dependencies installed installed:</
 </div>
 <p>(<code>perl</code> and <code>make</code> are required for the OpenSSL build script)</p>
 <p>The, add the musl target via <code>rustup</code>:</p>
-<pre><code>$ rustup target add x86_64-unknown-linux-musl
+<pre><code class="language-bash">$ rustup target add x86_64-unknown-linux-musl
 </code></pre>
 <p>Then, use a modified build command to get a statically linked binary:</p>
-<pre><code>$ cargo install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
+<pre><code class="language-bash">$ cargo install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
+</code></pre>
+<h2 id="nix"><a class="header" href="#nix"><a href="https://nixos.org/">Nix</a></a></h2>
+<p>Run from github without downloading:</p>
+<pre><code class="language-bash">$ nix run github:hakoerber/git-repo-manager/develop -- --version
+git-repo-manager 0.7.15
+</code></pre>
+<p>Run from local source directory:</p>
+<pre><code class="language-bash">$ nix run . -- --version
+git-repo-manager 0.7.15
+</code></pre>
+<p>Integrate into a <a href="https://nixos.wiki/wiki/Flakes">Nix Flake</a>:</p>
+<pre><code class="language-nix">{
+  inputs = {
+    ...
+    git-repo-manager = {
+      url = "github:hakoerber/git-repo-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
+  };
+
+  outputs = {
+    ...
+    pkgs = import inputs.nixpkgs {
+        ...
+        overlays = [ inputs.git-repo-manager.overlays.git-repo-manager ];
+    };
+  };
+}
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="tutorial"><a class="header" href="#tutorial">Tutorial</a></h1>
 <p>Here, you'll find a quick overview over the most common functionality of GRM.</p>
@@ -256,7 +287,7 @@ trees:
         worktree_setup: true
         remotes:
           - name: origin
-            url: &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+            url: "https://github.com/hakoerber/git-repo-manager.git"
             type: https
 </code></pre>
 <p>To apply the configuration and check whether all repositories are in sync, run
@@ -268,8 +299,8 @@ the following:</p>
 let's change the name of the remote (currently <code>origin</code>):</p>
 <pre><code class="language-bash">$ sed -i 's/name: origin/name: github/' ~/code/config.yml
 $ grm repos sync config --config ~/code/config.yml
-[⚙] git-repo-manager: Setting up new remote &quot;github&quot; to &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
-[⚙] git-repo-manager: Deleting remote &quot;origin&quot;
+[⚙] git-repo-manager: Setting up new remote "github" to "https://github.com/hakoerber/git-repo-manager.git"
+[⚙] git-repo-manager: Deleting remote "origin"
 [✔] git-repo-manager: OK
 </code></pre>
 <p>GRM replaced the <code>origin</code> remote with <code>github</code>.</p>
@@ -281,10 +312,10 @@ means. Then, on every machine, all your repositories are a single <code>grm repo
 them all to your local machine.</p>
 <p>To authenticate, you'll need to get a personal access token, as described in
 <a href="./forge_integration.html#github">the forge documentation</a>. Let's assume you put
-your token into <code>~/.github_token</code> (please don't if you're doing this &quot;for
-real&quot;!)</p>
+your token into <code>~/.github_token</code> (please don't if you're doing this "for
+real"!)</p>
 <p>Let's first see what kind of repos we can find:</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/ --format yaml
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/ --format yaml
 ---
 trees: []
 $
@@ -294,7 +325,7 @@ you don't, GRM will just relax, as it's lazy).</p>
 <p>There are different filters (see <a href="./forge_integration.html#filters">the forge
 documentation</a> for more info). In our case,
 we'll just use the <code>--owner</code> filter to get all repos that belong to us:</p>
-<pre><code class="language-bash">$ grm repos find remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/ --format yaml
+<pre><code class="language-bash">$ grm repos find remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/ --format yaml
 ---
 trees:
   - root: ~/code/github.com
@@ -303,19 +334,19 @@ trees:
         worktree_setup: false
         remotes:
           - name: origin
-            url: &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+            url: "https://github.com/hakoerber/git-repo-manager.git"
             type: https
 </code></pre>
 <p>Nice! The format is the same as we got from <code>grm repos find local</code> above. So if
 we wanted, we could save this file and use it with <code>grm repos sync config</code> as
 above. But there is an even easier way: We can directly clone the repositories!</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/
-[⚙] Cloning into &quot;~/code/github.com/git-repo-manager&quot; from &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/
+[⚙] Cloning into "~/code/github.com/git-repo-manager" from "https://github.com/hakoerber/git-repo-manager.git"
 [✔] git-repo-manager: Repository successfully cloned
 [✔] git-repo-manager: OK
 </code></pre>
 <p>Nice! Just to make sure, let's run the same command again:</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command &quot;cat ~/.github_token&quot; --root ~/code/github.com/
+<pre><code class="language-bash">$ grm repos sync remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/
 [✔] git-repo-manager: OK
 </code></pre>
 <p>GRM saw that the repository is already there and did nothing (remember, it's
@@ -394,11 +425,11 @@ properly.</p>
 <p>Then, you're ready to run the first sync. This will clone all configured
 repositories and set up the remotes.</p>
 <pre><code class="language-bash">$ grm repos sync config --config example.config.toml
-[⚙] Cloning into &quot;/home/me/projects/git-repo-manager&quot; from &quot;https://code.hkoerber.de/hannes/git-repo-manager.git&quot;
+[⚙] Cloning into "/home/me/projects/git-repo-manager" from "https://code.hkoerber.de/hannes/git-repo-manager.git"
 [✔] git-repo-manager: Repository successfully cloned
-[⚙] git-repo-manager: Setting up new remote &quot;github&quot; to &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+[⚙] git-repo-manager: Setting up new remote "github" to "https://github.com/hakoerber/git-repo-manager.git"
 [✔] git-repo-manager: OK
-[⚙] Cloning into &quot;/home/me/projects/dotfiles&quot; from &quot;https://github.com/hakoerber/dotfiles.git&quot;
+[⚙] Cloning into "/home/me/projects/dotfiles" from "https://github.com/hakoerber/dotfiles.git"
 [✔] dotfiles: Repository successfully cloned
 [✔] dotfiles: OK
 </code></pre>
@@ -416,7 +447,7 @@ configuration from an existing file tree:</p>
 <p>This will detect all repositories and remotes and write them to <code>config.toml</code>.</p>
 <p>You can exclude repositories from the generated configuration by providing
 a regex that will be test against the path of each discovered repository:</p>
-<pre><code class="language-bash">grm repos find local ~/your/project/root --exclude &quot;^.*/subdir/match-(foo|bar)/.*$&quot; &gt; config.toml
+<pre><code class="language-bash">grm repos find local ~/your/project/root --exclude "^.*/subdir/match-(foo|bar)/.*$" &gt; config.toml
 </code></pre>
 <h3 id="show-the-state-of-your-projects"><a class="header" href="#show-the-state-of-your-projects">Show the state of your projects</a></h3>
 <pre><code class="language-bash">$ grm repos status --config example.config.toml
@@ -452,7 +483,7 @@ code hosting platforms. Right now, the following platforms are supported:</p>
 </ul>
 <p>Imagine you are just starting out with <code>grm</code> and want to clone all your
 repositories from GitHub. This is as simple as:</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --owner --token-command &quot;pass show github_grm_access_token&quot; --path ~/projects
+<pre><code class="language-bash">$ grm repos sync remote --provider github --owner --token-command "pass show github_grm_access_token" --path ~/projects
 </code></pre>
 <p>You will end up with your projects cloned into
 <code>~/projects/{your_github_username}/</code></p>
@@ -462,7 +493,7 @@ token.</p>
 <h3 id="github"><a class="header" href="#github">GitHub</a></h3>
 <p>See the GitHub documentation for personal access tokens:
 <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">Link</a>.</p>
-<p>The only required permission is the &quot;repo&quot; scope.</p>
+<p>The only required permission is the "repo" scope.</p>
 <h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
 <p>See the GitLab documentation for personal access tokens:
 <a href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html">Link</a>.</p>
@@ -490,7 +521,7 @@ This is effectively a shortcut for <code>--user $YOUR_USER</code></li>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --user torvals --owner --group zalando [...]
 </code></pre>
 <p>This would sync all of Torvald's repositories, all of my own repositories and
-all (public) repositories in the &quot;zalando&quot; group.</p>
+all (public) repositories in the "zalando" group.</p>
 <h2 id="strategies"><a class="header" href="#strategies">Strategies</a></h2>
 <p>There are generally three ways how you can use <code>grm</code> with forges:</p>
 <h3 id="ad-hoc-cloning"><a class="header" href="#ad-hoc-cloning">Ad-hoc cloning</a></h3>
@@ -509,14 +540,14 @@ commit to source control. Effectively, you are persisting the options you gave
 to <code>grm</code> on the command line with the ad-hoc approach. Similarly, <code>grm</code> will
 figure out differences between local and remote and resolve them.</p>
 <p>A file would look like this:</p>
-<pre><code class="language-toml">provider = &quot;github&quot;
-token_command = &quot;cat ~/.github_token&quot;
-root = &quot;~/projects&quot;
+<pre><code class="language-toml">provider = "github"
+token_command = "cat ~/.github_token"
+root = "~/projects"
 
 [filters]
 owner = true
 groups = [
-  &quot;zalando&quot;
+  "zalando"
 ]
 </code></pre>
 <p>The options in the file map to the command line options of the <code>grm repos sync remote</code> command.</p>
@@ -551,14 +582,14 @@ in a file instead and read it: <code>cat ~/.gitlab_token</code>.</p>
 and return the token as the first line of stdout.</p>
 <h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
 <p>Maybe you just want to locally clone all repos from your GitHub user?</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --owner --root ~/github_projects --token-command &quot;pass show github_grm_access_token&quot;
+<pre><code class="language-bash">$ grm repos sync remote --provider github --owner --root ~/github_projects --token-command "pass show github_grm_access_token"
 </code></pre>
 <p>This will clone all repositories into
 <code>~/github_projects/{your_github_username}</code>.</p>
 <p>If instead you want to clone <strong>all</strong> repositories you have access to (e.g. via
 organizations or other users' private repos you have access to), just change the
 filter a little bit:</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --access --root ~/github_projects --token-command &quot;pass show github_grm_access_token&quot;
+<pre><code class="language-bash">$ grm repos sync remote --provider github --access --root ~/github_projects --token-command "pass show github_grm_access_token"
 </code></pre>
 <h2 id="limitations"><a class="header" href="#limitations">Limitations</a></h2>
 <h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>
@@ -607,11 +638,11 @@ issue).  But you get the following:</p>
 <p>Now you can create a temporary commit or stash your changes. In any case, you
 have some mental overhead before you can work on something else. Especially with
 stashes, you'll have to remember to do a <code>git stash pop</code> before resuming your
-work (I cannot count the number of times where I &quot;rediscovered&quot; some code hidden
+work (I cannot count the number of times where I "rediscovered" some code hidden
 in some old stash I forgot about). Also, conflicts on a <code>git stash pop</code> are just
 horrible.</p>
 <p>And even worse: If you're currently in the process of resolving merge conflicts
-or an interactive rebase, there is just no way to &quot;pause&quot; this work to check out
+or an interactive rebase, there is just no way to "pause" this work to check out
 a different branch.</p>
 <p>Sometimes, it's crucial to have an unchanging state of your repository until
 some long-running process finishes. I'm thinking of Ansible and Terraform runs.
@@ -634,18 +665,18 @@ worktree setup quite easy:</p>
 worktree.</strong></p>
 <p>In other words: If you're checking out branch <code>mybranch</code> into a new worktree,
 the worktree directory will be named <code>mybranch</code>.</p>
-<p>GRM can be used with both &quot;normal&quot; and worktree-enabled repositories. But note
+<p>GRM can be used with both "normal" and worktree-enabled repositories. But note
 that a single repository can be either the former or the latter. You'll have to
 decide during the initial setup which way you want to go for that repository.</p>
 <p>If you want to clone your repository in a worktree-enabled way, specify
 <code>worktree_setup = true</code> for the repository in your <code>config.toml</code>:</p>
 <pre><code class="language-toml">[[trees.repos]]
-name = &quot;git-repo-manager&quot;
+name = "git-repo-manager"
 worktree_setup = true
 </code></pre>
 <p>Now, when you run a <code>grm sync</code>, you'll notice that the directory of the
 repository is empty! Well, not totally, there is a hidden directory called
-<code>.git-main-working-tree</code>.  This is where the repository actually &quot;lives&quot; (it's a
+<code>.git-main-working-tree</code>.  This is where the repository actually "lives" (it's a
 bare checkout).</p>
 <p>Note that there are few specific things you can configure for a certain
 workspace.  This is all done in an optional <code>grm.toml</code> file right in the root of
@@ -709,7 +740,7 @@ be quite tedious to add <code>--track</code> every single time. Luckily, the <co
 file supports defaults for the tracking behavior. See this for an example:</p>
 <pre><code class="language-toml">[track]
 default = true
-default_remote = &quot;origin&quot;
+default_remote = "origin"
 </code></pre>
 <p>This will set up a tracking branch on <code>origin</code> that has the same name as the
 local branch.</p>
@@ -718,8 +749,8 @@ branches.  Maybe to prevent collisions with other contributors. You can simply
 set <code>default_remote_prefix</code> in <code>grm.toml</code>:</p>
 <pre><code class="language-toml">[track]
 default = true
-default_remote = &quot;origin&quot;
-default_remote_prefix = &quot;myname&quot;
+default_remote = "origin"
+default_remote_prefix = "myname"
 </code></pre>
 <p>When using branch <code>my-feature-branch</code>, the remote tracking branch would be
 <code>origin/myname/my-feature-branch</code> in this case.</p>
@@ -737,8 +768,8 @@ the following in the root of your repository:</p>
 │ mybranch2 ┆ ✔      ┆ mybranch ┆ origin/mybranch2 │
 ╰───────────┴────────┴──────────┴──────────────────╯
 </code></pre>
-<p>The &quot;Status&quot; column would show any uncommitted changes (new / modified / deleted
-files) and the &quot;Remote branch&quot; would show differences to the remote branch (e.g.
+<p>The "Status" column would show any uncommitted changes (new / modified / deleted
+files) and the "Remote branch" would show differences to the remote branch (e.g.
 if there are new pushes to the remote branch that are not yet incorporated into
 your local branch).</p>
 <h2 id="deleting-worktrees"><a class="header" href="#deleting-worktrees">Deleting worktrees</a></h2>
@@ -752,8 +783,8 @@ start with <code>mybranch2</code>:</p>
 [!] Changes in worktree: No remote tracking branch for branch mybranch found. Refusing to delete
 </code></pre>
 <p>Hmmm. <code>grm</code> tells you:</p>
-<p>&quot;Hey, there is no remote branch that you could have pushed your changes to. I'd
-rather not delete work that you cannot recover.&quot;</p>
+<p>"Hey, there is no remote branch that you could have pushed your changes to. I'd
+rather not delete work that you cannot recover."</p>
 <p>Note that <code>grm</code> is very cautious here. As your repository will not be deleted,
 you could still recover the commits via
 <a href="https://git-scm.com/docs/git-reflog"><code>git-reflog</code></a>.  But better safe than
@@ -818,8 +849,8 @@ on non-fast-forwards:</p>
 [✔] master: Done
 [✔] my-cool-branch: Done
 </code></pre>
-<p>&quot;So, what's the difference between <code>pull --rebase</code> and <code>rebase --pull</code>? Why the
-hell is there a <code>--rebase</code> flag in the <code>rebase</code> command?&quot;</p>
+<p>"So, what's the difference between <code>pull --rebase</code> and <code>rebase --pull</code>? Why the
+hell is there a <code>--rebase</code> flag in the <code>rebase</code> command?"</p>
 <p>Yes, it's kind of weird. Remember that <code>pull</code> only ever updates each worktree to
 their remote branch, if possible. <code>rebase</code> rebases onto the <strong>default</strong> branch
 instead. The switches to <code>rebase</code> are just convenience, so you do not have to
@@ -855,7 +886,7 @@ branch</li>
 little surprising as possible.</p>
 <p>In 99% of the cases, you will not have to care about the details, as the normal
 workflows are covered by the rules above. In case you want to know the exact
-behavior &quot;specification&quot;, take a look at the <a href="https://docs.rs/git-repo-manager/latest/grm/worktree/index.html">module documentation for
+behavior "specification", take a look at the <a href="https://docs.rs/git-repo-manager/latest/grm/worktree/index.html">module documentation for
 <code>grm::worktree</code></a>.</p>
 <p>If you think existing behavior is super-duper confusing and you have a better
 idea, do not hesitate to open a GitHub issue to discuss this!</p>
@@ -874,7 +905,7 @@ discuss it.</p>
 <p>The branching strategy is a simplified
 <a href="https://nvie.com/posts/a-successful-git-branching-model/">git-flow</a>.</p>
 <ul>
-<li><code>master</code> is the &quot;production&quot; branch. Each commit is a new release.</li>
+<li><code>master</code> is the "production" branch. Each commit is a new release.</li>
 <li><code>develop</code> is the branch where new stuff is coming in.</li>
 <li>feature branches branch off of <code>develop</code> and merge back into it.</li>
 </ul>
@@ -891,12 +922,13 @@ instructions (it's most likely just a simple <code>cargo install just</code>).</
 <li>Docker &amp; docker-compose for the e2e tests</li>
 <li><code>isort</code>, <code>black</code> and <code>shfmt</code> for formatting.</li>
 <li><code>ruff</code> and <code>shellcheck</code> for linting.</li>
+<li><code>python-tomlkit</code> for the dependency update script.</li>
 <li><code>mdbook</code> for the documentation</li>
 </ul>
 <p>Here are the tools:</p>
 <div class="table-wrapper"><table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
-<tr><td>Arch Linux</td><td><code>pacman -S --needed python3 rustup just docker docker-compose python-black shfmt shellcheck mdbook</code></td></tr>
-<tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends python3 docker.io docker-compose black shellcheck</code></td></tr>
+<tr><td>Arch Linux</td><td><code>pacman -S --needed python3 rustup just docker docker-compose python-black shfmt shellcheck mdbook python-tomlkit</code></td></tr>
+<tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends python3 docker.io docker-compose black shellcheck python3-tomlkit</code></td></tr>
 </tbody></table>
 </div>
 <p>Note that you will have to install <code>just</code> and <code>mdbook</code> manually on Ubuntu (e.g.
@@ -904,6 +936,37 @@ via <code>cargo install just mdbook</code> if your rust build environment is set
 correctly). Same for <code>shfmt</code>, which may just be a <code>go install mvdan.cc/sh/v3/cmd/shfmt@latest</code>, depending on your go build environment.</p>
 <p>For details about rustup and the toolchains, see <a href="./installation.html">the installation
 section</a>.</p>
+<h2 id="development-environment-with-nix"><a class="header" href="#development-environment-with-nix">Development Environment with <a href="https://nixos.org">Nix</a></a></h2>
+<p>Enter a development shell with all tools and dependencies:</p>
+<pre><code class="language-bash">$ nix develop
+</code></pre>
+<p>From within the nix shell:</p>
+<pre><code class="language-bash">$ just [TARGET]
+</code></pre>
+<p>or</p>
+<pre><code class="language-bash">$ cargo build
+</code></pre>
+<p>Update toolchain and dependencies:</p>
+<pre><code class="language-bash">$ nix flake update
+</code></pre>
+<p>Build:</p>
+<pre><code class="language-bash">$ nix build
+</code></pre>
+<p>Run:</p>
+<pre><code class="language-bash">$ nix run . -- [ARGUMENTS]
+</code></pre>
+<p>Find more documentation about Nix Flakes here: https://nixos.wiki/wiki/Flakes</p>
+<h3 id="caveats"><a class="header" href="#caveats">Caveats</a></h3>
+<p>The current Nix environment does not source:</p>
+<ul>
+<li>aarch64-unknown-linux-musl</li>
+<li>x86_64-unknown-linux-musl</li>
+<li>docker and related tools</li>
+</ul>
+<p>If interest develops this can be added.</p>
+<h3 id="developing-nix"><a class="header" href="#developing-nix">Developing Nix</a></h3>
+<p>The crate is built using <a href="https://github.com/ipetkov/crane">Crane</a>.</p>
+<p>Format code with <a href="https://github.com/kamadorueda/alejandra">alejandra</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="testing"><a class="header" href="#testing">Testing</a></h1>
 <p>There are two distinct test suites: One for unit test (<code>just test-unit</code>) and
 integration tests (<code>just test-integration</code>) that is part of the rust crate, and
@@ -953,15 +1016,15 @@ idea.</p>
 independently. Example: You have a paramter that specifies whether a
 configuration is used, and another parameter that sets a certain value in that
 configuration file. It might look something like this:</p>
-<pre><code class="language-python">@pytest.mark.parametrize(&quot;use_config&quot;, [True, False])
-@pytest.mark.parametrize(&quot;use_value&quot;, [&quot;0&quot;, &quot;1&quot;])
+<pre><code class="language-python">@pytest.mark.parametrize("use_config", [True, False])
+@pytest.mark.parametrize("use_value", ["0", "1"])
 def test(...):
 </code></pre>
 <p>This leads to 4 tests being instantiated. But there is little point in setting a
-configuration value when no config is used, so the combinations <code>(False, &quot;0&quot;)</code>
-and <code>(False, &quot;1&quot;)</code> are redundant. To remedy this, spell out the optimized
+configuration value when no config is used, so the combinations <code>(False, "0")</code>
+and <code>(False, "1")</code> are redundant. To remedy this, spell out the optimized
 permutation manually:</p>
-<pre><code class="language-python">@pytest.mark.parametrize(&quot;config&quot;, ((True, &quot;0&quot;), (True, &quot;1&quot;), (False, None)))
+<pre><code class="language-python">@pytest.mark.parametrize("config", ((True, "0"), (True, "1"), (False, None)))
 def test(...):
     (use_config, use_value) = config
 </code></pre>
@@ -981,15 +1044,15 @@ boolean parameter will cut down the number of tests to 62.5%!</p>
 point in testing their combinations. Instead, split them up into different test
 functions. For boolean parameters, this will cut the number of tests in half.</p>
 <p>So instead of this:</p>
-<pre><code class="language-python">@pytest.mark.parametrize(&quot;param1&quot;, [True, False])
-@pytest.mark.parametrize(&quot;param2&quot;, [True, False])
+<pre><code class="language-python">@pytest.mark.parametrize("param1", [True, False])
+@pytest.mark.parametrize("param2", [True, False])
 def test(...):
 </code></pre>
 <p>Rather do this:</p>
-<pre><code class="language-python">@pytest.mark.parametrize(&quot;param1&quot;, [True, False])
+<pre><code class="language-python">@pytest.mark.parametrize("param1", [True, False])
 def test_param1(...):
 
-@pytest.mark.parametrize(&quot;param2&quot;, [True, False])
+@pytest.mark.parametrize("param2", [True, False])
 def test_param2(...):
 </code></pre>
 <p>The tests are running in Docker via docker-compose. This is mainly needed to
@@ -1000,7 +1063,7 @@ mocked by a simple flask container.</p>
 Dependency sprawl. GRM has a dozen direct dependencies, but over 150 transitive
 ones.</p>
 <p>To keep them up to date, there is a script:
-<code>depcheck/update-cargo-dependencies.py</code>. It updates direct dependencies to the
+<code>update-cargo-dependencies.py</code>. It updates direct dependencies to the
 latest stable version and updates transitive dependencies where possible. To run
 it, use <code>just update-dependencies</code>, which will create commits for each update.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="releases"><a class="header" href="#releases">Releases</a></h1>

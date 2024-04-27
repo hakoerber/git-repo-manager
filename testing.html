@@ -92,7 +92,9 @@
             <div class="sidebar-scrollbox">
                 <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behavior.html"><strong aria-hidden="true">4.3.</strong> Behavior Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html" class="active"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
 
         <!-- Track and set sidebar scroll position -->
@@ -222,15 +224,15 @@ idea.</p>
 independently. Example: You have a paramter that specifies whether a
 configuration is used, and another parameter that sets a certain value in that
 configuration file. It might look something like this:</p>
-<pre><code class="language-python">@pytest.mark.parametrize(&quot;use_config&quot;, [True, False])
-@pytest.mark.parametrize(&quot;use_value&quot;, [&quot;0&quot;, &quot;1&quot;])
+<pre><code class="language-python">@pytest.mark.parametrize("use_config", [True, False])
+@pytest.mark.parametrize("use_value", ["0", "1"])
 def test(...):
 </code></pre>
 <p>This leads to 4 tests being instantiated. But there is little point in setting a
-configuration value when no config is used, so the combinations <code>(False, &quot;0&quot;)</code>
-and <code>(False, &quot;1&quot;)</code> are redundant. To remedy this, spell out the optimized
+configuration value when no config is used, so the combinations <code>(False, "0")</code>
+and <code>(False, "1")</code> are redundant. To remedy this, spell out the optimized
 permutation manually:</p>
-<pre><code class="language-python">@pytest.mark.parametrize(&quot;config&quot;, ((True, &quot;0&quot;), (True, &quot;1&quot;), (False, None)))
+<pre><code class="language-python">@pytest.mark.parametrize("config", ((True, "0"), (True, "1"), (False, None)))
 def test(...):
     (use_config, use_value) = config
 </code></pre>
@@ -250,15 +252,15 @@ boolean parameter will cut down the number of tests to 62.5%!</p>
 point in testing their combinations. Instead, split them up into different test
 functions. For boolean parameters, this will cut the number of tests in half.</p>
 <p>So instead of this:</p>
-<pre><code class="language-python">@pytest.mark.parametrize(&quot;param1&quot;, [True, False])
-@pytest.mark.parametrize(&quot;param2&quot;, [True, False])
+<pre><code class="language-python">@pytest.mark.parametrize("param1", [True, False])
+@pytest.mark.parametrize("param2", [True, False])
 def test(...):
 </code></pre>
 <p>Rather do this:</p>
-<pre><code class="language-python">@pytest.mark.parametrize(&quot;param1&quot;, [True, False])
+<pre><code class="language-python">@pytest.mark.parametrize("param1", [True, False])
 def test_param1(...):
 
-@pytest.mark.parametrize(&quot;param2&quot;, [True, False])
+@pytest.mark.parametrize("param2", [True, False])
 def test_param2(...):
 </code></pre>
 <p>The tests are running in Docker via docker-compose. This is mainly needed to

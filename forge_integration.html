@@ -92,7 +92,9 @@
             <div class="sidebar-scrollbox">
                 <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html" class="active"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behavior.html"><strong aria-hidden="true">4.3.</strong> Behavior Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
 
         <!-- Track and set sidebar scroll position -->
@@ -182,7 +184,7 @@ code hosting platforms. Right now, the following platforms are supported:</p>
 </ul>
 <p>Imagine you are just starting out with <code>grm</code> and want to clone all your
 repositories from GitHub. This is as simple as:</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --owner --token-command &quot;pass show github_grm_access_token&quot; --path ~/projects
+<pre><code class="language-bash">$ grm repos sync remote --provider github --owner --token-command "pass show github_grm_access_token" --path ~/projects
 </code></pre>
 <p>You will end up with your projects cloned into
 <code>~/projects/{your_github_username}/</code></p>
@@ -192,7 +194,7 @@ token.</p>
 <h3 id="github"><a class="header" href="#github">GitHub</a></h3>
 <p>See the GitHub documentation for personal access tokens:
 <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">Link</a>.</p>
-<p>The only required permission is the &quot;repo&quot; scope.</p>
+<p>The only required permission is the "repo" scope.</p>
 <h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
 <p>See the GitLab documentation for personal access tokens:
 <a href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html">Link</a>.</p>
@@ -220,7 +222,7 @@ This is effectively a shortcut for <code>--user $YOUR_USER</code></li>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --user torvals --owner --group zalando [...]
 </code></pre>
 <p>This would sync all of Torvald's repositories, all of my own repositories and
-all (public) repositories in the &quot;zalando&quot; group.</p>
+all (public) repositories in the "zalando" group.</p>
 <h2 id="strategies"><a class="header" href="#strategies">Strategies</a></h2>
 <p>There are generally three ways how you can use <code>grm</code> with forges:</p>
 <h3 id="ad-hoc-cloning"><a class="header" href="#ad-hoc-cloning">Ad-hoc cloning</a></h3>
@@ -239,14 +241,14 @@ commit to source control. Effectively, you are persisting the options you gave
 to <code>grm</code> on the command line with the ad-hoc approach. Similarly, <code>grm</code> will
 figure out differences between local and remote and resolve them.</p>
 <p>A file would look like this:</p>
-<pre><code class="language-toml">provider = &quot;github&quot;
-token_command = &quot;cat ~/.github_token&quot;
-root = &quot;~/projects&quot;
+<pre><code class="language-toml">provider = "github"
+token_command = "cat ~/.github_token"
+root = "~/projects"
 
 [filters]
 owner = true
 groups = [
-  &quot;zalando&quot;
+  "zalando"
 ]
 </code></pre>
 <p>The options in the file map to the command line options of the <code>grm repos sync remote</code> command.</p>
@@ -281,14 +283,14 @@ in a file instead and read it: <code>cat ~/.gitlab_token</code>.</p>
 and return the token as the first line of stdout.</p>
 <h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
 <p>Maybe you just want to locally clone all repos from your GitHub user?</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --owner --root ~/github_projects --token-command &quot;pass show github_grm_access_token&quot;
+<pre><code class="language-bash">$ grm repos sync remote --provider github --owner --root ~/github_projects --token-command "pass show github_grm_access_token"
 </code></pre>
 <p>This will clone all repositories into
 <code>~/github_projects/{your_github_username}</code>.</p>
 <p>If instead you want to clone <strong>all</strong> repositories you have access to (e.g. via
 organizations or other users' private repos you have access to), just change the
 filter a little bit:</p>
-<pre><code class="language-bash">$ grm repos sync remote --provider github --access --root ~/github_projects --token-command &quot;pass show github_grm_access_token&quot;
+<pre><code class="language-bash">$ grm repos sync remote --provider github --access --root ~/github_projects --token-command "pass show github_grm_access_token"
 </code></pre>
 <h2 id="limitations"><a class="header" href="#limitations">Limitations</a></h2>
 <h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>

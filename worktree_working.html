@@ -92,7 +92,9 @@
             <div class="sidebar-scrollbox">
                 <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html" class="active"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behavior.html"><strong aria-hidden="true">4.3.</strong> Behavior Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
 
         <!-- Track and set sidebar scroll position -->
@@ -223,7 +225,7 @@ be quite tedious to add <code>--track</code> every single time. Luckily, the <co
 file supports defaults for the tracking behavior. See this for an example:</p>
 <pre><code class="language-toml">[track]
 default = true
-default_remote = &quot;origin&quot;
+default_remote = "origin"
 </code></pre>
 <p>This will set up a tracking branch on <code>origin</code> that has the same name as the
 local branch.</p>
@@ -232,8 +234,8 @@ branches.  Maybe to prevent collisions with other contributors. You can simply
 set <code>default_remote_prefix</code> in <code>grm.toml</code>:</p>
 <pre><code class="language-toml">[track]
 default = true
-default_remote = &quot;origin&quot;
-default_remote_prefix = &quot;myname&quot;
+default_remote = "origin"
+default_remote_prefix = "myname"
 </code></pre>
 <p>When using branch <code>my-feature-branch</code>, the remote tracking branch would be
 <code>origin/myname/my-feature-branch</code> in this case.</p>
@@ -251,8 +253,8 @@ the following in the root of your repository:</p>
 │ mybranch2 ┆ ✔      ┆ mybranch ┆ origin/mybranch2 │
 ╰───────────┴────────┴──────────┴──────────────────╯
 </code></pre>
-<p>The &quot;Status&quot; column would show any uncommitted changes (new / modified / deleted
-files) and the &quot;Remote branch&quot; would show differences to the remote branch (e.g.
+<p>The "Status" column would show any uncommitted changes (new / modified / deleted
+files) and the "Remote branch" would show differences to the remote branch (e.g.
 if there are new pushes to the remote branch that are not yet incorporated into
 your local branch).</p>
 <h2 id="deleting-worktrees"><a class="header" href="#deleting-worktrees">Deleting worktrees</a></h2>
@@ -266,8 +268,8 @@ start with <code>mybranch2</code>:</p>
 [!] Changes in worktree: No remote tracking branch for branch mybranch found. Refusing to delete
 </code></pre>
 <p>Hmmm. <code>grm</code> tells you:</p>
-<p>&quot;Hey, there is no remote branch that you could have pushed your changes to. I'd
-rather not delete work that you cannot recover.&quot;</p>
+<p>"Hey, there is no remote branch that you could have pushed your changes to. I'd
+rather not delete work that you cannot recover."</p>
 <p>Note that <code>grm</code> is very cautious here. As your repository will not be deleted,
 you could still recover the commits via
 <a href="https://git-scm.com/docs/git-reflog"><code>git-reflog</code></a>.  But better safe than

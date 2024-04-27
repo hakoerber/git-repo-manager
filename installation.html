@@ -92,7 +92,9 @@
             <div class="sidebar-scrollbox">
                 <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behavior.html"><strong aria-hidden="true">4.3.</strong> Behavior Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
 
         <!-- Track and set sidebar scroll position -->
@@ -179,7 +181,7 @@
 using <a href="https://rustup.rs/"><code>rustup</code></a>. Make sure that rustup is properly
 installed.</p>
 <p>Make sure that the stable toolchain is installed:</p>
-<pre><code>$ rustup toolchain install stable
+<pre><code class="language-bash">$ rustup toolchain install stable
 </code></pre>
 <p>Then, install the build dependencies:</p>
 <div class="table-wrapper"><table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
@@ -204,10 +206,39 @@ need <code>musl</code> and a few other build dependencies installed installed:</
 </div>
 <p>(<code>perl</code> and <code>make</code> are required for the OpenSSL build script)</p>
 <p>The, add the musl target via <code>rustup</code>:</p>
-<pre><code>$ rustup target add x86_64-unknown-linux-musl
+<pre><code class="language-bash">$ rustup target add x86_64-unknown-linux-musl
 </code></pre>
 <p>Then, use a modified build command to get a statically linked binary:</p>
-<pre><code>$ cargo install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
+<pre><code class="language-bash">$ cargo install git-repo-manager --target x86_64-unknown-linux-musl --features=static-build
+</code></pre>
+<h2 id="nix"><a class="header" href="#nix"><a href="https://nixos.org/">Nix</a></a></h2>
+<p>Run from github without downloading:</p>
+<pre><code class="language-bash">$ nix run github:hakoerber/git-repo-manager/develop -- --version
+git-repo-manager 0.7.15
+</code></pre>
+<p>Run from local source directory:</p>
+<pre><code class="language-bash">$ nix run . -- --version
+git-repo-manager 0.7.15
+</code></pre>
+<p>Integrate into a <a href="https://nixos.wiki/wiki/Flakes">Nix Flake</a>:</p>
+<pre><code class="language-nix">{
+  inputs = {
+    ...
+    git-repo-manager = {
+      url = "github:hakoerber/git-repo-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
+  };
+
+  outputs = {
+    ...
+    pkgs = import inputs.nixpkgs {
+        ...
+        overlays = [ inputs.git-repo-manager.overlays.git-repo-manager ];
+    };
+  };
+}
 </code></pre>
 
                     </main>

@@ -92,7 +92,9 @@
             <div class="sidebar-scrollbox">
                 <ol class="chapter"><li class="chapter-item expanded affix "><a href="overview.html">Overview</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="tutorial.html"><strong aria-hidden="true">2.</strong> Tutorial</a></li><li class="chapter-item expanded "><a href="repos.html"><strong aria-hidden="true">3.</strong> Managing Repositories</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="local_configuration.html" class="active"><strong aria-hidden="true">3.1.</strong> Local Configuration</a></li><li class="chapter-item expanded "><a href="forge_integration.html"><strong aria-hidden="true">3.2.</strong> Forge Integrations</a></li></ol></li><li class="chapter-item expanded "><a href="worktrees.html"><strong aria-hidden="true">4.</strong> Git Worktrees</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="worktree_working.html"><strong aria-hidden="true">4.1.</strong> Working with Worktrees</a></li><li class="chapter-item expanded "><a href="worktree_remotes.html"><strong aria-hidden="true">4.2.</strong> Worktrees and Remotes</a></li><li class="chapter-item expanded "><a href="worktree_behavior.html"><strong aria-hidden="true">4.3.</strong> Behavior Details</a></li></ol></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">5.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">6.</strong> Developer Documentation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.1.</strong> Testing</a></li><li class="chapter-item expanded "><a href="dependency_updates.html"><strong aria-hidden="true">6.2.</strong> Dependency updates</a></li><li class="chapter-item expanded "><a href="releases.html"><strong aria-hidden="true">6.3.</strong> Releases</a></li><li class="chapter-item expanded "><a href="formatting_and_style.html"><strong aria-hidden="true">6.4.</strong> Formatting & Style</a></li><li class="chapter-item expanded "><a href="documentation.html"><strong aria-hidden="true">6.5.</strong> The Docs Themselves</a></li></ol></li></ol>
             </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
         </nav>
 
         <!-- Track and set sidebar scroll position -->
@@ -186,11 +188,11 @@ properly.</p>
 <p>Then, you're ready to run the first sync. This will clone all configured
 repositories and set up the remotes.</p>
 <pre><code class="language-bash">$ grm repos sync config --config example.config.toml
-[⚙] Cloning into &quot;/home/me/projects/git-repo-manager&quot; from &quot;https://code.hkoerber.de/hannes/git-repo-manager.git&quot;
+[⚙] Cloning into "/home/me/projects/git-repo-manager" from "https://code.hkoerber.de/hannes/git-repo-manager.git"
 [✔] git-repo-manager: Repository successfully cloned
-[⚙] git-repo-manager: Setting up new remote &quot;github&quot; to &quot;https://github.com/hakoerber/git-repo-manager.git&quot;
+[⚙] git-repo-manager: Setting up new remote "github" to "https://github.com/hakoerber/git-repo-manager.git"
 [✔] git-repo-manager: OK
-[⚙] Cloning into &quot;/home/me/projects/dotfiles&quot; from &quot;https://github.com/hakoerber/dotfiles.git&quot;
+[⚙] Cloning into "/home/me/projects/dotfiles" from "https://github.com/hakoerber/dotfiles.git"
 [✔] dotfiles: Repository successfully cloned
 [✔] dotfiles: OK
 </code></pre>
@@ -208,7 +210,7 @@ configuration from an existing file tree:</p>
 <p>This will detect all repositories and remotes and write them to <code>config.toml</code>.</p>
 <p>You can exclude repositories from the generated configuration by providing
 a regex that will be test against the path of each discovered repository:</p>
-<pre><code class="language-bash">grm repos find local ~/your/project/root --exclude &quot;^.*/subdir/match-(foo|bar)/.*$&quot; &gt; config.toml
+<pre><code class="language-bash">grm repos find local ~/your/project/root --exclude "^.*/subdir/match-(foo|bar)/.*$" &gt; config.toml
 </code></pre>
 <h3 id="show-the-state-of-your-projects"><a class="header" href="#show-the-state-of-your-projects">Show the state of your projects</a></h3>
 <pre><code class="language-bash">$ grm repos status --config example.config.toml
