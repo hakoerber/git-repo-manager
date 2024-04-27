@@ -22,8 +22,7 @@ repository = "https://github.com/hakoerber/git-repo-manager"
 
 readme = "README.md"
 
-# Required for `std::path::Path::is_symlink()`. Will be released with 1.57.
-rust-version = "1.58"
+rust-version = "1.70"
 
 license = "GPL-3.0-only"
 
