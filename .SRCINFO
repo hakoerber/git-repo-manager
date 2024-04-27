@@ -14,7 +14,6 @@ pkgbase = grm-git
 	depends = openssl
 	provides = grm
 	conflicts = grm
-	options = !buildflags
 	source = grm-git::git+https://github.com/hakoerber/git-repo-manager#branch=develop
 	sha256sums = SKIP
 

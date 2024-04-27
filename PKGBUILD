@@ -10,8 +10,6 @@ depends=('glibc' 'gcc-libs' 'libgit2' 'curl' 'openssl')
 makedepends=('cargo' 'git')
 provides=('grm')
 conflicts=('grm')
-options=("!buildflags")
-# options=()
 source=("${pkgname}::git+https://github.com/hakoerber/git-repo-manager#branch=develop")
 sha256sums=('SKIP')
 
@@ -32,7 +30,7 @@ build() {
   export CARGO_TARGET_DIR=target
   export GRM_RELEASE_VERSION="${pkgver}"
   # https://github.com/alexcrichton/ssh2-rs/issues/171#issue-580432290
-  # export LIBSSH2_SYS_USE_PKG_CONFIG=
+  export LIBSSH2_SYS_USE_PKG_CONFIG=
   cargo build --frozen --release
 }
 
