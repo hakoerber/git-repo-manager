@@ -69,10 +69,9 @@ version = "=0.9.34"
 [dependencies.serde_json]
 version = "=1.0.116"
 
-[dependencies.isahc]
-version = "=1.7.2"
-default-features = false
-features = ["json", "http2", "text-decoding"]
+[dependencies.ureq]
+version = "=2.9.7"
+features = ["json"]
 
 [dependencies.parse_link_header]
 version = "=0.3.3"
@@ -87,6 +86,4 @@ version = "=0.2.0"
 static-build = [
   "git2/vendored-openssl",
   "git2/vendored-libgit2",
-  "isahc/static-curl",
-  "isahc/static-ssl",
 ]
