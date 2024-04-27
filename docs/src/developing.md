@@ -36,14 +36,15 @@ You will need the following tools:
 * Docker & docker-compose for the e2e tests
 * `isort`, `black` and `shfmt` for formatting.
 * `ruff` and `shellcheck` for linting.
+* `python-tomlkit` for the dependency update script.
 * `mdbook` for the documentation
 
 Here are the tools:
 
-| Distribution  | Command                                                                                             |
-| ------------- | --------------------------------------------------------------------------------------------------- |
-| Arch Linux    | `pacman -S --needed python3 rustup just docker docker-compose python-black shfmt shellcheck mdbook` |
-| Ubuntu/Debian | `apt-get install --no-install-recommends python3 docker.io docker-compose black shellcheck`         |
+| Distribution  | Command                                                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Arch Linux    | `pacman -S --needed python3 rustup just docker docker-compose python-black shfmt shellcheck mdbook python-tomlkit` |
+| Ubuntu/Debian | `apt-get install --no-install-recommends python3 docker.io docker-compose black shellcheck python3-tomlkit`        |
 
 Note that you will have to install `just` and `mdbook` manually on Ubuntu (e.g.
 via `cargo install just mdbook` if your rust build environment is set up
@@ -52,3 +53,59 @@ mvdan.cc/sh/v3/cmd/shfmt@latest`, depending on your go build environment.
 
 For details about rustup and the toolchains, see [the installation
 section](./installation.md).
+
+## Development Environment with [Nix](https://nixos.org)
+
+Enter a development shell with all tools and dependencies:
+
+```bash
+$ nix develop
+```
+
+From within the nix shell:
+
+```bash
+$ just [TARGET]
+```
+
+or
+
+```bash
+$ cargo build
+```
+
+Update toolchain and dependencies:
+
+```bash
+$ nix flake update
+```
+
+Build:
+
+```bash
+$ nix build
+```
+
+Run:
+
+```bash
+$ nix run . -- [ARGUMENTS]
+```
+
+Find more documentation about Nix Flakes here: https://nixos.wiki/wiki/Flakes
+
+### Caveats
+
+The current Nix environment does not source:
+
+- aarch64-unknown-linux-musl
+- x86_64-unknown-linux-musl
+- docker and related tools
+
+If interest develops this can be added.
+
+### Developing Nix
+
+The crate is built using [Crane](https://github.com/ipetkov/crane).
+
+Format code with [alejandra](https://github.com/kamadorueda/alejandra).

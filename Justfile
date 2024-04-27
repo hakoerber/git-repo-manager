@@ -26,7 +26,7 @@ fmt-check:
 
 lint:
     {{cargo}} clippy --no-deps -- -Dwarnings
-    git ls-files | grep '\.py$' | xargs ruff --ignore E501
+    git ls-files | grep '\.py$' | xargs ruff check --ignore E501
     git ls-files | grep '\.sh$' | xargs -L 1 shellcheck --norc
 
 lint-fix:
@@ -88,11 +88,7 @@ test-e2e +tests=".": test-binary
 update-dependencies: update-cargo-dependencies
 
 update-cargo-dependencies:
-    @cd ./depcheck \
-    && python3 -m venv ./venv \
-    && . ./venv/bin/activate \
-    && pip --disable-pip-version-check install -r ./requirements.txt > /dev/null \
-    && ./update-cargo-dependencies.py
+    ./update-cargo-dependencies.py
 
 wait:
     read -p "[ENTER] to continue "

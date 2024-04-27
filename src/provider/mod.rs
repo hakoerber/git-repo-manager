@@ -26,9 +26,9 @@ pub enum RemoteProvider {
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-enum ProjectResponse<T, U> {
-    Success(Vec<T>),
-    Failure(U),
+enum ProjectResponse<F> {
+    Success,
+    Failure(F),
 }
 
 pub fn escape(s: &str) -> String {

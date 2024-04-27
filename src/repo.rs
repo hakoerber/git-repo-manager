@@ -1141,7 +1141,7 @@ impl RepoHandle {
             }
         }
 
-        for branch_name in &vec!["main", "master"] {
+        for branch_name in &["main", "master"] {
             if let Ok(branch) = self.0.find_branch(branch_name, git2::BranchType::Local) {
                 return Ok(Branch(branch));
             }
@@ -1478,7 +1478,7 @@ impl RepoHandle {
 
 pub struct RemoteHandle<'a>(git2::Remote<'a>);
 pub struct Commit<'a>(git2::Commit<'a>);
-pub struct Reference<'a>(git2::Reference<'a>);
+pub struct Reference();
 pub struct Oid(git2::Oid);
 
 impl Oid {

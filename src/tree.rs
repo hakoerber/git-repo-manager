@@ -140,7 +140,7 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, String> {
 }
 
 fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result<(), String> {
-    let repo_path = root_path.join(&repo.fullname());
+    let repo_path = root_path.join(repo.fullname());
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
     let mut newly_created = false;
