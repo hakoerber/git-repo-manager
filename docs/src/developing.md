@@ -36,14 +36,15 @@ You will need the following tools:
 * Docker & docker-compose for the e2e tests
 * `isort`, `black` and `shfmt` for formatting.
 * `ruff` and `shellcheck` for linting.
+* `python-tomlkit` for the dependency update script.
 * `mdbook` for the documentation
 
 Here are the tools:
 
-| Distribution  | Command                                                                                             |
-| ------------- | --------------------------------------------------------------------------------------------------- |
-| Arch Linux    | `pacman -S --needed python3 rustup just docker docker-compose python-black shfmt shellcheck mdbook` |
-| Ubuntu/Debian | `apt-get install --no-install-recommends python3 docker.io docker-compose black shellcheck`         |
+| Distribution  | Command                                                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Arch Linux    | `pacman -S --needed python3 rustup just docker docker-compose python-black shfmt shellcheck mdbook python-tomlkit` |
+| Ubuntu/Debian | `apt-get install --no-install-recommends python3 docker.io docker-compose black shellcheck python3-tomlkit`        |
 
 Note that you will have to install `just` and `mdbook` manually on Ubuntu (e.g.
 via `cargo install just mdbook` if your rust build environment is set up

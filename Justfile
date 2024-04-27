@@ -88,11 +88,7 @@ test-e2e +tests=".": test-binary
 update-dependencies: update-cargo-dependencies
 
 update-cargo-dependencies:
-    @cd ./depcheck \
-    && python3 -m venv ./venv \
-    && . ./venv/bin/activate \
-    && pip --disable-pip-version-check install -r ./requirements.txt > /dev/null \
-    && ./update-cargo-dependencies.py
+    ./update-cargo-dependencies.py
 
 wait:
     read -p "[ENTER] to continue "
