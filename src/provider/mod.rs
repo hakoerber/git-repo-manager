@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-// Required to use the `json()` method from the trait
-use isahc::ReadResponseExt;
-
 pub mod github;
 pub mod gitlab;
 
@@ -163,51 +160,43 @@ pub trait Provider {
     ) -> Result<Vec<Self::Project>, ApiErrorResponse<Self::Error>> {
         let mut results = vec![];
 
-        let client = isahc::HttpClient::new().map_err(|error| error.to_string())?;
-
-        let request = isahc::Request::builder()
-            .uri(uri)
-            .method("GET")
-            .header("accept", accept_header.unwrap_or("application/json"))
-            .header(
+        match ureq::get(uri)
+            .set("accept", accept_header.unwrap_or("application/json"))
+            .set(
                 "authorization",
-                format!(
+                &format!(
                     "{} {}",
                     Self::auth_header_key(),
                     &self.secret_token().access()
                 ),
             )
-            .body(())
-            .map_err(|error| error.to_string())?;
+            .call()
+        {
+            Err(ureq::Error::Transport(error)) => return Err(error.to_string())?,
+            Err(ureq::Error::Status(_code, response)) => {
+                let r: Self::Error = response
+                    .into_json()
+                    .map_err(|error| format!("Failed deserializing error response: {}", error))?;
+                return Err(ApiErrorResponse::Json(r));
+            }
+            Ok(response) => {
+                if let Some(link_header) = response.header("link") {
+                    let link_header =
+                        parse_link_header::parse(link_header).map_err(|error| error.to_string())?;
 
-        let mut response = client
-            .send(request)
-            .map_err(|error| ApiErrorResponse::String(error.to_string()))?;
+                    let next_page = link_header.get(&Some(String::from("next")));
 
-        if !response.status().is_success() {
-            let r: Self::Error = response
-                .json()
-                .map_err(|error| format!("Failed deserializing error response: {}", error))?;
-            return Err(ApiErrorResponse::Json(r));
-        }
+                    if let Some(page) = next_page {
+                        let following_repos = self.call_list(&page.raw_uri, accept_header)?;
+                        results.extend(following_repos);
+                    }
+                }
 
-        let result: Vec<Self::Project> = response
-            .json()
-            .map_err(|error| format!("Failed deserializing response: {}", error))?;
+                let result: Vec<Self::Project> = response
+                    .into_json()
+                    .map_err(|error| format!("Failed deserializing response: {}", error))?;
 
-        results.extend(result);
-
-        if let Some(link_header) = response.headers().get("link") {
-            let link_header = link_header.to_str().map_err(|error| error.to_string())?;
-
-            let link_header =
-                parse_link_header::parse(link_header).map_err(|error| error.to_string())?;
-
-            let next_page = link_header.get(&Some(String::from("next")));
-
-            if let Some(page) = next_page {
-                let following_repos = self.call_list(&page.raw_uri, accept_header)?;
-                results.extend(following_repos);
+                results.extend(result);
             }
         }
 
@@ -330,35 +319,25 @@ where
     T: serde::de::DeserializeOwned,
     U: serde::de::DeserializeOwned + JsonError,
 {
-    let client = isahc::HttpClient::new().map_err(|error| error.to_string())?;
-
-    let request = isahc::Request::builder()
-        .uri(uri)
-        .header("accept", accept_header.unwrap_or("application/json"))
-        .header(
+    let response = match ureq::get(uri)
+        .set("accept", accept_header.unwrap_or("application/json"))
+        .set(
             "authorization",
-            format!("{} {}", &auth_header_key, &secret_token.access()),
+            &format!("{} {}", &auth_header_key, &secret_token.access()),
         )
-        .body(())
-        .map_err(|error| ApiErrorResponse::String(error.to_string()))?;
-
-    let mut response = client
-        .send(request)
-        .map_err(|error| ApiErrorResponse::String(error.to_string()))?;
-
-    let success = response.status().is_success();
-
-    if !success {
-        let response: U = response
-            .json()
-            .map_err(|error| format!("Failed deserializing error response: {}", error))?;
-
-        return Err(ApiErrorResponse::Json(response));
-    }
-
-    let response: T = response
-        .json()
-        .map_err(|error| format!("Failed deserializing response: {}", error))?;
+        .call()
+    {
+        Err(ureq::Error::Transport(error)) => return Err(error.to_string())?,
+        Err(ureq::Error::Status(_code, response)) => {
+            let response: U = response
+                .into_json()
+                .map_err(|error| format!("Failed deserializing error response: {}", error))?;
+            return Err(ApiErrorResponse::Json(response));
+        }
+        Ok(response) => response
+            .into_json()
+            .map_err(|error| format!("Failed deserializing response: {}", error))?,
+    };
 
     Ok(response)
 }

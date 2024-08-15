@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.7.16"
+version = "0.7.17"
 edition = "2021"
 
 authors = [
@@ -37,17 +37,15 @@ path = "src/lib.rs"
 name = "grm"
 path = "src/grm/main.rs"
 
-[dependencies]
-
 [dependencies.toml]
-version = "=0.8.12"
+version = "=0.8.19"
 
 [dependencies.serde]
-version = "=1.0.199"
+version = "=1.0.207"
 features = ["derive"]
 
 [dependencies.git2]
-version = "=0.18.3"
+version = "=0.19.0"
 
 [dependencies.shellexpand]
 version = "=3.1.0"
@@ -60,7 +58,7 @@ features = ["derive", "cargo"]
 version = "=0.15.8"
 
 [dependencies.regex]
-version = "=1.10.4"
+version = "=1.10.6"
 
 [dependencies.comfy-table]
 version = "=7.1.1"
@@ -69,12 +67,11 @@ version = "=7.1.1"
 version = "=0.9.34"
 
 [dependencies.serde_json]
-version = "=1.0.116"
+version = "=1.0.125"
 
-[dependencies.isahc]
-version = "=1.7.2"
-default-features = false
-features = ["json", "http2", "text-decoding"]
+[dependencies.ureq]
+version = "=2.10.1"
+features = ["json"]
 
 [dependencies.parse_link_header]
 version = "=0.3.3"
@@ -82,13 +79,11 @@ version = "=0.3.3"
 [dependencies.url-escape]
 version = "=0.1.1"
 
-[dev-dependencies.tempdir]
-version = "=0.3.7"
+[dev-dependencies.outdir-tempdir]
+version = "=0.2.0"
 
 [features]
 static-build = [
   "git2/vendored-openssl",
   "git2/vendored-libgit2",
-  "isahc/static-curl",
-  "isahc/static-ssl",
 ]
