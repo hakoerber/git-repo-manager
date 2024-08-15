@@ -67,7 +67,7 @@ version = "=7.1.1"
 version = "=0.9.34"
 
 [dependencies.serde_json]
-version = "=1.0.116"
+version = "=1.0.125"
 
 [dependencies.ureq]
 version = "=2.9.7"
