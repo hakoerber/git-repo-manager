@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-import json
-import os
 import subprocess
 
-import semver
 import tomlkit
 
 with open("./Cargo.toml", "r") as cargo_config:
