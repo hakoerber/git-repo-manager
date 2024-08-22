@@ -74,6 +74,11 @@
           };
         };
 
+        checks = {
+          pkg = self.packages.${system}.default;
+          shl = self.devShells.${system}.default;
+        };
+
         devShells = {
           default = pkgs.mkShell (environment
             // {

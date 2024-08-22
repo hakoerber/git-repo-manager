@@ -1,4 +1,4 @@
-# GRM — Git Repository Manager
+# GRM — Git Repository Manager ![Nix Flake Check](https://github.com/hakoerber/git-repo-manager/workflows/Nix%20Flake%20Check/badge.svg)
 
 GRM helps you manage git repositories in a declarative way. Configure your
 repositories in a [TOML](https://toml.io/) or YAML file, GRM does the rest.
