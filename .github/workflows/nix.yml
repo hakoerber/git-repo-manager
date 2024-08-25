@@ -1,0 +1,21 @@
+---
+name: Nix Flake Check
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+      - develop
+
+jobs:
+  nix-flake-check:
+    name: Run Nix Flake Checks
+    runs-on: ubuntu-latest
+    environment: actions_build_environment
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+      - run: nix --accept-flake-config flake check

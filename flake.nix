@@ -2,7 +2,7 @@
   description = "git-repo-manager";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/24.05";
     flake-utils.url = "github:numtide/flake-utils";
 
     crane = {
@@ -12,7 +12,6 @@
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
     };
   };
 
@@ -73,6 +72,11 @@
           git-repo-manager = flake-utils.lib.mkApp {
             drv = self.packages.${system}.git-repo-manager;
           };
+        };
+
+        checks = {
+          pkg = self.packages.${system}.default;
+          shl = self.devShells.${system}.default;
         };
 
         devShells = {
