@@ -13,7 +13,15 @@ for tier in ["dependencies", "dev-dependencies"]:
     for name, dependency in cargo[tier].items():
         version = dependency["version"].lstrip("=")
 
-        args = ["cargo", "upgrade", "--incompatible", "--pinned", "--package", name]
+        args = [
+            "cargo",
+            "upgrade",
+            "--incompatible",
+            "--pinned",
+            "--ignore-rust-version",
+            "--package",
+            name,
+        ]
         subprocess.run(
             args,
             check=True,
