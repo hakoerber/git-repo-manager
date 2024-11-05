@@ -297,7 +297,7 @@ dependencies = [
 
 [[package]]
 name = "git-repo-manager"
-version = "0.7.20"
+version = "0.7.21"
 dependencies = [
  "clap",
  "comfy-table",
