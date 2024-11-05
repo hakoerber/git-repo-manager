@@ -26,7 +26,8 @@ token.
 See the GitHub documentation for personal access tokens:
 [Link](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 
-The only required permission is the "repo" scope.
+When using a fine-grained access token, only "Read" access for the "Metadata" permissions are required (cloning will use
+unauthorized HTTPS for public repos or SSH for private repos, not the personal access token!)
 
 ### GitLab
 
