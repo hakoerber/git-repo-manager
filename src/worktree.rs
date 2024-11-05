@@ -77,7 +77,7 @@
 //! * There is `origin/prefix/foobar` and `remote2/foobar`, with different
 //!   states
 //! * You set `track.default_prefix = "prefix"` (and no default remote!)
-//! * You run `grm worktree add `prefix/foobar`
+//! * You run `grm worktree add prefix/foobar`
 //! * Instead of just picking `origin/prefix/foobar`, grm will complain because
 //!   it also selected `remote2/foobar`.
 //!
@@ -154,7 +154,7 @@
 //! * The new branch is created with all the required settings
 //!
 //! Don't worry about the lifetime stuff: There is only one single lifetime, as
-//! everything (branches, commits) is derived from the single repo::Repo
+//! everything (branches, commits) is derived from the single `repo::Repo`
 //! instance
 //!
 //! # Testing
@@ -209,25 +209,9 @@
 use std::cell::RefCell;
 use std::path::Path;
 
-// use super::output::*;
 use super::repo;
 
 pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn invalid_worktree_names() {
-        assert!(add_worktree(Path::new("/tmp/"), "/leadingslash", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "trailingslash/", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "//", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "test//test", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "test test", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "test\ttest", None, false).is_err());
-    }
-}
 
 struct Init;
 
@@ -261,7 +245,7 @@ struct Worktree<'a, S: WorktreeState> {
     extra: S,
 }
 
-impl<'a> WithLocalBranchName<'a> {
+impl WithLocalBranchName<'_> {
     fn new(name: String) -> Self {
         Self {
             local_branch_name: name,
@@ -273,9 +257,9 @@ impl<'a> WithLocalBranchName<'a> {
 trait WorktreeState {}
 
 impl WorktreeState for Init {}
-impl<'a> WorktreeState for WithLocalBranchName<'a> {}
-impl<'a> WorktreeState for WithLocalTargetSelected<'a> {}
-impl<'a> WorktreeState for WithRemoteTrackingBranch<'a> {}
+impl WorktreeState for WithLocalBranchName<'_> {}
+impl WorktreeState for WithLocalTargetSelected<'_> {}
+impl WorktreeState for WithRemoteTrackingBranch<'_> {}
 
 impl<'a> Worktree<'a, Init> {
     fn new(repo: &'a repo::RepoHandle) -> Self {
@@ -416,9 +400,8 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                     branch.set_upstream(&remote_name, &remote_branch.basename()?)?;
                 }
                 None => {
-                    let mut remote = match self.repo.find_remote(&remote_name)? {
-                        Some(remote) => remote,
-                        None => return Err(format!("Remote \"{remote_name}\" not found")),
+                    let Some(mut remote) = self.repo.find_remote(&remote_name)? else {
+                        return Err(format!("Remote \"{remote_name}\" not found"));
                     };
 
                     if !remote.is_pushable()? {
@@ -430,13 +413,13 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                     if let Some(prefix) = self.extra.prefix {
                         remote.push(
                             &self.extra.local_branch_name,
-                            &format!("{}/{}", prefix, remote_branch_name),
+                            &format!("{prefix}/{remote_branch_name}"),
                             self.repo,
                         )?;
 
                         branch.set_upstream(
                             &remote_name,
-                            &format!("{}/{}", prefix, remote_branch_name),
+                            &format!("{prefix}/{remote_branch_name}"),
                         )?;
                     } else {
                         remote.push(
@@ -543,22 +526,19 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
 fn validate_worktree_name(name: &str) -> Result<(), String> {
     if name.starts_with('/') || name.ends_with('/') {
         return Err(format!(
-            "Invalid worktree name: {}. It cannot start or end with a slash",
-            name
+            "Invalid worktree name: {name}. It cannot start or end with a slash",
         ));
     }
 
     if name.contains("//") {
         return Err(format!(
-            "Invalid worktree name: {}. It cannot contain two consecutive slashes",
-            name
+            "Invalid worktree name: {name}. It cannot contain two consecutive slashes",
         ));
     }
 
     if name.contains(char::is_whitespace) {
         return Err(format!(
-            "Invalid worktree name: {}. It cannot contain whitespace",
-            name
+            "Invalid worktree name: {name}. It cannot contain whitespace",
         ));
     }
 
@@ -583,7 +563,7 @@ pub fn add_worktree(
         repo::RepoErrorKind::NotFound => {
             String::from("Current directory does not contain a worktree setup")
         }
-        _ => format!("Error opening repo: {}", error),
+        repo::RepoErrorKind::Unknown(_) => format!("Error opening repo: {error}"),
     })?;
 
     let remotes = &repo.remotes()?;
@@ -591,7 +571,7 @@ pub fn add_worktree(
     let config = repo::read_worktree_root_config(directory)?;
 
     if repo.find_worktree(name).is_ok() {
-        return Err(format!("Worktree {} already exists", &name));
+        return Err(format!("Worktree {name} already exists"));
     }
 
     let track_config = config.and_then(|config| config.track);
@@ -654,7 +634,7 @@ pub fn add_worktree(
             }
             _ => {
                 let commit = if let Some(ref default_remote) = default_remote {
-                    if let Some(ref prefix) = prefix {
+                    if let Some(prefix) = prefix {
                         if let Ok(remote_branch) = repo
                             .find_remote_branch(default_remote, &format!("{prefix}/{name}"))
                         {
@@ -678,9 +658,9 @@ pub fn add_worktree(
                     None
                 }.or({
                     let mut commits = vec![];
-                    for remote_name in remotes.iter() {
+                    for remote_name in remotes {
                         let remote_head: Option<Box<repo::Commit>> = ({
-                            if let Some(ref prefix) = prefix {
+                            if let Some(prefix) = prefix {
                                 if let Ok(remote_branch) = repo.find_remote_branch(
                                     remote_name,
                                     &format!("{prefix}/{name}"),
@@ -777,4 +757,19 @@ pub fn add_worktree(
     } else {
         Some(warnings)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_worktree_names() {
+        assert!(add_worktree(Path::new("/tmp/"), "/leadingslash", None, false).is_err());
+        assert!(add_worktree(Path::new("/tmp/"), "trailingslash/", None, false).is_err());
+        assert!(add_worktree(Path::new("/tmp/"), "//", None, false).is_err());
+        assert!(add_worktree(Path::new("/tmp/"), "test//test", None, false).is_err());
+        assert!(add_worktree(Path::new("/tmp/"), "test test", None, false).is_err());
+        assert!(add_worktree(Path::new("/tmp/"), "test\ttest", None, false).is_err());
+    }
 }

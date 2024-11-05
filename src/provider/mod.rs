@@ -79,7 +79,7 @@ pub struct Filter {
 
 impl Filter {
     pub fn new(users: Vec<String>, groups: Vec<String>, owner: bool, access: bool) -> Self {
-        Filter {
+        Self {
             users,
             groups,
             owner,
@@ -104,8 +104,8 @@ impl<T> From<String> for ApiErrorResponse<T>
 where
     T: JsonError,
 {
-    fn from(s: String) -> ApiErrorResponse<T> {
-        ApiErrorResponse::String(s)
+    fn from(s: String) -> Self {
+        Self::String(s)
     }
 }
 
@@ -176,7 +176,7 @@ pub trait Provider {
             Err(ureq::Error::Status(_code, response)) => {
                 let r: Self::Error = response
                     .into_json()
-                    .map_err(|error| format!("Failed deserializing error response: {}", error))?;
+                    .map_err(|error| format!("Failed deserializing error response: {error}"))?;
                 return Err(ApiErrorResponse::Json(r));
             }
             Ok(response) => {
@@ -194,7 +194,7 @@ pub trait Provider {
 
                 let result: Vec<Self::Project> = response
                     .into_json()
-                    .map_err(|error| format!("Failed deserializing response: {}", error))?;
+                    .map_err(|error| format!("Failed deserializing response: {error}"))?;
 
                 results.extend(result);
             }
@@ -331,12 +331,12 @@ where
         Err(ureq::Error::Status(_code, response)) => {
             let response: U = response
                 .into_json()
-                .map_err(|error| format!("Failed deserializing error response: {}", error))?;
+                .map_err(|error| format!("Failed deserializing error response: {error}"))?;
             return Err(ApiErrorResponse::Json(response));
         }
         Ok(response) => response
             .into_json()
-            .map_err(|error| format!("Failed deserializing response: {}", error))?,
+            .map_err(|error| format!("Failed deserializing response: {error}"))?,
     };
 
     Ok(response)

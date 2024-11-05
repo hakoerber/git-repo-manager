@@ -50,7 +50,7 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, S
         for repo in &repos {
             managed_repos_absolute_paths.push(root_path.join(repo.fullname()));
             match sync_repo(&root_path, repo, init_worktree) {
-                Ok(_) => print_repo_success(&repo.name, "OK"),
+                Ok(()) => print_repo_success(&repo.name, "OK"),
                 Err(error) => {
                     print_repo_error(&repo.name, &error);
                     failures = true;
@@ -60,14 +60,14 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, S
 
         match find_unmanaged_repos(&root_path, &repos) {
             Ok(repos) => {
-                for path in repos.into_iter() {
+                for path in repos {
                     if !unmanaged_repos_absolute_paths.contains(&path) {
                         unmanaged_repos_absolute_paths.push(path);
                     }
                 }
             }
             Err(error) => {
-                print_error(&format!("Error getting unmanaged repos: {}", error));
+                print_error(&format!("Error getting unmanaged repos: {error}"));
                 failures = true;
             }
         }
@@ -117,8 +117,8 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, String> {
                                 }
                             }
                         }
-                        Err(e) => {
-                            return Err(format!("Error accessing directory: {}", e));
+                        Err(error) => {
+                            return Err(format!("Error accessing directory: {error}"));
                         }
                     };
                 }
@@ -189,19 +189,19 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                 print_repo_success(&repo.name, "Repository created");
                 Some(r)
             }
-            Err(e) => {
-                return Err(format!("Repository failed during init: {}", e));
+            Err(error) => {
+                return Err(format!("Repository failed during init: {error}"));
             }
         };
     } else {
         let first = repo.remotes.as_ref().unwrap().first().unwrap();
 
         match repo::clone_repo(first, &repo_path, repo.worktree_setup) {
-            Ok(_) => {
+            Ok(()) => {
                 print_repo_success(&repo.name, "Repository successfully cloned");
             }
-            Err(e) => {
-                return Err(format!("Repository failed during clone: {}", e));
+            Err(error) => {
+                return Err(format!("Repository failed during clone: {error}"));
             }
         };
 
@@ -211,12 +211,12 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     let repo_handle = match repo::RepoHandle::open(&repo_path, repo.worktree_setup) {
         Ok(repo) => repo,
         Err(error) => {
-            if !repo.worktree_setup && repo::RepoHandle::open(&repo_path, true).is_ok() {
-                return Err(String::from(
+            return if !repo.worktree_setup && repo::RepoHandle::open(&repo_path, true).is_ok() {
+                Err(String::from(
                     "Repo already exists, but is using a worktree setup",
-                ));
+                ))
             } else {
-                return Err(format!("Opening repository failed: {}", error));
+                Err(format!("Opening repository failed: {error}"))
             }
         }
     };
@@ -235,7 +235,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     if let Some(remotes) = &repo.remotes {
         let current_remotes: Vec<String> = repo_handle
             .remotes()
-            .map_err(|error| format!("Repository failed during getting the remotes: {}", error))?;
+            .map_err(|error| format!("Repository failed during getting the remotes: {error}"))?;
 
         for remote in remotes {
             let current_remote = repo_handle.find_remote(&remote.name)?;
@@ -262,10 +262,9 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                             &remote.name, &remote.url
                         ),
                     );
-                    if let Err(e) = repo_handle.new_remote(&remote.name, &remote.url) {
+                    if let Err(error) = repo_handle.new_remote(&remote.name, &remote.url) {
                         return Err(format!(
-                            "Repository failed during setting the remotes: {}",
-                            e
+                            "Repository failed during setting the remotes: {error}",
                         ));
                     }
                 }
@@ -291,8 +290,9 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
 }
 
 fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
-    match is_worktree {
-        false => path.to_path_buf(),
-        true => path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY),
+    if is_worktree {
+        path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
+    } else {
+        path.to_path_buf()
     }
 }

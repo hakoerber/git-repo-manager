@@ -83,11 +83,10 @@ pub struct Gitlab {
 
 impl Gitlab {
     fn api_url(&self) -> String {
-        self.api_url_override
-            .as_ref()
-            .unwrap_or(&GITLAB_API_BASEURL.to_string())
-            .trim_end_matches('/')
-            .to_string()
+        match self.api_url_override {
+            Some(ref s) => s.trim_end_matches('/').to_string(),
+            None => GITLAB_API_BASEURL.to_string(),
+        }
     }
 }
 
