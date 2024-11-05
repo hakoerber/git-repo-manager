@@ -493,7 +493,8 @@ token.</p>
 <h3 id="github"><a class="header" href="#github">GitHub</a></h3>
 <p>See the GitHub documentation for personal access tokens:
 <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">Link</a>.</p>
-<p>The only required permission is the "repo" scope.</p>
+<p>When using a fine-grained access token, only "Read" access for the "Metadata" permissions are required (cloning will use
+unauthorized HTTPS for public repos or SSH for private repos, not the personal access token!)</p>
 <h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
 <p>See the GitLab documentation for personal access tokens:
 <a href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html">Link</a>.</p>
