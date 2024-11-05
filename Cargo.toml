@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.7.19"
+version = "0.7.20"
 edition = "2021"
 
 authors = [
@@ -28,6 +28,11 @@ license = "GPL-3.0-only"
 
 [profile.e2e-tests]
 inherits = "dev"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
 
 [lib]
 name = "grm"
