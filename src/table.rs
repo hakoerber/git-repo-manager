@@ -31,28 +31,26 @@ fn add_repo_status(
 
     table.add_row([
         repo_name,
-        match is_worktree {
-            true => "\u{2714}",
-            false => "",
-        },
-        &match is_worktree {
-            true => String::from(""),
-            false => match repo_status.changes {
+        if is_worktree { "\u{2714}" } else { "" },
+        &if is_worktree {
+            String::new()
+        } else {
+            match repo_status.changes {
                 Some(changes) => {
                     let mut out = Vec::new();
                     if changes.files_new > 0 {
-                        out.push(format!("New: {}\n", changes.files_new))
+                        out.push(format!("New: {}\n", changes.files_new));
                     }
                     if changes.files_modified > 0 {
-                        out.push(format!("Modified: {}\n", changes.files_modified))
+                        out.push(format!("Modified: {}\n", changes.files_modified));
                     }
                     if changes.files_deleted > 0 {
-                        out.push(format!("Deleted: {}\n", changes.files_deleted))
+                        out.push(format!("Deleted: {}\n", changes.files_deleted));
                     }
                     out.into_iter().collect::<String>().trim().to_string()
                 }
                 None => String::from("\u{2714}"),
-            },
+            }
         },
         repo_status
             .branches
@@ -84,12 +82,13 @@ fn add_repo_status(
                 s
             })
             .trim(),
-        &match is_worktree {
-            true => String::from(""),
-            false => match repo_status.head {
+        &if is_worktree {
+            String::new()
+        } else {
+            match repo_status.head {
                 Some(head) => head,
                 None => String::from("Empty"),
-            },
+            }
         },
         repo_status
             .remotes
@@ -224,30 +223,30 @@ fn add_worktree_status(
 
     let local_branch = repo
         .head_branch()
-        .map_err(|error| format!("Failed getting head branch: {}", error))?;
+        .map_err(|error| format!("Failed getting head branch: {error}"))?;
 
     let upstream_output = match local_branch.upstream() {
         Ok(remote_branch) => {
             let remote_branch_name = remote_branch
                 .name()
-                .map_err(|error| format!("Failed getting name of remote branch: {}", error))?;
+                .map_err(|error| format!("Failed getting name of remote branch: {error}"))?;
 
             let (ahead, behind) = repo
                 .graph_ahead_behind(&local_branch, &remote_branch)
-                .map_err(|error| format!("Failed computing branch deviation: {}", error))?;
+                .map_err(|error| format!("Failed computing branch deviation: {error}"))?;
 
             format!(
                 "{}{}\n",
                 &remote_branch_name,
                 &match (ahead, behind) {
-                    (0, 0) => String::from(""),
+                    (0, 0) => String::new(),
                     (d, 0) => format!(" [+{}]", &d),
                     (0, d) => format!(" [-{}]", &d),
                     (d1, d2) => format!(" [+{}/-{}]", &d1, &d2),
                 },
             )
         }
-        Err(_) => String::from(""),
+        Err(_) => String::new(),
     };
 
     table.add_row([
@@ -256,13 +255,13 @@ fn add_worktree_status(
             Some(changes) => {
                 let mut out = Vec::new();
                 if changes.files_new > 0 {
-                    out.push(format!("New: {}\n", changes.files_new))
+                    out.push(format!("New: {}\n", changes.files_new));
                 }
                 if changes.files_modified > 0 {
-                    out.push(format!("Modified: {}\n", changes.files_modified))
+                    out.push(format!("Modified: {}\n", changes.files_modified));
                 }
                 if changes.files_deleted > 0 {
-                    out.push(format!("Deleted: {}\n", changes.files_deleted))
+                    out.push(format!("Deleted: {}\n", changes.files_deleted));
                 }
                 out.into_iter().collect::<String>().trim().to_string()
             }
@@ -270,7 +269,7 @@ fn add_worktree_status(
         },
         &local_branch
             .name()
-            .map_err(|error| format!("Failed getting name of branch: {}", error))?,
+            .map_err(|error| format!("Failed getting name of branch: {error}"))?,
         &upstream_output,
     ]);
 
@@ -289,11 +288,11 @@ pub fn show_single_repo_status(
     let repo_handle = repo::RepoHandle::open(path, is_worktree);
 
     if let Err(error) = repo_handle {
-        if error.kind == repo::RepoErrorKind::NotFound {
-            return Err(String::from("Directory is not a git directory"));
+        return if error.kind == repo::RepoErrorKind::NotFound {
+            Err(String::from("Directory is not a git directory"))
         } else {
-            return Err(format!("Opening repository failed: {}", error));
-        }
+            Err(format!("Opening repository failed: {error}"))
+        };
     };
 
     let repo_name = match path.file_name() {

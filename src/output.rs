@@ -1,7 +1,7 @@
 use console::{Style, Term};
 
 pub fn print_repo_error(repo: &str, message: &str) {
-    print_error(&format!("{}: {}", repo, message));
+    print_error(&format!("{repo}: {message}"));
 }
 
 pub fn print_error(message: &str) {
@@ -16,7 +16,7 @@ pub fn print_error(message: &str) {
 }
 
 pub fn print_repo_action(repo: &str, message: &str) {
-    print_action(&format!("{}: {}", repo, message));
+    print_action(&format!("{repo}: {message}"));
 }
 
 pub fn print_action(message: &str) {
@@ -42,7 +42,7 @@ pub fn print_warning(message: &str) {
 }
 
 pub fn print_repo_success(repo: &str, message: &str) {
-    print_success(&format!("{}: {}", repo, message));
+    print_success(&format!("{repo}: {message}"));
 }
 
 pub fn print_success(message: &str) {

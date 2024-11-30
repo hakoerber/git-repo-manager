@@ -134,11 +134,11 @@ impl ConfigTrees {
     }
 
     pub fn from_vec(vec: Vec<ConfigTree>) -> Self {
-        ConfigTrees { trees: vec }
+        Self { trees: vec }
     }
 
     pub fn from_trees(vec: Vec<tree::Tree>) -> Self {
-        ConfigTrees {
+        Self {
             trees: vec.into_iter().map(ConfigTree::from_tree).collect(),
         }
     }
@@ -159,12 +159,12 @@ impl ConfigTrees {
 impl Config {
     pub fn trees(self) -> Result<Vec<ConfigTree>, String> {
         match self {
-            Config::ConfigTrees(config) => Ok(config.trees),
-            Config::ConfigProvider(config) => {
+            Self::ConfigTrees(config) => Ok(config.trees),
+            Self::ConfigProvider(config) => {
                 let token = match auth::get_token_from_command(&config.token_command) {
                     Ok(token) => token,
                     Err(error) => {
-                        print_error(&format!("Getting token from command failed: {}", error));
+                        print_error(&format!("Getting token from command failed: {error}"));
                         process::exit(1);
                     }
                 };
@@ -194,7 +194,7 @@ impl Config {
                         match provider::Github::new(filter, token, config.api_url) {
                             Ok(provider) => provider,
                             Err(error) => {
-                                print_error(&format!("Error: {}", error));
+                                print_error(&format!("Error: {error}"));
                                 process::exit(1);
                             }
                         }
@@ -208,7 +208,7 @@ impl Config {
                         match provider::Gitlab::new(filter, token, config.api_url) {
                             Ok(provider) => provider,
                             Err(error) => {
-                                print_error(&format!("Error: {}", error));
+                                print_error(&format!("Error: {error}"));
                                 process::exit(1);
                             }
                         }
@@ -243,11 +243,11 @@ impl Config {
     }
 
     pub fn from_trees(trees: Vec<ConfigTree>) -> Self {
-        Config::ConfigTrees(ConfigTrees { trees })
+        Self::ConfigTrees(ConfigTrees { trees })
     }
 
     pub fn normalize(&mut self) {
-        if let Config::ConfigTrees(config) = self {
+        if let Self::ConfigTrees(config) = self {
             let home = path::env_home();
             for tree in &mut config.trees_mut().iter_mut() {
                 if tree.root.starts_with(&home) {
@@ -310,8 +310,7 @@ where
         Ok(s) => s,
         Err(e) => {
             return Err(format!(
-                "Error reading configuration file \"{}\": {}",
-                path,
+                "Error reading configuration file \"{path}\": {}",
                 match e.kind() {
                     std::io::ErrorKind::NotFound => String::from("not found"),
                     _ => e.to_string(),
@@ -324,12 +323,7 @@ where
         Ok(c) => c,
         Err(_) => match serde_yaml::from_str(&content) {
             Ok(c) => c,
-            Err(e) => {
-                return Err(format!(
-                    "Error parsing configuration file \"{}\": {}",
-                    path, e
-                ))
-            }
+            Err(e) => return Err(format!("Error parsing configuration file \"{path}\": {e}",)),
         },
     };
 

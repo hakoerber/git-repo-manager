@@ -38,7 +38,7 @@ fn main() {
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Sync error: {}", error));
+                            print_error(&format!("Sync error: {error}"));
                             process::exit(1);
                         }
                     }
@@ -47,7 +47,7 @@ fn main() {
                     let token = match auth::get_token_from_command(&args.token_command) {
                         Ok(token) => token,
                         Err(error) => {
-                            print_error(&format!("Getting token from command failed: {}", error));
+                            print_error(&format!("Getting token from command failed: {error}"));
                             process::exit(1);
                         }
                     };
@@ -66,7 +66,7 @@ fn main() {
                             match provider::Github::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Sync error: {}", error));
+                                    print_error(&format!("Sync error: {error}"));
                                     process::exit(1);
                                 }
                             }
@@ -80,7 +80,7 @@ fn main() {
                             match provider::Gitlab::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Sync error: {}", error));
+                                    print_error(&format!("Sync error: {error}"));
                                     process::exit(1);
                                 }
                             }
@@ -116,13 +116,13 @@ fn main() {
                                     }
                                 }
                                 Err(error) => {
-                                    print_error(&format!("Sync error: {}", error));
+                                    print_error(&format!("Sync error: {error}"));
                                     process::exit(1);
                                 }
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Sync error: {}", error));
+                            print_error(&format!("Sync error: {error}"));
                             process::exit(1);
                         }
                     }
@@ -140,14 +140,14 @@ fn main() {
                     match table::get_status_table(config) {
                         Ok((tables, errors)) => {
                             for table in tables {
-                                println!("{}", table);
+                                println!("{table}");
                             }
                             for error in errors {
-                                print_error(&format!("Error: {}", error));
+                                print_error(&format!("Error: {error}"));
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Error getting status: {}", error));
+                            print_error(&format!("Error getting status: {error}"));
                             process::exit(1);
                         }
                     }
@@ -156,20 +156,20 @@ fn main() {
                     let dir = match std::env::current_dir() {
                         Ok(dir) => dir,
                         Err(error) => {
-                            print_error(&format!("Could not open current directory: {}", error));
+                            print_error(&format!("Could not open current directory: {error}"));
                             process::exit(1);
                         }
                     };
 
                     match table::show_single_repo_status(&dir) {
                         Ok((table, warnings)) => {
-                            println!("{}", table);
+                            println!("{table}");
                             for warning in warnings {
                                 print_warning(&warning);
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Error getting status: {}", error));
+                            print_error(&format!("Error getting status: {error}"));
                             process::exit(1);
                         }
                     }
@@ -231,7 +231,7 @@ fn main() {
                                         process::exit(1);
                                     }
                                 };
-                                print!("{}", toml);
+                                print!("{toml}");
                             }
                             cmd::ConfigFormat::Yaml => {
                                 let yaml = match config.as_yaml() {
@@ -244,7 +244,7 @@ fn main() {
                                         process::exit(1);
                                     }
                                 };
-                                print!("{}", yaml);
+                                print!("{yaml}");
                             }
                         }
                     }
@@ -264,7 +264,7 @@ fn main() {
                     let token = match auth::get_token_from_command(&config.token_command) {
                         Ok(token) => token,
                         Err(error) => {
-                            print_error(&format!("Getting token from command failed: {}", error));
+                            print_error(&format!("Getting token from command failed: {error}"));
                             process::exit(1);
                         }
                     };
@@ -292,7 +292,7 @@ fn main() {
                             match match provider::Github::new(filter, token, config.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Error: {error}"));
                                     process::exit(1);
                                 }
                             }
@@ -303,7 +303,7 @@ fn main() {
                             ) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Error: {error}"));
                                     process::exit(1);
                                 }
                             }
@@ -312,7 +312,7 @@ fn main() {
                             match match provider::Gitlab::new(filter, token, config.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Error: {error}"));
                                     process::exit(1);
                                 }
                             }
@@ -323,7 +323,7 @@ fn main() {
                             ) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Error: {error}"));
                                     process::exit(1);
                                 }
                             }
@@ -363,7 +363,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{}", toml);
+                            print!("{toml}");
                         }
                         cmd::ConfigFormat::Yaml => {
                             let yaml = match config.as_yaml() {
@@ -376,7 +376,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{}", yaml);
+                            print!("{yaml}");
                         }
                     }
                 }
@@ -384,7 +384,7 @@ fn main() {
                     let token = match auth::get_token_from_command(&args.token_command) {
                         Ok(token) => token,
                         Err(error) => {
-                            print_error(&format!("Getting token from command failed: {}", error));
+                            print_error(&format!("Getting token from command failed: {error}"));
                             process::exit(1);
                         }
                     };
@@ -403,7 +403,7 @@ fn main() {
                             match provider::Github::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Error: {error}"));
                                     process::exit(1);
                                 }
                             }
@@ -417,7 +417,7 @@ fn main() {
                             match provider::Gitlab::new(filter, token, args.api_url) {
                                 Ok(provider) => provider,
                                 Err(error) => {
-                                    print_error(&format!("Error: {}", error));
+                                    print_error(&format!("Error: {error}"));
                                     process::exit(1);
                                 }
                             }
@@ -430,7 +430,7 @@ fn main() {
                     };
 
                     let repos = repos.unwrap_or_else(|error| {
-                        print_error(&format!("Error: {}", error));
+                        print_error(&format!("Error: {error}"));
                         process::exit(1);
                     });
 
@@ -469,7 +469,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{}", toml);
+                            print!("{toml}");
                         }
                         cmd::ConfigFormat::Yaml => {
                             let yaml = match config.as_yaml() {
@@ -482,7 +482,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{}", yaml);
+                            print!("{yaml}");
                         }
                     }
                 }
@@ -490,7 +490,7 @@ fn main() {
         },
         cmd::SubCommand::Worktree(args) => {
             let cwd = std::env::current_dir().unwrap_or_else(|error| {
-                print_error(&format!("Could not open current directory: {}", error));
+                print_error(&format!("Could not open current directory: {error}"));
                 process::exit(1);
             });
 
@@ -535,7 +535,7 @@ fn main() {
                             print_success(&format!("Worktree {} created", &action_args.name));
                         }
                         Err(error) => {
-                            print_error(&format!("Error creating worktree: {}", error));
+                            print_error(&format!("Error creating worktree: {error}"));
                             process::exit(1);
                         }
                     }
@@ -544,16 +544,13 @@ fn main() {
                     let worktree_config = match repo::read_worktree_root_config(&cwd) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&format!(
-                                "Error getting worktree configuration: {}",
-                                error
-                            ));
+                            print_error(&format!("Error getting worktree configuration: {error}"));
                             process::exit(1);
                         }
                     };
 
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        print_error(&format!("Error opening repository: {}", error));
+                        print_error(&format!("Error opening repository: {error}"));
                         process::exit(1);
                     });
 
@@ -564,7 +561,7 @@ fn main() {
                         action_args.force,
                         &worktree_config,
                     ) {
-                        Ok(_) => print_success(&format!("Worktree {} deleted", &action_args.name)),
+                        Ok(()) => print_success(&format!("Worktree {} deleted", &action_args.name)),
                         Err(error) => {
                             match error {
                                 repo::WorktreeRemoveFailureReason::Error(msg) => {
@@ -573,8 +570,7 @@ fn main() {
                                 }
                                 repo::WorktreeRemoveFailureReason::Changes(changes) => {
                                     print_warning(&format!(
-                                        "Changes in worktree: {}. Refusing to delete",
-                                        changes
+                                        "Changes in worktree: {changes}. Refusing to delete"
                                     ));
                                 }
                                 repo::WorktreeRemoveFailureReason::NotMerged(message) => {
@@ -587,19 +583,19 @@ fn main() {
                 }
                 cmd::WorktreeAction::Status(_args) => {
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        print_error(&format!("Error opening repository: {}", error));
+                        print_error(&format!("Error opening repository: {error}"));
                         process::exit(1);
                     });
 
                     match table::get_worktree_status_table(&repo, &cwd) {
                         Ok((table, errors)) => {
-                            println!("{}", table);
+                            println!("{table}");
                             for error in errors {
-                                print_error(&format!("Error: {}", error));
+                                print_error(&format!("Error: {error}"));
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Error getting status: {}", error));
+                            print_error(&format!("Error getting status: {error}"));
                             process::exit(1);
                         }
                     }
@@ -615,13 +611,13 @@ fn main() {
                         if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
-                            print_error(&format!("Opening repository failed: {}", error));
+                            print_error(&format!("Opening repository failed: {error}"));
                         }
                         process::exit(1);
                     });
 
                     match repo.convert_to_worktree(&cwd) {
-                        Ok(_) => print_success("Conversion done"),
+                        Ok(()) => print_success("Conversion done"),
                         Err(reason) => {
                             match reason {
                                 repo::WorktreeConversionFailureReason::Changes => {
@@ -631,7 +627,7 @@ fn main() {
                                     print_error("Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.");
                                 }
                                 repo::WorktreeConversionFailureReason::Error(error) => {
-                                    print_error(&format!("Error during conversion: {}", error));
+                                    print_error(&format!("Error during conversion: {error}"));
                                 }
                             }
                             process::exit(1);
@@ -643,7 +639,7 @@ fn main() {
                         if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
-                            print_error(&format!("Opening repository failed: {}", error));
+                            print_error(&format!("Opening repository failed: {error}"));
                         }
                         process::exit(1);
                     });
@@ -655,14 +651,14 @@ fn main() {
                             }
                         }
                         Err(error) => {
-                            print_error(&format!("Worktree cleanup failed: {}", error));
+                            print_error(&format!("Worktree cleanup failed: {error}"));
                             process::exit(1);
                         }
                     }
 
                     for unmanaged_worktree in
                         repo.find_unmanaged_worktrees(&cwd).unwrap_or_else(|error| {
-                            print_error(&format!("Failed finding unmanaged worktrees: {}", error));
+                            print_error(&format!("Failed finding unmanaged worktrees: {error}"));
                             process::exit(1);
                         })
                     {
@@ -677,13 +673,13 @@ fn main() {
                         if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
-                            print_error(&format!("Opening repository failed: {}", error));
+                            print_error(&format!("Opening repository failed: {error}"));
                         }
                         process::exit(1);
                     });
 
                     repo.fetchall().unwrap_or_else(|error| {
-                        print_error(&format!("Error fetching remotes: {}", error));
+                        print_error(&format!("Error fetching remotes: {error}"));
                         process::exit(1);
                     });
                     print_success("Fetched from all remotes");
@@ -693,25 +689,25 @@ fn main() {
                         if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
-                            print_error(&format!("Opening repository failed: {}", error));
+                            print_error(&format!("Opening repository failed: {error}"));
                         }
                         process::exit(1);
                     });
 
                     repo.fetchall().unwrap_or_else(|error| {
-                        print_error(&format!("Error fetching remotes: {}", error));
+                        print_error(&format!("Error fetching remotes: {error}"));
                         process::exit(1);
                     });
 
                     let mut failures = false;
                     for worktree in repo.get_worktrees().unwrap_or_else(|error| {
-                        print_error(&format!("Error getting worktrees: {}", error));
+                        print_error(&format!("Error getting worktrees: {error}"));
                         process::exit(1);
                     }) {
                         if let Some(warning) = worktree
                             .forward_branch(args.rebase, args.stash)
                             .unwrap_or_else(|error| {
-                                print_error(&format!("Error updating worktree branch: {}", error));
+                                print_error(&format!("Error updating worktree branch: {error}"));
                                 process::exit(1);
                             })
                         {
@@ -734,25 +730,25 @@ fn main() {
                         if error.kind == repo::RepoErrorKind::NotFound {
                             print_error("Directory does not contain a git repository");
                         } else {
-                            print_error(&format!("Opening repository failed: {}", error));
+                            print_error(&format!("Opening repository failed: {error}"));
                         }
                         process::exit(1);
                     });
 
                     if args.pull {
                         repo.fetchall().unwrap_or_else(|error| {
-                            print_error(&format!("Error fetching remotes: {}", error));
+                            print_error(&format!("Error fetching remotes: {error}"));
                             process::exit(1);
                         });
                     }
 
                     let config = repo::read_worktree_root_config(&cwd).unwrap_or_else(|error| {
-                        print_error(&format!("Failed to read worktree configuration: {}", error));
+                        print_error(&format!("Failed to read worktree configuration: {error}"));
                         process::exit(1);
                     });
 
                     let worktrees = repo.get_worktrees().unwrap_or_else(|error| {
-                        print_error(&format!("Error getting worktrees: {}", error));
+                        print_error(&format!("Error getting worktrees: {error}"));
                         process::exit(1);
                     });
 
@@ -764,8 +760,7 @@ fn main() {
                                 .forward_branch(args.rebase, args.stash)
                                 .unwrap_or_else(|error| {
                                     print_error(&format!(
-                                        "Error updating worktree branch: {}",
-                                        error
+                                        "Error updating worktree branch: {error}"
                                     ));
                                     process::exit(1);
                                 })
@@ -780,7 +775,7 @@ fn main() {
                         if let Some(warning) = worktree
                             .rebase_onto_default(&config, args.stash)
                             .unwrap_or_else(|error| {
-                                print_error(&format!("Error rebasing worktree branch: {}", error));
+                                print_error(&format!("Error rebasing worktree branch: {error}"));
                                 process::exit(1);
                             })
                         {

@@ -43,10 +43,7 @@ fn find_repos(
                 warnings.push(format!(
                     "Error opening repo {}{}: {}",
                     path.display(),
-                    match is_worktree {
-                        true => " as worktree",
-                        false => "",
-                    },
+                    if is_worktree { " as worktree" } else { "" },
                     error
                 ));
                 continue;
@@ -65,8 +62,8 @@ fn find_repos(
                 };
 
                 let mut results: Vec<repo::Remote> = Vec::new();
-                for remote_name in remotes.iter() {
-                    match repo.find_remote(remote_name)? {
+                for remote_name in remotes {
+                    match repo.find_remote(&remote_name)? {
                         Some(remote) => {
                             let name = remote.name();
                             let url = remote.url();
@@ -118,10 +115,10 @@ fn find_repos(
                     let name = path.strip_prefix(root).unwrap();
                     let namespace = name.parent().unwrap();
                     (
-                        if namespace != Path::new("") {
-                            Some(path::path_as_string(namespace).to_string())
-                        } else {
+                        if namespace == Path::new("") {
                             None
+                        } else {
+                            Some(path::path_as_string(namespace).to_string())
                         },
                         path::path_as_string(name),
                     )

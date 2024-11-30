@@ -31,6 +31,7 @@ pub enum WorktreeConversionFailureReason {
     Error(String),
 }
 
+#[derive(Copy, Clone)]
 pub enum GitPushDefaultSetting {
     Upstream,
 }
@@ -47,8 +48,8 @@ pub struct RepoError {
 }
 
 impl RepoError {
-    fn new(kind: RepoErrorKind) -> RepoError {
-        RepoError { kind }
+    fn new(kind: RepoErrorKind) -> Self {
+        Self { kind }
     }
 }
 
@@ -132,7 +133,7 @@ impl Repo {
     }
 
     pub fn remove_namespace(&mut self) {
-        self.namespace = None
+        self.namespace = None;
     }
 }
 
@@ -191,7 +192,7 @@ impl Worktree {
 
     pub fn forward_branch(&self, rebase: bool, stash: bool) -> Result<Option<String>, String> {
         let repo = RepoHandle::open(Path::new(&self.name), false)
-            .map_err(|error| format!("Error opening worktree: {}", error))?;
+            .map_err(|error| format!("Error opening worktree: {error}"))?;
 
         if let Ok(remote_branch) = repo.find_local_branch(&self.name)?.upstream() {
             let status = repo.status(false)?;
@@ -244,7 +245,11 @@ impl Worktree {
                     // Normal files are already staged, but changed submodules are not.
                     let mut index = repo.0.index().map_err(convert_libgit2_error)?;
                     index
-                        .add_all(["."].iter(), git2::IndexAddOption::CHECK_PATHSPEC, None)
+                        .add_all(
+                            std::iter::once("."),
+                            git2::IndexAddOption::CHECK_PATHSPEC,
+                            None,
+                        )
                         .map_err(convert_libgit2_error)?;
 
                     if let Err(error) = rebase.commit(None, &committer, None) {
@@ -295,13 +300,13 @@ impl Worktree {
         stash: bool,
     ) -> Result<Option<String>, String> {
         let repo = RepoHandle::open(Path::new(&self.name), false)
-            .map_err(|error| format!("Error opening worktree: {}", error))?;
+            .map_err(|error| format!("Error opening worktree: {error}"))?;
 
         let guess_default_branch = || {
             repo.default_branch()
                 .map_err(|_| "Could not determine default branch")?
                 .name()
-                .map_err(|error| format!("Failed getting default branch name: {}", error))
+                .map_err(|error| format!("Failed getting default branch name: {error}"))
         };
 
         let default_branch_name = match &config {
@@ -368,7 +373,11 @@ impl Worktree {
             // Normal files are already staged, but changed submodules are not.
             let mut index = repo.0.index().map_err(convert_libgit2_error)?;
             index
-                .add_all(["."].iter(), git2::IndexAddOption::CHECK_PATHSPEC, None)
+                .add_all(
+                    std::iter::once("."),
+                    git2::IndexAddOption::CHECK_PATHSPEC,
+                    None,
+                )
                 .map_err(convert_libgit2_error)?;
 
             if let Err(error) = rebase.commit(None, &committer, None) {
@@ -395,109 +404,6 @@ impl RepoStatus {
                 changes.files_new == 0 && changes.files_deleted == 0 && changes.files_modified == 0
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn check_ssh_remote() {
-        assert_eq!(
-            detect_remote_type("ssh://git@example.com"),
-            Ok(RemoteType::Ssh)
-        );
-        assert_eq!(detect_remote_type("git@example.git"), Ok(RemoteType::Ssh));
-    }
-
-    #[test]
-    fn check_https_remote() {
-        assert_eq!(
-            detect_remote_type("https://example.com"),
-            Ok(RemoteType::Https)
-        );
-        assert_eq!(
-            detect_remote_type("https://example.com/test.git"),
-            Ok(RemoteType::Https)
-        );
-    }
-
-    #[test]
-    fn check_file_remote() {
-        assert_eq!(detect_remote_type("file:///somedir"), Ok(RemoteType::File));
-    }
-
-    #[test]
-    fn check_invalid_remotes() {
-        assert_eq!(
-            detect_remote_type("https//example.com"),
-            Err(String::from(
-                "The remote URL starts with an unimplemented protocol"
-            ))
-        );
-        assert_eq!(
-            detect_remote_type("https:example.com"),
-            Err(String::from(
-                "The remote URL starts with an unimplemented protocol",
-            ))
-        );
-        assert_eq!(
-            detect_remote_type("ssh//example.com"),
-            Err(String::from(
-                "The remote URL starts with an unimplemented protocol",
-            ))
-        );
-        assert_eq!(
-            detect_remote_type("ssh:example.com"),
-            Err(String::from(
-                "The remote URL starts with an unimplemented protocol",
-            ))
-        );
-        assert_eq!(
-            detect_remote_type("git@example.com"),
-            Err(String::from(
-                "The remote URL starts with an unimplemented protocol",
-            ))
-        );
-    }
-
-    #[test]
-    fn check_unsupported_protocol_http() {
-        assert_eq!(
-            detect_remote_type("http://example.com"),
-            Err(String::from(
-                "Remotes using HTTP protocol are not supported",
-            ))
-        );
-    }
-
-    #[test]
-    fn check_unsupported_protocol_git() {
-        assert_eq!(
-            detect_remote_type("git://example.com"),
-            Err(String::from("Remotes using git protocol are not supported"))
-        );
-    }
-
-    #[test]
-    fn repo_check_fullname() {
-        let with_namespace = Repo {
-            name: "name".to_string(),
-            namespace: Some("namespace".to_string()),
-            worktree_setup: false,
-            remotes: None,
-        };
-
-        let without_namespace = Repo {
-            name: "name".to_string(),
-            namespace: None,
-            worktree_setup: false,
-            remotes: None,
-        };
-
-        assert_eq!(with_namespace.fullname(), "namespace/name");
-        assert_eq!(without_namespace.fullname(), "name");
     }
 }
 
@@ -537,13 +443,15 @@ fn convert_libgit2_error(error: git2::Error) -> String {
 
 impl RepoHandle {
     pub fn open(path: &Path, is_worktree: bool) -> Result<Self, RepoError> {
-        let open_func = match is_worktree {
-            true => Repository::open_bare,
-            false => Repository::open,
+        let open_func = if is_worktree {
+            Repository::open_bare
+        } else {
+            Repository::open
         };
-        let path = match is_worktree {
-            true => path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY),
-            false => path.to_path_buf(),
+        let path = if is_worktree {
+            path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
+        } else {
+            path.to_path_buf()
         };
         match open_func(path) {
             Ok(r) => Ok(Self(r)),
@@ -567,7 +475,7 @@ impl RepoHandle {
         // Right now, we just open the repo AGAIN. It is safe, as we are only accessing the stash
         // with the second reference, so there are no cross effects. But it just smells. Also,
         // using `unwrap()` here as we are already sure that the repo is openable(?).
-        let mut repo = RepoHandle::open(self.0.path(), false).unwrap();
+        let mut repo = Self::open(self.0.path(), false).unwrap();
         repo.0
             .stash_save2(&author, None, Some(git2::StashFlags::INCLUDE_UNTRACKED))
             .map_err(convert_libgit2_error)?;
@@ -575,7 +483,7 @@ impl RepoHandle {
     }
 
     pub fn stash_pop(&self) -> Result<(), String> {
-        let mut repo = RepoHandle::open(self.0.path(), false).unwrap();
+        let mut repo = Self::open(self.0.path(), false).unwrap();
         repo.0
             .stash_pop(
                 0,
@@ -721,13 +629,14 @@ impl RepoHandle {
     }
 
     pub fn init(path: &Path, is_worktree: bool) -> Result<Self, String> {
-        let repo = match is_worktree {
-            false => Repository::init(path).map_err(convert_libgit2_error)?,
-            true => Repository::init_bare(path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY))
-                .map_err(convert_libgit2_error)?,
+        let repo = if is_worktree {
+            Repository::init_bare(path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY))
+                .map_err(convert_libgit2_error)?
+        } else {
+            Repository::init(path).map_err(convert_libgit2_error)?
         };
 
-        let repo = RepoHandle(repo);
+        let repo = Self(repo);
 
         if is_worktree {
             repo.set_config_push(GitPushDefaultSetting::Upstream)?;
@@ -759,7 +668,7 @@ impl RepoHandle {
         Ok(Branch(
             self.0
                 .find_branch(
-                    &format!("{}/{}", remote_name, branch_name),
+                    &format!("{remote_name}/{branch_name}"),
                     git2::BranchType::Remote,
                 )
                 .map_err(convert_libgit2_error)?,
@@ -787,7 +696,7 @@ impl RepoHandle {
 
         config
             .set_bool(GIT_CONFIG_BARE_KEY, value)
-            .map_err(|error| format!("Could not set {}: {}", GIT_CONFIG_BARE_KEY, error))
+            .map_err(|error| format!("Could not set {GIT_CONFIG_BARE_KEY}: {error}"))
     }
 
     pub fn convert_to_worktree(
@@ -811,18 +720,14 @@ impl RepoHandle {
         }
 
         std::fs::rename(".git", worktree::GIT_MAIN_WORKTREE_DIRECTORY).map_err(|error| {
-            WorktreeConversionFailureReason::Error(format!(
-                "Error moving .git directory: {}",
-                error
-            ))
+            WorktreeConversionFailureReason::Error(format!("Error moving .git directory: {error}",))
         })?;
 
         for entry in match std::fs::read_dir(root_dir) {
             Ok(iterator) => iterator,
             Err(error) => {
                 return Err(WorktreeConversionFailureReason::Error(format!(
-                    "Opening directory failed: {}",
-                    error
+                    "Opening directory failed: {error}",
                 )));
             }
         } {
@@ -836,40 +741,36 @@ impl RepoHandle {
                     if path.is_file() || path.is_symlink() {
                         if let Err(error) = std::fs::remove_file(&path) {
                             return Err(WorktreeConversionFailureReason::Error(format!(
-                                "Failed removing {}",
-                                error
+                                "Failed removing {error}",
                             )));
                         }
                     } else if let Err(error) = std::fs::remove_dir_all(&path) {
                         return Err(WorktreeConversionFailureReason::Error(format!(
-                            "Failed removing {}",
-                            error
+                            "Failed removing {error}",
                         )));
                     }
                 }
                 Err(error) => {
                     return Err(WorktreeConversionFailureReason::Error(format!(
-                        "Error getting directory entry: {}",
-                        error
+                        "Error getting directory entry: {error}",
                     )));
                 }
             }
         }
 
-        let worktree_repo = RepoHandle::open(root_dir, true).map_err(|error| {
+        let worktree_repo = Self::open(root_dir, true).map_err(|error| {
             WorktreeConversionFailureReason::Error(format!(
-                "Opening newly converted repository failed: {}",
-                error
+                "Opening newly converted repository failed: {error}",
             ))
         })?;
 
         worktree_repo
             .make_bare(true)
-            .map_err(|error| WorktreeConversionFailureReason::Error(format!("Error: {}", error)))?;
+            .map_err(|error| WorktreeConversionFailureReason::Error(format!("Error: {error}")))?;
 
         worktree_repo
             .set_config_push(GitPushDefaultSetting::Upstream)
-            .map_err(|error| WorktreeConversionFailureReason::Error(format!("Error: {}", error)))?;
+            .map_err(|error| WorktreeConversionFailureReason::Error(format!("Error: {error}")))?;
 
         Ok(())
     }
@@ -884,33 +785,28 @@ impl RepoHandle {
                     GitPushDefaultSetting::Upstream => "upstream",
                 },
             )
-            .map_err(|error| format!("Could not set {}: {}", GIT_CONFIG_PUSH_DEFAULT, error))
+            .map_err(|error| format!("Could not set {GIT_CONFIG_PUSH_DEFAULT}: {error}"))
     }
 
     pub fn has_untracked_files(&self, is_worktree: bool) -> Result<bool, String> {
-        match is_worktree {
-            true => Err(String::from(
+        if is_worktree {
+            Err(String::from(
                 "Cannot get changes as this is a bare worktree repository",
-            )),
-            false => {
-                let statuses = self
-                    .0
-                    .statuses(Some(git2::StatusOptions::new().include_ignored(true)))
-                    .map_err(convert_libgit2_error)?;
+            ))
+        } else {
+            let statuses = self
+                .0
+                .statuses(Some(git2::StatusOptions::new().include_ignored(true)))
+                .map_err(convert_libgit2_error)?;
 
-                match statuses.is_empty() {
-                    true => Ok(false),
-                    false => {
-                        for status in statuses.iter() {
-                            let status_bits = status.status();
-                            if status_bits.intersects(git2::Status::IGNORED) {
-                                return Ok(true);
-                            }
-                        }
-                        Ok(false)
-                    }
+            for status in statuses.iter() {
+                let status_bits = status.status();
+                if status_bits.intersects(git2::Status::IGNORED) {
+                    return Ok(true);
                 }
             }
+
+            Ok(false)
         }
     }
 
@@ -931,101 +827,94 @@ impl RepoHandle {
             .map(|repo_name| repo_name.to_owned())
             .collect::<Vec<String>>();
 
-        let head = match is_worktree {
-            true => None,
-            false => match empty {
-                true => None,
-                false => Some(self.head_branch()?.name()?),
-            },
+        let head = if is_worktree || empty {
+            None
+        } else {
+            Some(self.head_branch()?.name()?)
         };
 
-        let changes = match is_worktree {
-            true => None,
-            false => {
-                let statuses = self
-                    .0
-                    .statuses(Some(
-                        git2::StatusOptions::new()
-                            .include_ignored(false)
-                            .include_untracked(true),
-                    ))
-                    .map_err(convert_libgit2_error)?;
+        let changes = if is_worktree {
+            None
+        } else {
+            let statuses = self
+                .0
+                .statuses(Some(
+                    git2::StatusOptions::new()
+                        .include_ignored(false)
+                        .include_untracked(true),
+                ))
+                .map_err(convert_libgit2_error)?;
 
-                match statuses.is_empty() {
-                    true => None,
-                    false => {
-                        let mut files_new = 0;
-                        let mut files_modified = 0;
-                        let mut files_deleted = 0;
-                        for status in statuses.iter() {
-                            let status_bits = status.status();
-                            if status_bits.intersects(
-                                git2::Status::INDEX_MODIFIED
-                                    | git2::Status::INDEX_RENAMED
-                                    | git2::Status::INDEX_TYPECHANGE
-                                    | git2::Status::WT_MODIFIED
-                                    | git2::Status::WT_RENAMED
-                                    | git2::Status::WT_TYPECHANGE,
-                            ) {
-                                files_modified += 1;
-                            } else if status_bits
-                                .intersects(git2::Status::INDEX_NEW | git2::Status::WT_NEW)
-                            {
-                                files_new += 1;
-                            } else if status_bits
-                                .intersects(git2::Status::INDEX_DELETED | git2::Status::WT_DELETED)
-                            {
-                                files_deleted += 1;
-                            }
-                        }
-                        if (files_new, files_modified, files_deleted) == (0, 0, 0) {
-                            panic!(
-                                "is_empty() returned true, but no file changes were detected. This is a bug!"
-                            );
-                        }
-                        Some(RepoChanges {
-                            files_new,
-                            files_modified,
-                            files_deleted,
-                        })
+            if statuses.is_empty() {
+                None
+            } else {
+                let mut files_new = 0;
+                let mut files_modified = 0;
+                let mut files_deleted = 0;
+                for status in statuses.iter() {
+                    let status_bits = status.status();
+                    if status_bits.intersects(
+                        git2::Status::INDEX_MODIFIED
+                            | git2::Status::INDEX_RENAMED
+                            | git2::Status::INDEX_TYPECHANGE
+                            | git2::Status::WT_MODIFIED
+                            | git2::Status::WT_RENAMED
+                            | git2::Status::WT_TYPECHANGE,
+                    ) {
+                        files_modified += 1;
+                    } else if status_bits.intersects(git2::Status::INDEX_NEW | git2::Status::WT_NEW)
+                    {
+                        files_new += 1;
+                    } else if status_bits
+                        .intersects(git2::Status::INDEX_DELETED | git2::Status::WT_DELETED)
+                    {
+                        files_deleted += 1;
                     }
                 }
+                assert!(
+                    (files_new, files_modified, files_deleted) != (0, 0, 0),
+                    "is_empty() returned true, but no file changes were detected. This is a bug!"
+                );
+                Some(RepoChanges {
+                    files_new,
+                    files_modified,
+                    files_deleted,
+                })
             }
         };
 
         let worktrees = self.0.worktrees().unwrap().len();
 
-        let submodules = match is_worktree {
-            true => None,
-            false => {
-                let mut submodules = Vec::new();
-                for submodule in self.0.submodules().unwrap() {
-                    let submodule_name = submodule.name().unwrap().to_string();
+        let submodules = if is_worktree {
+            None
+        } else {
+            let mut submodules = Vec::new();
+            for submodule in self.0.submodules().unwrap() {
+                let submodule_name = submodule.name().unwrap().to_string();
 
-                    let submodule_status;
-                    let status = self
-                        .0
-                        .submodule_status(submodule.name().unwrap(), git2::SubmoduleIgnore::None)
-                        .unwrap();
+                let submodule_status;
+                let status = self
+                    .0
+                    .submodule_status(submodule.name().unwrap(), git2::SubmoduleIgnore::None)
+                    .unwrap();
 
-                    if status.intersects(
-                        git2::SubmoduleStatus::WD_INDEX_MODIFIED
-                            | git2::SubmoduleStatus::WD_WD_MODIFIED
-                            | git2::SubmoduleStatus::WD_UNTRACKED,
-                    ) {
-                        submodule_status = SubmoduleStatus::Changed;
-                    } else if status.is_wd_uninitialized() {
-                        submodule_status = SubmoduleStatus::Uninitialized;
-                    } else if status.is_wd_modified() {
-                        submodule_status = SubmoduleStatus::OutOfDate;
-                    } else {
-                        submodule_status = SubmoduleStatus::Clean;
-                    }
-
-                    submodules.push((submodule_name, submodule_status));
+                if status.intersects(
+                    git2::SubmoduleStatus::WD_INDEX_MODIFIED
+                        | git2::SubmoduleStatus::WD_WD_MODIFIED
+                        | git2::SubmoduleStatus::WD_UNTRACKED,
+                ) {
+                    submodule_status = SubmoduleStatus::Changed;
+                } else if status.is_wd_uninitialized() {
+                    submodule_status = SubmoduleStatus::Uninitialized;
+                } else if status.is_wd_modified() {
+                    submodule_status = SubmoduleStatus::OutOfDate;
+                } else {
+                    submodule_status = SubmoduleStatus::Clean;
                 }
-                Some(submodules)
+
+                submodules.push((submodule_name, submodule_status));
             }
+            Some(submodules)
         };
 
         let mut branches = Vec::new();
@@ -1091,11 +980,11 @@ impl RepoHandle {
         if let Ok(remote_head) = self.find_remote_branch(remote_name, "HEAD") {
             if let Some(pointer_name) = remote_head.as_reference().symbolic_target() {
                 if let Some(local_branch_name) =
-                    pointer_name.strip_prefix(&format!("refs/remotes/{}/", remote_name))
+                    pointer_name.strip_prefix(&format!("refs/remotes/{remote_name}/"))
                 {
                     return Ok(Some(self.find_local_branch(local_branch_name)?));
                 } else {
-                    eprintln!("Remote HEAD ({}) pointer is invalid", pointer_name);
+                    eprintln!("Remote HEAD ({pointer_name}) pointer is invalid");
                 }
             } else {
                 eprintln!("Remote HEAD does not point to a symbolic target");
@@ -1127,7 +1016,7 @@ impl RepoHandle {
             let mut default_branches: Vec<Branch> = vec![];
             for remote_name in remotes {
                 if let Some(default_branch) = self.get_remote_default_branch(&remote_name)? {
-                    default_branches.push(default_branch)
+                    default_branches.push(default_branch);
                 }
             }
 
@@ -1195,26 +1084,24 @@ impl RepoHandle {
 
         if !fullpath.exists() {
             return Err(WorktreeRemoveFailureReason::Error(format!(
-                "{} does not exist",
-                name
+                "{name} does not exist",
             )));
         }
-        let worktree_repo = RepoHandle::open(&fullpath, false).map_err(|error| {
-            WorktreeRemoveFailureReason::Error(format!("Error opening repo: {}", error))
+        let worktree_repo = Self::open(&fullpath, false).map_err(|error| {
+            WorktreeRemoveFailureReason::Error(format!("Error opening repo: {error}"))
         })?;
 
         let local_branch = worktree_repo.head_branch().map_err(|error| {
-            WorktreeRemoveFailureReason::Error(format!("Failed getting head branch: {}", error))
+            WorktreeRemoveFailureReason::Error(format!("Failed getting head branch: {error}"))
         })?;
 
         let branch_name = local_branch.name().map_err(|error| {
-            WorktreeRemoveFailureReason::Error(format!("Failed getting name of branch: {}", error))
+            WorktreeRemoveFailureReason::Error(format!("Failed getting name of branch: {error}"))
         })?;
 
         if branch_name != name {
             return Err(WorktreeRemoveFailureReason::Error(format!(
-                "Branch \"{}\" is checked out in worktree \"{}\", this does not look correct",
-                &branch_name,
+                "Branch \"{branch_name}\" is checked out in worktree \"{}\", this does not look correct",
                 &worktree_dir.display(),
             )));
         }
@@ -1256,8 +1143,7 @@ impl RepoHandle {
 
             if has_persistent_branches && !is_merged_into_persistent_branch {
                 return Err(WorktreeRemoveFailureReason::NotMerged(format!(
-                    "Branch {} is not merged into any persistent branches",
-                    name
+                    "Branch {name} is not merged into any persistent branches",
                 )));
             }
 
@@ -1270,15 +1156,13 @@ impl RepoHandle {
 
                         if (ahead, behind) != (0, 0) {
                             return Err(WorktreeRemoveFailureReason::Changes(format!(
-                                "Branch {} is not in line with remote branch",
-                                name
+                                "Branch {name} is not in line with remote branch",
                             )));
                         }
                     }
                     Err(_) => {
                         return Err(WorktreeRemoveFailureReason::Changes(format!(
-                            "No remote tracking branch for branch {} found",
-                            name
+                            "No remote tracking branch for branch {name} found",
                         )));
                     }
                 }
@@ -1339,7 +1223,7 @@ impl RepoHandle {
 
         let worktrees = self
             .get_worktrees()
-            .map_err(|error| format!("Getting worktrees failed: {}", error))?;
+            .map_err(|error| format!("Getting worktrees failed: {error}"))?;
 
         let config = read_worktree_root_config(directory)?;
 
@@ -1347,7 +1231,7 @@ impl RepoHandle {
             self.default_branch()
                 .map_err(|_| "Could not determine default branch")?
                 .name()
-                .map_err(|error| format!("Failed getting default branch name: {}", error))
+                .map_err(|error| format!("Failed getting default branch name: {error}"))
         };
 
         let default_branch_name = match &config {
@@ -1384,7 +1268,7 @@ impl RepoHandle {
                     false,
                     &config,
                 ) {
-                    Ok(_) => print_success(&format!("Worktree {} deleted", &worktree.name())),
+                    Ok(()) => print_success(&format!("Worktree {} deleted", &worktree.name())),
                     Err(error) => match error {
                         WorktreeRemoveFailureReason::Changes(changes) => {
                             warnings.push(format!(
@@ -1416,7 +1300,7 @@ impl RepoHandle {
     pub fn find_unmanaged_worktrees(&self, directory: &Path) -> Result<Vec<String>, String> {
         let worktrees = self
             .get_worktrees()
-            .map_err(|error| format!("Getting worktrees failed: {}", error))?;
+            .map_err(|error| format!("Getting worktrees failed: {error}"))?;
 
         let mut unmanaged_worktrees = Vec::new();
         for entry in std::fs::read_dir(directory).map_err(|error| error.to_string())? {
@@ -1434,9 +1318,9 @@ impl RepoHandle {
 
             let guess_default_branch = || {
                 self.default_branch()
-                    .map_err(|error| format!("Failed getting default branch: {}", error))?
+                    .map_err(|error| format!("Failed getting default branch: {error}"))?
                     .name()
-                    .map_err(|error| format!("Failed getting default branch name: {}", error))
+                    .map_err(|error| format!("Failed getting default branch name: {error}"))
             };
 
             let default_branch_name = match &config {
@@ -1529,7 +1413,7 @@ impl<'a> Branch<'a> {
 
     pub fn set_upstream(&mut self, remote_name: &str, branch_name: &str) -> Result<(), String> {
         self.0
-            .set_upstream(Some(&format!("{}/{}", remote_name, branch_name)))
+            .set_upstream(Some(&format!("{remote_name}/{branch_name}")))
             .map_err(convert_libgit2_error)?;
         Ok(())
     }
@@ -1579,9 +1463,8 @@ fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
     });
 
     callbacks.credentials(|_url, username_from_url, _allowed_types| {
-        let username = match username_from_url {
-            Some(username) => username,
-            None => panic!("Could not get username. This is a bug"),
+        let Some(username) = username_from_url else {
+            panic!("Could not get username. This is a bug")
         };
         git2::Cred::ssh_key_from_agent(username)
     });
@@ -1637,10 +1520,8 @@ impl RemoteHandle<'_> {
         let mut push_options = git2::PushOptions::new();
         push_options.remote_callbacks(get_remote_callbacks());
 
-        let push_refspec = format!(
-            "+refs/heads/{}:refs/heads/{}",
-            local_branch_name, remote_branch_name
-        );
+        let push_refspec =
+            format!("+refs/heads/{local_branch_name}:refs/heads/{remote_branch_name}",);
         self.0
             .push(&[push_refspec], Some(&mut push_options))
             .map_err(|error| {
@@ -1661,9 +1542,10 @@ pub fn clone_repo(
     path: &Path,
     is_worktree: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let clone_target = match is_worktree {
-        false => path.to_path_buf(),
-        true => path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY),
+    let clone_target = if is_worktree {
+        path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
+    } else {
+        path.to_path_buf()
     };
 
     print_action(&format!(
@@ -1733,4 +1615,107 @@ pub fn clone_repo(
     };
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_ssh_remote() {
+        assert_eq!(
+            detect_remote_type("ssh://git@example.com"),
+            Ok(RemoteType::Ssh)
+        );
+        assert_eq!(detect_remote_type("git@example.git"), Ok(RemoteType::Ssh));
+    }
+
+    #[test]
+    fn check_https_remote() {
+        assert_eq!(
+            detect_remote_type("https://example.com"),
+            Ok(RemoteType::Https)
+        );
+        assert_eq!(
+            detect_remote_type("https://example.com/test.git"),
+            Ok(RemoteType::Https)
+        );
+    }
+
+    #[test]
+    fn check_file_remote() {
+        assert_eq!(detect_remote_type("file:///somedir"), Ok(RemoteType::File));
+    }
+
+    #[test]
+    fn check_invalid_remotes() {
+        assert_eq!(
+            detect_remote_type("https//example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol"
+            ))
+        );
+        assert_eq!(
+            detect_remote_type("https:example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol",
+            ))
+        );
+        assert_eq!(
+            detect_remote_type("ssh//example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol",
+            ))
+        );
+        assert_eq!(
+            detect_remote_type("ssh:example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol",
+            ))
+        );
+        assert_eq!(
+            detect_remote_type("git@example.com"),
+            Err(String::from(
+                "The remote URL starts with an unimplemented protocol",
+            ))
+        );
+    }
+
+    #[test]
+    fn check_unsupported_protocol_http() {
+        assert_eq!(
+            detect_remote_type("http://example.com"),
+            Err(String::from(
+                "Remotes using HTTP protocol are not supported",
+            ))
+        );
+    }
+
+    #[test]
+    fn check_unsupported_protocol_git() {
+        assert_eq!(
+            detect_remote_type("git://example.com"),
+            Err(String::from("Remotes using git protocol are not supported"))
+        );
+    }
+
+    #[test]
+    fn repo_check_fullname() {
+        let with_namespace = Repo {
+            name: "name".to_string(),
+            namespace: Some("namespace".to_string()),
+            worktree_setup: false,
+            remotes: None,
+        };
+
+        let without_namespace = Repo {
+            name: "name".to_string(),
+            namespace: None,
+            worktree_setup: false,
+            remotes: None,
+        };
+
+        assert_eq!(with_namespace.fullname(), "namespace/name");
+        assert_eq!(without_namespace.fullname(), "name");
+    }
 }
