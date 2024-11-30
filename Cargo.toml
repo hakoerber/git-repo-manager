@@ -75,7 +75,7 @@ version = "=0.9.34"
 version = "=1.0.133"
 
 [dependencies.ureq]
-version = "=2.10.1"
+version = "=2.11.0"
 features = ["json"]
 
 [dependencies.parse_link_header]
