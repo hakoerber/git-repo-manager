@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.7.22"
+version = "0.7.23"
 edition = "2024"
 
 authors = [
