@@ -72,6 +72,52 @@ impl BranchName {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteName(String);
+
+impl fmt::Display for RemoteName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl RemoteName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteUrl(String);
+
+impl fmt::Display for RemoteUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl RemoteUrl {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
 /// Find all git repositories under root, recursively
 fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<FindResult, Error> {
     let mut repos: Vec<repo::Repo> = Vec::new();

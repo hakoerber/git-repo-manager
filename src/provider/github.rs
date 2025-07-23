@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use super::{ApiError, Error, Filter, JsonError, Project, Provider, auth, escape};
+use super::{ApiError, Error, Filter, JsonError, Project, Provider, RemoteUrl, Url, auth, escape};
 
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
 const GITHUB_API_BASEURL: &str = match option_env!("GITHUB_API_BASEURL") {
@@ -36,12 +36,12 @@ impl Project for GithubProject {
         }
     }
 
-    fn ssh_url(&self) -> String {
-        self.ssh_url.clone()
+    fn ssh_url(&self) -> RemoteUrl {
+        RemoteUrl::new(self.ssh_url.clone())
     }
 
-    fn http_url(&self) -> String {
-        self.clone_url.clone()
+    fn http_url(&self) -> RemoteUrl {
+        RemoteUrl::new(self.clone_url.clone())
     }
 
     fn private(&self) -> bool {
@@ -72,7 +72,7 @@ impl Provider for Github {
     fn new(
         filter: Filter,
         secret_token: auth::AuthToken,
-        api_url_override: Option<String>,
+        api_url_override: Option<Url>,
     ) -> Result<Self, Error> {
         if api_url_override.is_some() {
             return Err(Error::Provider(
@@ -102,7 +102,10 @@ impl Provider for Github {
         user: &super::User,
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/users/{}/repos", escape(&user.0)),
+            &Url::new(format!(
+                "{GITHUB_API_BASEURL}/users/{}/repos",
+                escape(&user.0)
+            )),
             Some(ACCEPT_HEADER_JSON),
         )
     }
@@ -112,10 +115,10 @@ impl Provider for Github {
         group: &super::Group,
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &format!(
+            &Url::new(format!(
                 "{GITHUB_API_BASEURL}/orgs/{}/repos?type=all",
                 escape(&group.0)
-            ),
+            )),
             Some(ACCEPT_HEADER_JSON),
         )
     }
@@ -124,7 +127,7 @@ impl Provider for Github {
         &self,
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/user/repos"),
+            &Url::new(format!("{GITHUB_API_BASEURL}/user/repos")),
             Some(ACCEPT_HEADER_JSON),
         )
     }

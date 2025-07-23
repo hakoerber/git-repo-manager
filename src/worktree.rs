@@ -210,7 +210,7 @@ use std::path::Path;
 
 use thiserror::Error;
 
-use super::{BranchName, config, repo};
+use super::{BranchName, RemoteName, config, repo};
 
 pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
@@ -236,7 +236,7 @@ struct WithRemoteTrackingBranch<'a> {
     local_branch_name: BranchName,
     local_branch: Option<repo::Branch<'a>>,
     target_commit: Option<Box<repo::Commit<'a>>>,
-    remote_tracking_branch: Option<(String, BranchName)>,
+    remote_tracking_branch: Option<(RemoteName, BranchName)>,
     prefix: Option<String>,
 }
 
@@ -328,7 +328,7 @@ where
 impl<'a> Worktree<'a, WithLocalTargetSelected<'a>> {
     fn set_remote_tracking_branch(
         self,
-        branch: Option<(&str, &str)>,
+        branch: Option<(&RemoteName, &BranchName)>,
         prefix: Option<&str>,
     ) -> Worktree<'a, WithRemoteTrackingBranch<'a>> {
         Worktree::<WithRemoteTrackingBranch> {
@@ -337,8 +337,7 @@ impl<'a> Worktree<'a, WithLocalTargetSelected<'a>> {
                 local_branch_name: self.extra.local_branch_name,
                 local_branch: self.extra.local_branch,
                 target_commit: self.extra.target_commit,
-                remote_tracking_branch: branch
-                    .map(|(s1, s2)| (s1.to_owned(), BranchName::new(s2.to_owned()))),
+                remote_tracking_branch: branch.map(|(s1, s2)| (s1.clone(), s2.clone())),
                 prefix: prefix.map(ToOwned::to_owned),
             },
         }
@@ -563,9 +562,9 @@ pub enum Error {
     #[error(transparent)]
     InvalidWorktreeName(#[from] WorktreeValidationError),
     #[error("Remote \"{name}\" not found", name = .name)]
-    RemoteNotFound { name: String },
+    RemoteNotFound { name: RemoteName },
     #[error("Cannot push to non-pushable remote \"{name}\"", name = .name)]
-    RemoteNotPushable { name: String },
+    RemoteNotPushable { name: RemoteName },
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Current directory does not contain a worktree setup")]
@@ -581,7 +580,7 @@ pub enum Error {
 pub fn add_worktree(
     directory: &Path,
     name: &str,
-    track: Option<(&str, &str)>,
+    track: Option<(RemoteName, BranchName)>,
     no_track: bool,
 ) -> Result<Option<Vec<String>>, Error> {
     let mut warnings: Vec<String> = vec![];
@@ -629,47 +628,53 @@ pub fn add_worktree(
     let worktree =
         Worktree::<Init>::new(&repo).set_local_branch_name(&BranchName::new(name.to_owned()))?;
 
-    let get_remote_head =
-        |remote_name: &str, remote_branch_name: &str| -> Result<Option<Box<repo::Commit>>, Error> {
-            if let Ok(remote_branch) = repo
-                .find_remote_branch(remote_name, &BranchName::new(remote_branch_name.to_owned()))
-            {
-                Ok(Some(Box::new(remote_branch.commit_owned()?)))
-            } else {
-                Ok(None)
-            }
-        };
-
-    let worktree = if worktree.local_branch_already_exists() {
-        worktree.select_commit(None)
-    } else if let Some((remote_name, remote_branch_name)) = if no_track { None } else { track } {
+    let get_remote_head = |remote_name: &RemoteName,
+                           remote_branch_name: &str|
+     -> Result<Option<Box<repo::Commit>>, Error> {
         if let Ok(remote_branch) =
             repo.find_remote_branch(remote_name, &BranchName::new(remote_branch_name.to_owned()))
         {
-            worktree.select_commit(Some(Box::new(remote_branch.commit_owned()?)))
+            Ok(Some(Box::new(remote_branch.commit_owned()?)))
         } else {
-            worktree.select_commit(Some(Box::new(default_branch_head)))
+            Ok(None)
         }
-    } else {
-        match remotes.len() {
-            0 => worktree.select_commit(Some(Box::new(default_branch_head))),
-            1 => {
-                #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
-                let remote_name = &remotes[0];
-                let commit: Option<Box<repo::Commit>> = ({
-                    if let Some(prefix) = prefix {
-                        get_remote_head(remote_name, &format!("{prefix}/{name}"))?
-                    } else {
-                        None
-                    }
-                })
-                .or(get_remote_head(remote_name, name)?)
-                .or_else(|| Some(Box::new(default_branch_head)));
+    };
 
-                worktree.select_commit(commit)
+    let worktree = if worktree.local_branch_already_exists() {
+        worktree.select_commit(None)
+    } else {
+        #[expect(
+            clippy::pattern_type_mismatch,
+            reason = "i cannot get this to work properly, but it's fine as it is"
+        )]
+        if let Some((remote_name, remote_branch_name)) =
+            if no_track { None } else { track.as_ref() }
+        {
+            if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
+                worktree.select_commit(Some(Box::new(remote_branch.commit_owned()?)))
+            } else {
+                worktree.select_commit(Some(Box::new(default_branch_head)))
             }
-            _ => {
-                let commit = if let Some(ref default_remote) = default_remote {
+        } else {
+            match remotes.len() {
+                0 => worktree.select_commit(Some(Box::new(default_branch_head))),
+                1 => {
+                    #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
+                    let remote_name = &remotes[0];
+                    let commit: Option<Box<repo::Commit>> = ({
+                        if let Some(prefix) = prefix {
+                            get_remote_head(remote_name, &format!("{prefix}/{name}"))?
+                        } else {
+                            None
+                        }
+                    })
+                    .or(get_remote_head(remote_name, name)?)
+                    .or_else(|| Some(Box::new(default_branch_head)));
+
+                    worktree.select_commit(commit)
+                }
+                _ => {
+                    let commit = if let Some(ref default_remote) = default_remote {
                     if let Some(prefix) = prefix {
                         if let Ok(remote_branch) = repo
                             .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))
@@ -760,7 +765,8 @@ pub fn add_worktree(
                         Some(commits.swap_remove(0))
                     }
                 });
-                worktree.select_commit(commit)
+                    worktree.select_commit(commit)
+                }
             }
         }
     };
@@ -769,7 +775,7 @@ pub fn add_worktree(
         worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
     } else if let Some((remote_name, remote_branch_name)) = track {
         worktree.set_remote_tracking_branch(
-            Some((remote_name, remote_branch_name)),
+            Some((&remote_name, &remote_branch_name)),
             None, // Always disable prefixing when explicitly given --track
         )
     } else if !enable_tracking {
@@ -781,14 +787,14 @@ pub fn add_worktree(
             {
                 #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
                 worktree.set_remote_tracking_branch(
-                    Some((&remotes[0], name)),
+                    Some((&remotes[0], &BranchName::new(name.to_owned()))),
                     prefix.map(String::as_str),
                 )
             }
             _ => {
                 if let Some(default_remote) = default_remote {
                     worktree.set_remote_tracking_branch(
-                        Some((&default_remote, name)),
+                        Some((&default_remote, &BranchName::new(name.to_owned()))),
                         prefix.map(String::as_str),
                     )
                 } else {

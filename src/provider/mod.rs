@@ -7,8 +7,19 @@ pub use github::Github;
 pub use gitlab::Gitlab;
 use thiserror::Error;
 
-use super::{auth, config, repo};
+use super::{RemoteName, RemoteUrl, auth, config, repo};
 
+pub struct Url(String);
+
+impl Url {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 #[derive(Clone)]
 pub struct User(String);
 
@@ -95,7 +106,7 @@ pub trait Project {
             namespace: self.namespace(),
             worktree_setup,
             remotes: vec![repo::Remote {
-                name: String::from(provider_name),
+                name: RemoteName::new(provider_name.to_owned()),
                 url: if force_ssh || self.private() {
                     self.ssh_url()
                 } else {
@@ -112,8 +123,8 @@ pub trait Project {
 
     fn name(&self) -> String;
     fn namespace(&self) -> Option<String>;
-    fn ssh_url(&self) -> String;
-    fn http_url(&self) -> String;
+    fn ssh_url(&self) -> RemoteUrl;
+    fn http_url(&self) -> RemoteUrl;
     fn private(&self) -> bool;
 }
 
@@ -178,7 +189,7 @@ pub trait Provider {
     fn new(
         filter: Filter,
         secret_token: auth::AuthToken,
-        api_url_override: Option<String>,
+        api_url_override: Option<Url>,
     ) -> Result<Self, Error>
     where
         Self: Sized;
@@ -210,12 +221,12 @@ pub trait Provider {
     /// the end.
     fn call_list(
         &self,
-        uri: &str,
+        uri: &Url,
         accept_header: Option<&str>,
     ) -> Result<Vec<Self::Project>, ApiError<Self::Error>> {
         let mut results = vec![];
 
-        match ureq::get(uri)
+        match ureq::get(uri.as_str())
             .config()
             .http_status_as_error(false)
             .build()
@@ -247,7 +258,8 @@ pub trait Provider {
                         let next_page = link_header.get(&Some(String::from("next")));
 
                         if let Some(page) = next_page {
-                            let following_repos = self.call_list(&page.raw_uri, accept_header)?;
+                            let following_repos =
+                                self.call_list(&Url::new(page.raw_uri.clone()), accept_header)?;
                             results.extend(following_repos);
                         }
                     }

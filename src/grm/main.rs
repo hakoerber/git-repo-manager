@@ -8,7 +8,7 @@ use std::{
 mod cmd;
 
 use grm::{
-    auth, config, find_in_tree,
+    BranchName, RemoteName, auth, config, find_in_tree,
     output::{print, print_error, print_success, print_warning, println},
     provider,
     provider::Provider,
@@ -566,7 +566,10 @@ fn main() {
                                 }
                             };
 
-                            Some((remote_name, remote_branch_name))
+                            Some((
+                                RemoteName::new(remote_name.to_owned()),
+                                BranchName::new(remote_branch_name.to_owned()),
+                            ))
                         }
                         None => None,
                     };

@@ -209,34 +209,38 @@ impl Config {
                 }
 
                 let repos = match config.provider {
-                    RemoteProvider::Github => {
-                        match provider::Github::new(filter, token, config.api_url) {
-                            Ok(provider) => provider,
-                            Err(error) => {
-                                print_error(&format!("Error: {error}"));
-                                process::exit(1);
-                            }
+                    RemoteProvider::Github => match provider::Github::new(
+                        filter,
+                        token,
+                        config.api_url.map(provider::Url::new),
+                    ) {
+                        Ok(provider) => provider,
+                        Err(error) => {
+                            print_error(&format!("Error: {error}"));
+                            process::exit(1);
                         }
-                        .get_repos(
-                            config.worktree.unwrap_or(false),
-                            config.force_ssh.unwrap_or(false),
-                            config.remote_name,
-                        )?
                     }
-                    RemoteProvider::Gitlab => {
-                        match provider::Gitlab::new(filter, token, config.api_url) {
-                            Ok(provider) => provider,
-                            Err(error) => {
-                                print_error(&format!("Error: {error}"));
-                                process::exit(1);
-                            }
+                    .get_repos(
+                        config.worktree.unwrap_or(false),
+                        config.force_ssh.unwrap_or(false),
+                        config.remote_name,
+                    )?,
+                    RemoteProvider::Gitlab => match provider::Gitlab::new(
+                        filter,
+                        token,
+                        config.api_url.map(provider::Url::new),
+                    ) {
+                        Ok(provider) => provider,
+                        Err(error) => {
+                            print_error(&format!("Error: {error}"));
+                            process::exit(1);
                         }
-                        .get_repos(
-                            config.worktree.unwrap_or(false),
-                            config.force_ssh.unwrap_or(false),
-                            config.remote_name,
-                        )?
                     }
+                    .get_repos(
+                        config.worktree.unwrap_or(false),
+                        config.force_ssh.unwrap_or(false),
+                        config.remote_name,
+                    )?,
                 };
 
                 let mut trees = vec![];

@@ -4,7 +4,7 @@ use git2::Repository;
 use thiserror::Error;
 
 use super::{
-    BranchName, config,
+    BranchName, RemoteName, RemoteUrl, config,
     output::{print_action, print_success},
     path, worktree,
 };
@@ -111,8 +111,8 @@ pub enum Error {
     )]
     PushFailed {
         local_branch: BranchName,
-        remote_name: String,
-        remote_url: String,
+        remote_name: RemoteName,
+        remote_url: RemoteUrl,
         message: String,
     },
     #[error(transparent)]
@@ -140,16 +140,16 @@ pub enum Error {
 
 #[derive(Debug)]
 pub struct Remote {
-    pub name: String,
-    pub url: String,
+    pub name: RemoteName,
+    pub url: RemoteUrl,
     pub remote_type: RemoteType,
 }
 
 impl From<config::Remote> for Remote {
     fn from(other: config::Remote) -> Self {
         Self {
-            name: other.name,
-            url: other.url,
+            name: RemoteName::new(other.name),
+            url: RemoteUrl::new(other.url),
             remote_type: other.remote_type.into(),
         }
     }
@@ -158,8 +158,8 @@ impl From<config::Remote> for Remote {
 impl From<Remote> for config::Remote {
     fn from(other: Remote) -> Self {
         Self {
-            name: other.name,
-            url: other.url,
+            name: other.name.into_string(),
+            url: other.url.into_string(),
             remote_type: other.remote_type.into(),
         }
     }
@@ -218,7 +218,7 @@ impl Repo {
 
 pub struct TrackingConfig {
     pub default: bool,
-    pub default_remote: String,
+    pub default_remote: RemoteName,
     pub default_remote_prefix: Option<String>,
 }
 
@@ -226,7 +226,7 @@ impl From<config::TrackingConfig> for TrackingConfig {
     fn from(other: config::TrackingConfig) -> Self {
         Self {
             default: other.default,
-            default_remote: other.default_remote,
+            default_remote: RemoteName::new(other.default_remote),
             default_remote_prefix: other.default_remote_prefix,
         }
     }
@@ -273,7 +273,7 @@ pub struct RepoStatus {
 
     pub empty: bool,
 
-    pub remotes: Vec<String>,
+    pub remotes: Vec<RemoteName>,
 
     pub head: Option<BranchName>,
 
@@ -283,7 +283,7 @@ pub struct RepoStatus {
 
     pub submodules: Option<Vec<(String, SubmoduleStatus)>>,
 
-    pub branches: Vec<(BranchName, Option<(String, RemoteTrackingStatus)>)>,
+    pub branches: Vec<(BranchName, Option<(BranchName, RemoteTrackingStatus)>)>,
 }
 
 pub struct Worktree {
@@ -484,7 +484,9 @@ impl RepoStatus {
     }
 }
 
-pub fn detect_remote_type(remote_url: &str) -> Result<RemoteType, Error> {
+pub fn detect_remote_type(remote_url: &RemoteUrl) -> Result<RemoteType, Error> {
+    let remote_url = remote_url.as_str();
+
     #[expect(clippy::missing_panics_doc, reason = "regex is valid")]
     let git_regex = regex::Regex::new(r"^[a-zA-Z]+@.*$").expect("regex is valid");
     if remote_url.starts_with("ssh://") {
@@ -562,8 +564,10 @@ impl RepoHandle {
         Ok(())
     }
 
-    pub fn rename_remote(&self, remote: &RemoteHandle, new_name: &str) -> Result<(), Error> {
-        let failed_refspecs = self.0.remote_rename(&remote.name()?, new_name)?;
+    pub fn rename_remote(&self, remote: &RemoteHandle, new_name: &RemoteName) -> Result<(), Error> {
+        let failed_refspecs = self
+            .0
+            .remote_rename(remote.name()?.as_str(), new_name.as_str())?;
 
         if !failed_refspecs.is_empty() {
             return Err(Error::RefspecRenameFailed);
@@ -598,12 +602,12 @@ impl RepoHandle {
         Ok(branch)
     }
 
-    pub fn remote_set_url(&self, name: &str, url: &str) -> Result<(), Error> {
-        Ok(self.0.remote_set_url(name, url)?)
+    pub fn remote_set_url(&self, name: &RemoteName, url: &RemoteUrl) -> Result<(), Error> {
+        Ok(self.0.remote_set_url(name.as_str(), url.as_str())?)
     }
 
-    pub fn remote_delete(&self, name: &str) -> Result<(), Error> {
-        Ok(self.0.remote_delete(name)?)
+    pub fn remote_delete(&self, name: &RemoteName) -> Result<(), Error> {
+        Ok(self.0.remote_delete(name.as_str())?)
     }
 
     pub fn is_empty(&self) -> Result<bool, Error> {
@@ -628,16 +632,19 @@ impl RepoHandle {
         Ok(())
     }
 
-    pub fn remotes(&self) -> Result<Vec<String>, Error> {
+    pub fn remotes(&self) -> Result<Vec<RemoteName>, Error> {
         self.0
             .remotes()?
             .iter()
-            .map(|name| name.ok_or(Error::RemoteNameNotUtf8).map(ToOwned::to_owned))
+            .map(|name| {
+                name.ok_or(Error::RemoteNameNotUtf8)
+                    .map(|s| RemoteName::new(s.to_owned()))
+            })
             .collect()
     }
 
-    pub fn new_remote(&self, name: &str, url: &str) -> Result<(), Error> {
-        self.0.remote(name, url)?;
+    pub fn new_remote(&self, name: &RemoteName, url: &RemoteUrl) -> Result<(), Error> {
+        self.0.remote(name.as_str(), url.as_str())?;
         Ok(())
     }
 
@@ -662,8 +669,8 @@ impl RepoHandle {
             .collect::<Result<Vec<Branch>, Error>>()
     }
 
-    pub fn fetch(&self, remote_name: &str) -> Result<(), Error> {
-        let mut remote = self.0.find_remote(remote_name)?;
+    pub fn fetch(&self, remote_name: &RemoteName) -> Result<(), Error> {
+        let mut remote = self.0.find_remote(remote_name.as_str())?;
 
         let mut fetch_options = git2::FetchOptions::new();
         fetch_options.remote_callbacks(get_remote_callbacks());
@@ -711,11 +718,11 @@ impl RepoHandle {
 
     pub fn find_remote_branch(
         &self,
-        remote_name: &str,
+        remote_name: &RemoteName,
         branch_name: &BranchName,
     ) -> Result<Branch<'_>, Error> {
         Ok(Branch(self.0.find_branch(
-            &format!("{remote_name}/{}", branch_name.as_str()),
+            &format!("{}/{}", remote_name.as_str(), branch_name.as_str()),
             git2::BranchType::Remote,
         )?))
     }
@@ -896,9 +903,9 @@ impl RepoHandle {
             .map(|repo_name| {
                 repo_name
                     .ok_or(Error::WorktreeNameNotUtf8)
-                    .map(ToOwned::to_owned)
+                    .map(|s| RemoteName::new(s.to_owned()))
             })
-            .collect::<Result<Vec<String>, Error>>()?;
+            .collect::<Result<Vec<RemoteName>, Error>>()?;
 
         let head = if is_worktree || empty {
             None
@@ -1006,11 +1013,13 @@ impl RepoHandle {
             );
             let remote_branch = match local_branch.upstream() {
                 Ok(remote_branch) => {
-                    let remote_branch_name = remote_branch
-                        .name()
-                        .map_err(|e| Error::CannotGetBranchName { inner: e })?
-                        .ok_or(Error::BranchNameNotUtf8)?
-                        .to_owned();
+                    let remote_branch_name = BranchName::new(
+                        remote_branch
+                            .name()
+                            .map_err(|e| Error::CannotGetBranchName { inner: e })?
+                            .ok_or(Error::BranchNameNotUtf8)?
+                            .to_owned(),
+                    );
 
                     let (ahead, behind) = self.0.graph_ahead_behind(
                         local_branch.get().peel_to_commit()?.id(),
@@ -1045,7 +1054,7 @@ impl RepoHandle {
 
     pub fn get_remote_default_branch(
         &self,
-        remote_name: &str,
+        remote_name: &RemoteName,
     ) -> Result<Option<Branch<'_>>, Error> {
         // libgit2's `git_remote_default_branch()` and `Remote::default_branch()`
         // need an actual connection to the remote, so they may fail.
@@ -1149,7 +1158,7 @@ impl RepoHandle {
     // May be a good idea to handle this explicitly, by returning a
     // Result<Option<RemoteHandle>, Error> instead, Returning Ok(None)
     // on "not found" and Err() on an actual error.
-    pub fn find_remote(&self, remote_name: &str) -> Result<Option<RemoteHandle<'_>>, Error> {
+    pub fn find_remote(&self, remote_name: &RemoteName) -> Result<Option<RemoteHandle<'_>>, Error> {
         let remotes = self.0.remotes()?;
 
         if !remotes
@@ -1157,12 +1166,14 @@ impl RepoHandle {
             .map(|remote| remote.ok_or(Error::RemoteNameNotUtf8))
             .collect::<Result<Vec<_>, Error>>()?
             .into_iter()
-            .any(|remote| remote == remote_name)
+            .any(|remote| remote == remote_name.as_str())
         {
             return Ok(None);
         }
 
-        Ok(Some(RemoteHandle(self.0.find_remote(remote_name)?)))
+        Ok(Some(RemoteHandle(
+            self.0.find_remote(remote_name.as_str())?,
+        )))
     }
 
     pub fn get_worktrees(&self) -> Result<Vec<Worktree>, Error> {
@@ -1525,11 +1536,14 @@ impl<'a> Branch<'a> {
 
     pub fn set_upstream(
         &mut self,
-        remote_name: &str,
+        remote_name: &RemoteName,
         branch_name: &BranchName,
     ) -> Result<(), Error> {
-        self.0
-            .set_upstream(Some(&format!("{remote_name}/{}", branch_name.as_str())))?;
+        self.0.set_upstream(Some(&format!(
+            "{}/{}",
+            remote_name.as_str(),
+            branch_name.as_str()
+        )))?;
         Ok(())
     }
 
@@ -1587,12 +1601,16 @@ fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
 }
 
 impl RemoteHandle<'_> {
-    pub fn url(&self) -> Result<String, Error> {
-        Ok(self.0.url().ok_or(Error::RemoteNameNotUtf8)?.to_owned())
+    pub fn url(&self) -> Result<RemoteUrl, Error> {
+        Ok(RemoteUrl::new(
+            self.0.url().ok_or(Error::RemoteNameNotUtf8)?.to_owned(),
+        ))
     }
 
-    pub fn name(&self) -> Result<String, Error> {
-        Ok(self.0.name().ok_or(Error::RemoteNameNotUtf8)?.to_owned())
+    pub fn name(&self) -> Result<RemoteName, Error> {
+        Ok(RemoteName::new(
+            self.0.name().ok_or(Error::RemoteNameNotUtf8)?.to_owned(),
+        ))
     }
 
     pub fn connected(&mut self) -> bool {
@@ -1610,7 +1628,9 @@ impl RemoteHandle<'_> {
     }
 
     pub fn is_pushable(&self) -> Result<bool, Error> {
-        let remote_type = detect_remote_type(self.0.url().ok_or(Error::RemoteNameNotUtf8)?)?;
+        let remote_type = detect_remote_type(&RemoteUrl::new(
+            self.0.url().ok_or(Error::RemoteNameNotUtf8)?.to_owned(),
+        ))?;
         Ok(matches!(remote_type, RemoteType::Ssh | RemoteType::File))
     }
 
@@ -1675,7 +1695,7 @@ pub fn clone_repo(
             builder.bare(is_worktree);
             builder.fetch_options(fetchopts);
 
-            builder.clone(&remote.url, &clone_target)?;
+            builder.clone(remote.url.as_str(), &clone_target)?;
         }
         RemoteType::Ssh => {
             let mut fo = git2::FetchOptions::new();
@@ -1685,7 +1705,7 @@ pub fn clone_repo(
             builder.bare(is_worktree);
             builder.fetch_options(fo);
 
-            builder.clone(&remote.url, &clone_target)?;
+            builder.clone(remote.url.as_str(), &clone_target)?;
         }
     }
 
@@ -1695,10 +1715,10 @@ pub fn clone_repo(
         repo.set_config_push(GitPushDefaultSetting::Upstream)?;
     }
 
-    if remote.name != "origin" {
+    if remote.name != RemoteName::new("origin".to_owned()) {
         #[expect(clippy::missing_panics_doc, reason = "see expect() message")]
         let origin = repo
-            .find_remote("origin")?
+            .find_remote(&RemoteName::new("origin".to_owned()))?
             .expect("the remote will always exist after a successful clone");
         repo.rename_remote(&origin, &remote.name)?;
     }
@@ -1737,21 +1757,24 @@ mod tests {
     #[test]
     fn check_ssh_remote() -> Result<(), Error> {
         assert_eq!(
-            detect_remote_type("ssh://git@example.com")?,
+            detect_remote_type(&RemoteUrl::new("ssh://git@example.com".to_owned()))?,
             RemoteType::Ssh
         );
-        assert_eq!(detect_remote_type("git@example.git")?, RemoteType::Ssh);
+        assert_eq!(
+            detect_remote_type(&RemoteUrl::new("git@example.git".to_owned()))?,
+            RemoteType::Ssh
+        );
         Ok(())
     }
 
     #[test]
     fn check_https_remote() -> Result<(), Error> {
         assert_eq!(
-            detect_remote_type("https://example.com")?,
+            detect_remote_type(&RemoteUrl::new("https://example.com".to_owned()))?,
             RemoteType::Https
         );
         assert_eq!(
-            detect_remote_type("https://example.com/test.git")?,
+            detect_remote_type(&RemoteUrl::new("https://example.com/test.git".to_owned()))?,
             RemoteType::Https
         );
         Ok(())
@@ -1759,30 +1782,33 @@ mod tests {
 
     #[test]
     fn check_file_remote() -> Result<(), Error> {
-        assert_eq!(detect_remote_type("file:///somedir")?, RemoteType::File);
+        assert_eq!(
+            detect_remote_type(&RemoteUrl::new("file:///somedir".to_owned()))?,
+            RemoteType::File
+        );
         Ok(())
     }
 
     #[test]
     fn check_invalid_remotes() {
         assert!(matches!(
-            detect_remote_type("https//example.com"),
+            detect_remote_type(&RemoteUrl::new("https//example.com".to_owned())),
             Err(Error::UnimplementedRemoteProtocol)
         ));
         assert!(matches!(
-            detect_remote_type("https:example.com"),
+            detect_remote_type(&RemoteUrl::new("https:example.com".to_owned())),
             Err(Error::UnimplementedRemoteProtocol)
         ));
         assert!(matches!(
-            detect_remote_type("ssh//example.com"),
+            detect_remote_type(&RemoteUrl::new("ssh//example.com".to_owned())),
             Err(Error::UnimplementedRemoteProtocol)
         ));
         assert!(matches!(
-            detect_remote_type("ssh:example.com"),
+            detect_remote_type(&RemoteUrl::new("ssh:example.com".to_owned())),
             Err(Error::UnimplementedRemoteProtocol)
         ));
         assert!(matches!(
-            detect_remote_type("git@example.com"),
+            detect_remote_type(&RemoteUrl::new("git@example.com".to_owned())),
             Err(Error::UnimplementedRemoteProtocol)
         ));
     }
@@ -1790,7 +1816,7 @@ mod tests {
     #[test]
     fn check_unsupported_protocol_http() {
         assert!(matches!(
-            detect_remote_type("http://example.com"),
+            detect_remote_type(&RemoteUrl::new("http://example.com".to_owned())),
             Err(Error::UnsupportedHttpRemote)
         ));
     }
@@ -1798,7 +1824,7 @@ mod tests {
     #[test]
     fn check_unsupported_protocol_git() {
         assert!(matches!(
-            detect_remote_type("git://example.com"),
+            detect_remote_type(&RemoteUrl::new("git://example.com".to_owned())),
             Err(Error::UnsupportedGitRemote)
         ));
     }
