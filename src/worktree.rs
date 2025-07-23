@@ -505,27 +505,44 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
     }
 }
 
+#[derive(Debug, Error)]
+enum WorktreeValidationErrorReason {
+    #[error("cannot start or end with a slash")]
+    SlashAtStartOrEnd,
+    #[error("cannot contain two consecutive slashes")]
+    ConsecutiveSlashes,
+    #[error("cannot contain whitespace")]
+    ContainsWhitespace,
+}
+
+#[derive(Debug, Error)]
+#[error("invalid worktree name \"{}\": {}", .name, .reason)]
+pub struct WorktreeValidationError {
+    name: String,
+    reason: WorktreeValidationErrorReason,
+}
+
 /// A branch name must never start or end with a slash, and it cannot have two
 /// consecutive slashes
-fn validate_worktree_name(name: &str) -> Result<(), Error> {
+fn validate_worktree_name(name: &str) -> Result<(), WorktreeValidationError> {
     if name.starts_with('/') || name.ends_with('/') {
-        return Err(Error::InvalidWorktreeName {
+        return Err(WorktreeValidationError {
             name: name.to_owned(),
-            message: "cannot start or end with a slash",
+            reason: WorktreeValidationErrorReason::SlashAtStartOrEnd,
         });
     }
 
     if name.contains("//") {
-        return Err(Error::InvalidWorktreeName {
+        return Err(WorktreeValidationError {
             name: name.to_owned(),
-            message: "cannot contain two consecutive slashes",
+            reason: WorktreeValidationErrorReason::ConsecutiveSlashes,
         });
     }
 
     if name.contains(char::is_whitespace) {
-        return Err(Error::InvalidWorktreeName {
+        return Err(WorktreeValidationError {
             name: name.to_owned(),
-            message: "cannot contain whitespace",
+            reason: WorktreeValidationErrorReason::ContainsWhitespace,
         });
     }
 
@@ -538,8 +555,8 @@ pub enum Error {
     Repo(#[from] repo::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
-    #[error("Invalid worktree name: {name}, {message}", name = .name, message = .message)]
-    InvalidWorktreeName { name: String, message: &'static str },
+    #[error(transparent)]
+    InvalidWorktreeName(#[from] WorktreeValidationError),
     #[error("Remote \"{name}\" not found", name = .name)]
     RemoteNotFound { name: String },
     #[error("Cannot push to non-pushable remote \"{name}\"", name = .name)]
