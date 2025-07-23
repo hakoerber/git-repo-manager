@@ -544,7 +544,9 @@ fn main() {
                     let worktree_config = match repo::read_worktree_root_config(&cwd) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&format!("Error getting worktree configuration: {error}"));
+                            print_error(&format!(
+                                "Error getting worktree configuration: {error}"
+                            ));
                             process::exit(1);
                         }
                     };

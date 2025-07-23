@@ -117,8 +117,8 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, String> {
                                 }
                             }
                         }
-                        Err(error) => {
-                            return Err(format!("Error accessing directory: {error}"));
+                        Err(e) => {
+                            return Err(format!("Error accessing directory: {e}"));
                         }
                     };
                 }
@@ -189,8 +189,8 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                 print_repo_success(&repo.name, "Repository created");
                 Some(r)
             }
-            Err(error) => {
-                return Err(format!("Repository failed during init: {error}"));
+            Err(e) => {
+                return Err(format!("Repository failed during init: {e}"));
             }
         };
     } else {
@@ -200,8 +200,8 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
             Ok(()) => {
                 print_repo_success(&repo.name, "Repository successfully cloned");
             }
-            Err(error) => {
-                return Err(format!("Repository failed during clone: {error}"));
+            Err(e) => {
+                return Err(format!("Repository failed during clone: {e}"));
             }
         };
 
@@ -216,7 +216,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                     "Repo already exists, but is using a worktree setup",
                 ))
             } else {
-                Err(format!("Opening repository failed: {error}"))
+                return Err(format!("Opening repository failed: {error}"));
             }
         }
     };
@@ -264,7 +264,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                     );
                     if let Err(error) = repo_handle.new_remote(&remote.name, &remote.url) {
                         return Err(format!(
-                            "Repository failed during setting the remotes: {error}",
+                            "Repository failed during setting the remotes: {e}"
                         ));
                     }
                 }

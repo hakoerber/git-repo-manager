@@ -323,7 +323,11 @@ where
         Ok(c) => c,
         Err(_) => match serde_yaml::from_str(&content) {
             Ok(c) => c,
-            Err(e) => return Err(format!("Error parsing configuration file \"{path}\": {e}",)),
+            Err(e) => {
+                return Err(format!(
+                    "Error parsing configuration file \"{path}\": {e}"
+                ))
+            }
         },
     };
 

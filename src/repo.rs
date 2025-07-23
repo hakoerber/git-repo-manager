@@ -521,7 +521,7 @@ impl RepoHandle {
             .map_err(convert_libgit2_error)
     }
 
-    pub fn head_branch(&self) -> Result<Branch, String> {
+    pub fn head_branch(&self) -> Result<Branch<'_>, String> {
         let head = self.0.head().map_err(convert_libgit2_error)?;
         if !head.is_branch() {
             return Err(String::from("No branch checked out"));
@@ -591,7 +591,7 @@ impl RepoHandle {
         Ok(())
     }
 
-    pub fn local_branches(&self) -> Result<Vec<Branch>, String> {
+    pub fn local_branches(&self) -> Result<Vec<Branch<'_>>, String> {
         self.0
             .branches(Some(git2::BranchType::Local))
             .map_err(convert_libgit2_error)?
@@ -599,7 +599,7 @@ impl RepoHandle {
             .collect::<Result<Vec<Branch>, String>>()
     }
 
-    pub fn remote_branches(&self) -> Result<Vec<Branch>, String> {
+    pub fn remote_branches(&self) -> Result<Vec<Branch<'_>>, String> {
         self.0
             .branches(Some(git2::BranchType::Remote))
             .map_err(convert_libgit2_error)?
@@ -664,7 +664,7 @@ impl RepoHandle {
         &self,
         remote_name: &str,
         branch_name: &str,
-    ) -> Result<Branch, String> {
+    ) -> Result<Branch<'_>, String> {
         Ok(Branch(
             self.0
                 .find_branch(
@@ -675,7 +675,7 @@ impl RepoHandle {
         ))
     }
 
-    pub fn find_local_branch(&self, name: &str) -> Result<Branch, String> {
+    pub fn find_local_branch(&self, name: &str) -> Result<Branch<'_>, String> {
         Ok(Branch(
             self.0
                 .find_branch(name, git2::BranchType::Local)
@@ -683,7 +683,7 @@ impl RepoHandle {
         ))
     }
 
-    pub fn create_branch(&self, name: &str, target: &Commit) -> Result<Branch, String> {
+    pub fn create_branch(&self, name: &str, target: &Commit) -> Result<Branch<'_>, String> {
         Ok(Branch(
             self.0
                 .branch(name, &target.0, false)
@@ -720,14 +720,14 @@ impl RepoHandle {
         }
 
         std::fs::rename(".git", worktree::GIT_MAIN_WORKTREE_DIRECTORY).map_err(|error| {
-            WorktreeConversionFailureReason::Error(format!("Error moving .git directory: {error}",))
+            WorktreeConversionFailureReason::Error(format!("Error moving .git directory: {error}"))
         })?;
 
         for entry in match std::fs::read_dir(root_dir) {
             Ok(iterator) => iterator,
             Err(error) => {
                 return Err(WorktreeConversionFailureReason::Error(format!(
-                    "Opening directory failed: {error}",
+                    "Opening directory failed: {error}"
                 )));
             }
         } {
@@ -741,18 +741,18 @@ impl RepoHandle {
                     if path.is_file() || path.is_symlink() {
                         if let Err(error) = std::fs::remove_file(&path) {
                             return Err(WorktreeConversionFailureReason::Error(format!(
-                                "Failed removing {error}",
+                                "Failed removing {error}"
                             )));
                         }
                     } else if let Err(error) = std::fs::remove_dir_all(&path) {
                         return Err(WorktreeConversionFailureReason::Error(format!(
-                            "Failed removing {error}",
+                            "Failed removing {error}"
                         )));
                     }
                 }
                 Err(error) => {
                     return Err(WorktreeConversionFailureReason::Error(format!(
-                        "Error getting directory entry: {error}",
+                        "Error getting directory entry: {error}"
                     )));
                 }
             }
@@ -760,7 +760,7 @@ impl RepoHandle {
 
         let worktree_repo = Self::open(root_dir, true).map_err(|error| {
             WorktreeConversionFailureReason::Error(format!(
-                "Opening newly converted repository failed: {error}",
+                "Opening newly converted repository failed: {error}"
             ))
         })?;
 
@@ -963,7 +963,10 @@ impl RepoHandle {
         })
     }
 
-    pub fn get_remote_default_branch(&self, remote_name: &str) -> Result<Option<Branch>, String> {
+    pub fn get_remote_default_branch(
+        &self,
+        remote_name: &str,
+    ) -> Result<Option<Branch<'_>>, String> {
         // libgit2's `git_remote_default_branch()` and `Remote::default_branch()`
         // need an actual connection to the remote, so they may fail.
         if let Some(mut remote) = self.find_remote(remote_name)? {
@@ -993,7 +996,7 @@ impl RepoHandle {
         Ok(None)
     }
 
-    pub fn default_branch(&self) -> Result<Branch, String> {
+    pub fn default_branch(&self) -> Result<Branch<'_>, String> {
         // This is a bit of a guessing game.
         //
         // In the best case, there is only one remote. Then, we can check <remote>/HEAD to get the
@@ -1044,7 +1047,7 @@ impl RepoHandle {
     // May be a good idea to handle this explicitly, by returning a
     // Result<Option<RemoteHandle>, String> instead, Returning Ok(None)
     // on "not found" and Err() on an actual error.
-    pub fn find_remote(&self, remote_name: &str) -> Result<Option<RemoteHandle>, String> {
+    pub fn find_remote(&self, remote_name: &str) -> Result<Option<RemoteHandle<'_>>, String> {
         let remotes = self.0.remotes().map_err(convert_libgit2_error)?;
 
         if !remotes
@@ -1084,10 +1087,10 @@ impl RepoHandle {
 
         if !fullpath.exists() {
             return Err(WorktreeRemoveFailureReason::Error(format!(
-                "{name} does not exist",
+                "{name} does not exist"
             )));
         }
-        let worktree_repo = Self::open(&fullpath, false).map_err(|error| {
+        let worktree_repo = RepoHandle::open(&fullpath, false).map_err(|error| {
             WorktreeRemoveFailureReason::Error(format!("Error opening repo: {error}"))
         })?;
 
@@ -1143,7 +1146,7 @@ impl RepoHandle {
 
             if has_persistent_branches && !is_merged_into_persistent_branch {
                 return Err(WorktreeRemoveFailureReason::NotMerged(format!(
-                    "Branch {name} is not merged into any persistent branches",
+                    "Branch {name} is not merged into any persistent branches"
                 )));
             }
 
@@ -1156,13 +1159,13 @@ impl RepoHandle {
 
                         if (ahead, behind) != (0, 0) {
                             return Err(WorktreeRemoveFailureReason::Changes(format!(
-                                "Branch {name} is not in line with remote branch",
+                                "Branch {name} is not in line with remote branch"
                             )));
                         }
                     }
                     Err(_) => {
                         return Err(WorktreeRemoveFailureReason::Changes(format!(
-                            "No remote tracking branch for branch {name} found",
+                            "No remote tracking branch for branch {name} found"
                         )));
                     }
                 }
@@ -1376,7 +1379,7 @@ impl Commit<'_> {
         Oid(self.0.id())
     }
 
-    pub(self) fn author(&self) -> git2::Signature {
+    pub(self) fn author(&self) -> git2::Signature<'_> {
         self.0.author()
     }
 }
@@ -1393,7 +1396,7 @@ impl<'a> Branch<'a> {
 }
 
 impl<'a> Branch<'a> {
-    pub fn commit(&self) -> Result<Commit, String> {
+    pub fn commit(&self) -> Result<Commit<'_>, String> {
         Ok(Commit(
             self.0
                 .get()
@@ -1426,7 +1429,7 @@ impl<'a> Branch<'a> {
             .map(|name| name.to_string())
     }
 
-    pub fn upstream(&self) -> Result<Branch, String> {
+    pub fn upstream(&self) -> Result<Branch<'_>, String> {
         Ok(Branch(self.0.upstream().map_err(convert_libgit2_error)?))
     }
 
@@ -1444,7 +1447,7 @@ impl<'a> Branch<'a> {
     }
 
     // only used internally in this module, exposes libgit2 details
-    fn as_reference(&self) -> &git2::Reference {
+    fn as_reference(&self) -> &git2::Reference<'_> {
         self.0.get()
     }
 }
@@ -1521,7 +1524,7 @@ impl RemoteHandle<'_> {
         push_options.remote_callbacks(get_remote_callbacks());
 
         let push_refspec =
-            format!("+refs/heads/{local_branch_name}:refs/heads/{remote_branch_name}",);
+            format!("+refs/heads/{local_branch_name}:refs/heads/{remote_branch_name}");
         self.0
             .push(&[push_refspec], Some(&mut push_options))
             .map_err(|error| {

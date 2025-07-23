@@ -21,8 +21,8 @@ pub fn get_token_from_command(command: &str) -> Result<AuthToken, String> {
     let stdout = String::from_utf8(output.stdout).map_err(|error| error.to_string())?;
 
     if !output.status.success() {
-        return if !stderr.is_empty() {
-            Err(format!("Token command failed: {stderr}"))
+        if !stderr.is_empty() {
+            return Err(format!("Token command failed: {stderr}"));
         } else {
             Err(String::from("Token command failed."))
         };

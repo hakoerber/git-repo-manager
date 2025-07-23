@@ -10,8 +10,8 @@ pub fn path_as_string(path: &Path) -> String {
 pub fn env_home() -> String {
     match std::env::var("HOME") {
         Ok(path) => path,
-        Err(error) => {
-            print_error(&format!("Unable to read HOME: {error}"));
+        Err(e) => {
+            print_error(&format!("Unable to read HOME: {e}"));
             process::exit(1);
         }
     }
@@ -30,8 +30,8 @@ pub fn expand_path(path: &Path) -> PathBuf {
     ) {
         Ok(std::borrow::Cow::Borrowed(path)) => path.to_owned(),
         Ok(std::borrow::Cow::Owned(path)) => path,
-        Err(error) => {
-            print_error(&format!("Unable to expand root: {error}"));
+        Err(e) => {
+            print_error(&format!("Unable to expand root: {e}"));
             process::exit(1);
         }
     };

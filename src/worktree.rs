@@ -285,11 +285,7 @@ where
         let mut branchref = self.extra.local_branch.borrow_mut();
         if branchref.is_none() {
             let branch = self.repo.find_local_branch(&self.extra.local_branch_name);
-            *branchref = Some(if let Ok(branch) = branch {
-                Some(branch)
-            } else {
-                None
-            });
+            *branchref = Some(branch.ok());
         }
     }
 
@@ -362,26 +358,17 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
 
         if let Some((remote_name, remote_branch_name)) = self.extra.remote_tracking_branch {
             let remote_branch_with_prefix = if let Some(ref prefix) = self.extra.prefix {
-                if let Ok(remote_branch) = self
-                    .repo
+                self.repo
                     .find_remote_branch(&remote_name, &format!("{prefix}/{remote_branch_name}"))
-                {
-                    Some(remote_branch)
-                } else {
-                    None
-                }
+                    .ok()
             } else {
                 None
             };
 
-            let remote_branch_without_prefix = if let Ok(remote_branch) = self
+            let remote_branch_without_prefix = self
                 .repo
                 .find_remote_branch(&remote_name, &remote_branch_name)
-            {
-                Some(remote_branch)
-            } else {
-                None
-            };
+                .ok();
 
             let remote_branch = if let Some(ref _prefix) = self.extra.prefix {
                 remote_branch_with_prefix
@@ -526,19 +513,19 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
 fn validate_worktree_name(name: &str) -> Result<(), String> {
     if name.starts_with('/') || name.ends_with('/') {
         return Err(format!(
-            "Invalid worktree name: {name}. It cannot start or end with a slash",
+            "Invalid worktree name: {name}. It cannot start or end with a slash"
         ));
     }
 
     if name.contains("//") {
         return Err(format!(
-            "Invalid worktree name: {name}. It cannot contain two consecutive slashes",
+            "Invalid worktree name: {name}. It cannot contain two consecutive slashes"
         ));
     }
 
     if name.contains(char::is_whitespace) {
         return Err(format!(
-            "Invalid worktree name: {name}. It cannot contain whitespace",
+            "Invalid worktree name: {name}. It cannot contain whitespace"
         ));
     }
 
@@ -563,7 +550,7 @@ pub fn add_worktree(
         repo::RepoErrorKind::NotFound => {
             String::from("Current directory does not contain a worktree setup")
         }
-        repo::RepoErrorKind::Unknown(_) => format!("Error opening repo: {error}"),
+        _ => format!("Error opening repo: {error}"),
     })?;
 
     let remotes = &repo.remotes()?;
@@ -578,7 +565,7 @@ pub fn add_worktree(
     let prefix = track_config
         .as_ref()
         .and_then(|track| track.default_remote_prefix.as_ref());
-    let enable_tracking = track_config.as_ref().map_or(false, |track| track.default);
+    let enable_tracking = track_config.as_ref().is_some_and(|track| track.default);
     let default_remote = track_config
         .as_ref()
         .map(|track| track.default_remote.clone());

@@ -21,13 +21,6 @@ pub enum RemoteProvider {
     Gitlab,
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum ProjectResponse<F> {
-    Success,
-    Failure(F),
-}
-
 pub fn escape(s: &str) -> String {
     url_escape::encode_component(s).to_string()
 }
@@ -148,7 +141,7 @@ pub trait Provider {
     fn get_current_user(&self) -> Result<String, ApiErrorResponse<Self::Error>>;
 
     ///
-    /// Calls the API at specific uri and expects a successful response of Vec<T> back, or an error
+    /// Calls the API at specific uri and expects a successful response of `Vec<T>` back, or an error
     /// response U
     ///
     /// Handles paging with "link" HTTP headers properly and reads all pages to

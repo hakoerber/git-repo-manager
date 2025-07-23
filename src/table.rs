@@ -291,8 +291,8 @@ pub fn show_single_repo_status(
         return if error.kind == repo::RepoErrorKind::NotFound {
             Err(String::from("Directory is not a git directory"))
         } else {
-            Err(format!("Opening repository failed: {error}"))
-        };
+            return Err(format!("Opening repository failed: {error}"));
+        }
     };
 
     let repo_name = match path.file_name() {
