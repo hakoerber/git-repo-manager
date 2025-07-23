@@ -1,9 +1,11 @@
+//! A `Tree` represents a collection of `Repo` instances under a shared root
+//! directory.
+
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
@@ -41,15 +43,9 @@ pub enum Error {
     CloneFailed { message: String },
     #[error(transparent)]
     Path(#[from] path::Error),
-    #[error("cannot strip prefix")]
-    StripPrefix {
-        path: PathBuf,
-        prefix: PathBuf,
-        message: String,
-    },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct Root(PathBuf);
 
 impl Root {
@@ -57,32 +53,38 @@ impl Root {
         Self(s)
     }
 
-    pub fn path(&self) -> &Path {
-        self.0.as_path()
+    pub fn into_path_buf(self) -> PathBuf {
+        self.0
     }
+}
 
-    pub fn starts_with(&self, base: &Path) -> bool {
-        self.0.as_path().starts_with(base)
+impl From<config::Root> for Root {
+    fn from(other: config::Root) -> Self {
+        Self::new(other.into_path_buf())
     }
+}
 
-    pub fn strip_prefix(&self, prefix: &Path) -> Result<Self, Error> {
-        Ok(Self(
-            self.0
-                .as_path()
-                .strip_prefix(prefix)
-                .map_err(|e| Error::StripPrefix {
-                    path: self.0.clone(),
-                    prefix: prefix.to_path_buf(),
-                    message: e.to_string(),
-                })?
-                .to_path_buf(),
-        ))
+impl From<Root> for config::Root {
+    fn from(other: Root) -> Self {
+        Self::new(other.into_path_buf())
     }
 }
 
 pub struct Tree {
     pub root: Root,
     pub repos: Vec<repo::Repo>,
+}
+
+impl From<config::Tree> for Tree {
+    fn from(other: config::Tree) -> Self {
+        Self {
+            root: other.root.into(),
+            repos: other
+                .repos
+                .map(|repos| repos.into_iter().map(Into::into).collect())
+                .unwrap_or_default(),
+        }
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -111,19 +113,12 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
     let mut unmanaged_repos_absolute_paths = vec![];
     let mut managed_repos_absolute_paths = vec![];
 
-    let trees = config.get_trees()?;
+    let trees: Vec<Tree> = config.get_trees()?.into_iter().map(Into::into).collect();
 
     for tree in trees {
-        let repos: Vec<repo::Repo> = tree
-            .repos
-            .unwrap_or_default()
-            .into_iter()
-            .map(config::RepoConfig::into_repo)
-            .collect();
-
         let root_path = path::expand_path(Path::new(&tree.root.0))?;
 
-        for repo in &repos {
+        for repo in &tree.repos {
             managed_repos_absolute_paths.push(RepoPath(root_path.join(repo.fullname())));
             match sync_repo(&root_path, repo, init_worktree) {
                 Ok(()) => print_repo_success(&repo.name, "OK"),
@@ -134,7 +129,7 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
             }
         }
 
-        match find_unmanaged_repos(&root_path, &repos) {
+        match find_unmanaged_repos(&root_path, &tree.repos) {
             Ok(repos) => {
                 for path in repos {
                     if !unmanaged_repos_absolute_paths.contains(&path) {

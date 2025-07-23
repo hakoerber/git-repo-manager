@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 pub mod github;
 pub mod gitlab;
 
@@ -9,7 +7,7 @@ pub use github::Github;
 pub use gitlab::Gitlab;
 use thiserror::Error;
 
-use super::{auth, repo};
+use super::{auth, config, repo};
 
 #[derive(Clone)]
 pub struct User(String);
@@ -63,12 +61,19 @@ pub enum Error {
     Provider(String),
 }
 
-#[derive(Debug, Deserialize, Serialize, clap::ValueEnum, Clone)]
+#[derive(Debug, clap::ValueEnum, Clone)]
 pub enum RemoteProvider {
-    #[serde(alias = "github", alias = "GitHub")]
     Github,
-    #[serde(alias = "gitlab", alias = "GitLab")]
     Gitlab,
+}
+
+impl From<config::RemoteProvider> for RemoteProvider {
+    fn from(other: config::RemoteProvider) -> Self {
+        match other {
+            config::RemoteProvider::Github => Self::Github,
+            config::RemoteProvider::Gitlab => Self::Gitlab,
+        }
+    }
 }
 
 pub fn escape(s: &str) -> String {

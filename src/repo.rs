@@ -1,24 +1,42 @@
 use std::{iter, path::Path};
 
 use git2::Repository;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
+    config,
     output::{print_action, print_success},
     path, worktree,
 };
 
-const WORKTREE_CONFIG_FILE_NAME: &str = "grm.toml";
 const GIT_CONFIG_BARE_KEY: &str = "core.bare";
 const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, PartialEq, Eq)]
 pub enum RemoteType {
     Ssh,
     Https,
     File,
+}
+
+impl From<config::RemoteType> for RemoteType {
+    fn from(value: config::RemoteType) -> Self {
+        match value {
+            config::RemoteType::Ssh => Self::Ssh,
+            config::RemoteType::Https => Self::Https,
+            config::RemoteType::File => Self::File,
+        }
+    }
+}
+
+impl From<RemoteType> for config::RemoteType {
+    fn from(value: RemoteType) -> Self {
+        match value {
+            RemoteType::Ssh => Self::Ssh,
+            RemoteType::Https => Self::Https,
+            RemoteType::File => Self::File,
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -46,22 +64,6 @@ pub enum GitPushDefaultSetting {
     Upstream,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TrackingConfig {
-    pub default: bool,
-    pub default_remote: String,
-    pub default_remote_prefix: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct WorktreeRootConfig {
-    pub persistent_branches: Option<Vec<String>>,
-
-    pub track: Option<TrackingConfig>,
-}
-
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Error reading configuration file \"{}\": {}", .path, .message)]
@@ -72,6 +74,8 @@ pub enum Error {
     Libgit(#[from] git2::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Config(#[from] config::Error),
     #[error("Repository not found")]
     NotFound,
     #[error("Could not determine default branch")]
@@ -134,41 +138,31 @@ pub enum Error {
     RemoteHeadNoSymbolicTarget,
 }
 
-pub fn read_worktree_root_config(
-    worktree_root: &Path,
-) -> Result<Option<WorktreeRootConfig>, Error> {
-    let path = worktree_root.join(WORKTREE_CONFIG_FILE_NAME);
-    let content = match std::fs::read_to_string(&path) {
-        Ok(s) => s,
-        Err(e) => match e.kind() {
-            std::io::ErrorKind::NotFound => return Ok(None),
-            _ => {
-                return Err(Error::ReadConfig {
-                    message: e.to_string(),
-                    path: path.display().to_string(),
-                });
-            }
-        },
-    };
-
-    let config: WorktreeRootConfig = match toml::from_str(&content) {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(Error::ParseConfig {
-                message: e.to_string(),
-                path: path.display().to_string(),
-            });
-        }
-    };
-
-    Ok(Some(config))
-}
-
 #[derive(Debug)]
 pub struct Remote {
     pub name: String,
     pub url: String,
     pub remote_type: RemoteType,
+}
+
+impl From<config::Remote> for Remote {
+    fn from(other: config::Remote) -> Self {
+        Self {
+            name: other.name,
+            url: other.url,
+            remote_type: other.remote_type.into(),
+        }
+    }
+}
+
+impl From<Remote> for config::Remote {
+    fn from(other: Remote) -> Self {
+        Self {
+            name: other.name,
+            url: other.url,
+            remote_type: other.remote_type.into(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -177,6 +171,36 @@ pub struct Repo {
     pub namespace: Option<String>,
     pub worktree_setup: bool,
     pub remotes: Vec<Remote>,
+}
+
+impl From<config::Repo> for Repo {
+    fn from(other: config::Repo) -> Self {
+        let (namespace, name) = if let Some((namespace, name)) = other.name.rsplit_once('/') {
+            (Some(namespace.to_owned()), name.to_owned())
+        } else {
+            (None, other.name)
+        };
+
+        Self {
+            name,
+            namespace,
+            worktree_setup: other.worktree_setup,
+            remotes: other
+                .remotes
+                .map(|remotes| remotes.into_iter().map(Into::into).collect())
+                .unwrap_or_else(|| Vec::new()),
+        }
+    }
+}
+
+impl From<Repo> for config::Repo {
+    fn from(other: Repo) -> Self {
+        Self {
+            name: other.name,
+            worktree_setup: other.worktree_setup,
+            remotes: Some(other.remotes.into_iter().map(Into::into).collect()),
+        }
+    }
 }
 
 impl Repo {
@@ -189,6 +213,36 @@ impl Repo {
 
     pub fn remove_namespace(&mut self) {
         self.namespace = None;
+    }
+}
+
+pub struct TrackingConfig {
+    pub default: bool,
+    pub default_remote: String,
+    pub default_remote_prefix: Option<String>,
+}
+
+impl From<config::TrackingConfig> for TrackingConfig {
+    fn from(other: config::TrackingConfig) -> Self {
+        Self {
+            default: other.default,
+            default_remote: other.default_remote,
+            default_remote_prefix: other.default_remote_prefix,
+        }
+    }
+}
+
+pub struct WorktreeRootConfig {
+    pub persistent_branches: Option<Vec<String>>,
+    pub track: Option<TrackingConfig>,
+}
+
+impl From<config::WorktreeRootConfig> for WorktreeRootConfig {
+    fn from(other: config::WorktreeRootConfig) -> Self {
+        Self {
+            persistent_branches: other.persistent_branches,
+            track: other.track.map(Into::into),
+        }
     }
 }
 
@@ -1292,7 +1346,8 @@ impl RepoHandle {
 
         let worktrees = self.get_worktrees()?;
 
-        let config = read_worktree_root_config(directory)?;
+        let config: Option<WorktreeRootConfig> =
+            config::read_worktree_root_config(directory)?.map(Into::into);
 
         let guess_default_branch = || self.default_branch()?.name();
 
@@ -1375,7 +1430,7 @@ impl RepoHandle {
                     .expect("each entry is guaranteed to have the prefix"),
             )?;
 
-            let config = read_worktree_root_config(directory)?;
+            let config = config::read_worktree_root_config(directory)?;
 
             let guess_default_branch = || {
                 self.default_branch()
@@ -1401,7 +1456,8 @@ impl RepoHandle {
             if dirname == worktree::GIT_MAIN_WORKTREE_DIRECTORY {
                 continue;
             }
-            if dirname == WORKTREE_CONFIG_FILE_NAME {
+
+            if dirname == config::WORKTREE_CONFIG_FILE_NAME {
                 continue;
             }
             if let Some(default_branch_name) = default_branch_name {

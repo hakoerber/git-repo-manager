@@ -14,8 +14,23 @@ use super::{
     repo, tree,
 };
 
-pub type RemoteProvider = provider::RemoteProvider;
-pub type RemoteType = repo::RemoteType;
+#[derive(Debug, Deserialize, Serialize, clap::ValueEnum, Clone)]
+pub enum RemoteProvider {
+    #[serde(alias = "github", alias = "GitHub")]
+    Github,
+    #[serde(alias = "gitlab", alias = "GitLab")]
+    Gitlab,
+}
+
+pub const WORKTREE_CONFIG_FILE_NAME: &str = "grm.toml";
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RemoteType {
+    Ssh,
+    Https,
+    File,
+}
 
 fn worktree_setup_default() -> bool {
     false
@@ -31,7 +46,7 @@ pub enum Config {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigTrees {
-    pub trees: Vec<ConfigTree>,
+    pub trees: Vec<Tree>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -80,73 +95,22 @@ pub struct ConfigProvider {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RemoteConfig {
+pub struct Remote {
     pub name: String,
     pub url: String,
     #[serde(rename = "type")]
     pub remote_type: RemoteType,
 }
 
-impl RemoteConfig {
-    pub fn from_remote(remote: repo::Remote) -> Self {
-        Self {
-            name: remote.name,
-            url: remote.url,
-            remote_type: remote.remote_type,
-        }
-    }
-
-    pub fn into_remote(self) -> repo::Remote {
-        repo::Remote {
-            name: self.name,
-            url: self.url,
-            remote_type: self.remote_type,
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RepoConfig {
+pub struct Repo {
     pub name: String,
 
     #[serde(default = "worktree_setup_default")]
     pub worktree_setup: bool,
 
-    pub remotes: Option<Vec<RemoteConfig>>,
-}
-
-impl RepoConfig {
-    pub fn from_repo(repo: repo::Repo) -> Self {
-        Self {
-            name: repo.name,
-            worktree_setup: repo.worktree_setup,
-            remotes: Some(
-                repo.remotes
-                    .into_iter()
-                    .map(|r| RemoteConfig::from_remote(r))
-                    .collect(),
-            ),
-        }
-    }
-
-    pub fn into_repo(self) -> repo::Repo {
-        let (namespace, name) = if let Some((namespace, name)) = self.name.rsplit_once('/') {
-            (Some(namespace.to_owned()), name.to_owned())
-        } else {
-            (None, self.name)
-        };
-
-        repo::Repo {
-            name,
-            namespace,
-            worktree_setup: self.worktree_setup,
-            remotes: self
-                .remotes
-                .map(|remotes| remotes.into_iter().map(RemoteConfig::into_remote).collect())
-                .unwrap_or_else(|| Vec::new()),
-        }
-    }
+    pub remotes: Option<Vec<Remote>>,
 }
 
 impl ConfigTrees {
@@ -154,25 +118,25 @@ impl ConfigTrees {
         Config::ConfigTrees(self)
     }
 
-    pub fn from_vec(vec: Vec<ConfigTree>) -> Self {
+    pub fn from_vec(vec: Vec<Tree>) -> Self {
         Self { trees: vec }
     }
 
     pub fn from_trees(vec: Vec<tree::Tree>) -> Self {
         Self {
-            trees: vec.into_iter().map(ConfigTree::from_tree).collect(),
+            trees: vec.into_iter().map(Tree::from_tree).collect(),
         }
     }
 
-    pub fn trees(self) -> Vec<ConfigTree> {
+    pub fn trees(self) -> Vec<Tree> {
         self.trees
     }
 
-    pub fn trees_mut(&mut self) -> &mut Vec<ConfigTree> {
+    pub fn trees_mut(&mut self) -> &mut Vec<Tree> {
         &mut self.trees
     }
 
-    pub fn trees_ref(&self) -> &Vec<ConfigTree> {
+    pub fn trees_ref(&self) -> &Vec<Tree> {
         self.trees.as_ref()
     }
 }
@@ -195,10 +159,20 @@ pub enum Error {
     Serialization(#[from] SerializationError),
     #[error(transparent)]
     Path(#[from] path::Error),
+    #[error("Error reading configuration file \"{}\": {}", .path, .message)]
+    ReadConfig { message: String, path: String },
+    #[error("Error parsing configuration file \"{}\": {}", .path, .message)]
+    ParseConfig { message: String, path: String },
+    #[error("cannot strip prefix \"{:?}\" from \"{:?}\": {}", .prefix, .path, message)]
+    StripPrefix {
+        path: PathBuf,
+        prefix: PathBuf,
+        message: String,
+    },
 }
 
 impl Config {
-    pub fn get_trees(self) -> Result<Vec<ConfigTree>, Error> {
+    pub fn get_trees(self) -> Result<Vec<Tree>, Error> {
         match self {
             Self::ConfigTrees(config) => Ok(config.trees),
             Self::ConfigProvider(config) => {
@@ -269,12 +243,9 @@ impl Config {
 
                 #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                 for (namespace, namespace_repos) in repos {
-                    let repos = namespace_repos
-                        .into_iter()
-                        .map(RepoConfig::from_repo)
-                        .collect();
-                    let tree = ConfigTree {
-                        root: tree::Root::new(if let Some(namespace) = namespace {
+                    let repos = namespace_repos.into_iter().map(Into::into).collect();
+                    let tree = Tree {
+                        root: Root(if let Some(namespace) = namespace {
                             PathBuf::from(&config.root).join(namespace)
                         } else {
                             PathBuf::from(&config.root)
@@ -288,7 +259,7 @@ impl Config {
         }
     }
 
-    pub fn from_trees(trees: Vec<ConfigTree>) -> Self {
+    pub fn from_trees(trees: Vec<Tree>) -> Self {
         Self::ConfigTrees(ConfigTrees { trees })
     }
 
@@ -317,7 +288,7 @@ impl Config {
                         path
                     };
 
-                    tree.root = tree::Root::new(Path::new("~").join(root.path()));
+                    tree.root = Root::new(Path::new("~").join(root.path()));
                 }
             }
         }
@@ -334,24 +305,59 @@ impl Config {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ConfigTree {
-    pub root: tree::Root,
-    pub repos: Option<Vec<RepoConfig>>,
+pub struct Root(PathBuf);
+
+impl Root {
+    pub fn new(s: PathBuf) -> Self {
+        Self(s)
+    }
+
+    pub fn path(&self) -> &Path {
+        self.0.as_path()
+    }
+
+    pub fn starts_with(&self, base: &Path) -> bool {
+        self.0.as_path().starts_with(base)
+    }
+
+    pub fn strip_prefix(&self, prefix: &Path) -> Result<Self, Error> {
+        Ok(Self(
+            self.0
+                .as_path()
+                .strip_prefix(prefix)
+                .map_err(|e| Error::StripPrefix {
+                    path: self.0.clone(),
+                    prefix: prefix.to_path_buf(),
+                    message: e.to_string(),
+                })?
+                .to_path_buf(),
+        ))
+    }
+
+    pub fn into_path_buf(self) -> PathBuf {
+        self.0
+    }
 }
 
-impl ConfigTree {
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Tree {
+    pub root: Root,
+    pub repos: Option<Vec<Repo>>,
+}
+
+impl Tree {
     pub fn from_repos(root: &Path, repos: Vec<repo::Repo>) -> Self {
         Self {
-            root: tree::Root::new(root.to_path_buf()),
-            repos: Some(repos.into_iter().map(RepoConfig::from_repo).collect()),
+            root: Root::new(root.to_path_buf()),
+            repos: Some(repos.into_iter().map(Into::into).collect()),
         }
     }
 
     pub fn from_tree(tree: tree::Tree) -> Self {
         Self {
-            root: tree.root,
-            repos: Some(tree.repos.into_iter().map(RepoConfig::from_repo).collect()),
+            root: tree.root.into(),
+            repos: Some(tree.repos.into_iter().map(Into::into).collect()),
         }
     }
 }
@@ -399,4 +405,49 @@ where
     };
 
     Ok(config)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TrackingConfig {
+    pub default: bool,
+    pub default_remote: String,
+    pub default_remote_prefix: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorktreeRootConfig {
+    pub persistent_branches: Option<Vec<String>>,
+    pub track: Option<TrackingConfig>,
+}
+
+pub fn read_worktree_root_config(
+    worktree_root: &Path,
+) -> Result<Option<WorktreeRootConfig>, Error> {
+    let path = worktree_root.join(WORKTREE_CONFIG_FILE_NAME);
+    let content = match std::fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => return Ok(None),
+            _ => {
+                return Err(Error::ReadConfig {
+                    message: e.to_string(),
+                    path: path.display().to_string(),
+                });
+            }
+        },
+    };
+
+    let config: WorktreeRootConfig = match toml::from_str(&content) {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(Error::ParseConfig {
+                message: e.to_string(),
+                path: path.display().to_string(),
+            });
+        }
+    };
+
+    Ok(Some(config))
 }

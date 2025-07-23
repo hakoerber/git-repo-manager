@@ -103,7 +103,7 @@ fn main() {
 
                     match repos {
                         Ok(repos) => {
-                            let mut trees: Vec<config::ConfigTree> = vec![];
+                            let mut trees: Vec<config::Tree> = vec![];
 
                             #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                             for (namespace, repolist) in repos {
@@ -113,7 +113,7 @@ fn main() {
                                     PathBuf::from(&args.root)
                                 };
 
-                                let tree = config::ConfigTree::from_repos(&root, repolist);
+                                let tree = config::Tree::from_repos(&root, repolist);
                                 trees.push(tree);
                             }
 
@@ -323,7 +323,7 @@ fn main() {
                         print_warning("You did not specify any filters, so no repos will match");
                     }
 
-                    let repos = match config.provider {
+                    let repos = match config.provider.into() {
                         provider::RemoteProvider::Github => {
                             match match provider::Github::new(filter, token, config.api_url) {
                                 Ok(provider) => provider,
@@ -370,18 +370,14 @@ fn main() {
 
                     #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                     for (namespace, namespace_repos) in repos {
-                        let tree = config::ConfigTree {
+                        let tree = config::Tree {
                             root: tree::Root::new(if let Some(namespace) = namespace {
                                 PathBuf::from(&config.root).join(namespace)
                             } else {
                                 PathBuf::from(&config.root)
-                            }),
-                            repos: Some(
-                                namespace_repos
-                                    .into_iter()
-                                    .map(config::RepoConfig::from_repo)
-                                    .collect(),
-                            ),
+                            })
+                            .into(),
+                            repos: Some(namespace_repos.into_iter().map(Into::into).collect()),
                         };
                         trees.push(tree);
                     }
@@ -481,22 +477,18 @@ fn main() {
                         process::exit(1);
                     });
 
-                    let mut trees: Vec<config::ConfigTree> = vec![];
+                    let mut trees: Vec<config::Tree> = vec![];
 
                     #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                     for (namespace, repolist) in repos {
-                        let tree = config::ConfigTree {
+                        let tree = config::Tree {
                             root: tree::Root::new(if let Some(namespace) = namespace {
                                 PathBuf::from(&args.root).join(namespace)
                             } else {
                                 PathBuf::from(&args.root)
-                            }),
-                            repos: Some(
-                                repolist
-                                    .into_iter()
-                                    .map(config::RepoConfig::from_repo)
-                                    .collect(),
-                            ),
+                            })
+                            .into(),
+                            repos: Some(repolist.into_iter().map(Into::into).collect()),
                         };
                         trees.push(tree);
                     }
@@ -600,13 +592,16 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Delete(action_args) => {
-                    let worktree_config = match repo::read_worktree_root_config(&cwd) {
-                        Ok(config) => config,
-                        Err(error) => {
-                            print_error(&format!("Error getting worktree configuration: {error}"));
-                            process::exit(1);
-                        }
-                    };
+                    let worktree_config: Option<repo::WorktreeRootConfig> =
+                        match config::read_worktree_root_config(&cwd) {
+                            Ok(config) => config.map(Into::into),
+                            Err(error) => {
+                                print_error(&format!(
+                                    "Error getting worktree configuration: {error}"
+                                ));
+                                process::exit(1);
+                            }
+                        };
 
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         print_error(&format!("Error opening repository: {error}"));
@@ -815,10 +810,12 @@ fn main() {
                         });
                     }
 
-                    let config = repo::read_worktree_root_config(&cwd).unwrap_or_else(|error| {
-                        print_error(&format!("Failed to read worktree configuration: {error}"));
-                        process::exit(1);
-                    });
+                    let config = config::read_worktree_root_config(&cwd)
+                        .unwrap_or_else(|error| {
+                            print_error(&format!("Failed to read worktree configuration: {error}"));
+                            process::exit(1);
+                        })
+                        .map(Into::into);
 
                     let worktrees = repo.get_worktrees().unwrap_or_else(|error| {
                         print_error(&format!("Error getting worktrees: {error}"));

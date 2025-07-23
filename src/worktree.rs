@@ -210,8 +210,7 @@ use std::path::Path;
 
 use thiserror::Error;
 
-// use super::output::*;
-use super::repo;
+use super::{config, repo};
 
 pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
@@ -537,6 +536,8 @@ fn validate_worktree_name(name: &str) -> Result<(), Error> {
 pub enum Error {
     #[error(transparent)]
     Repo(#[from] repo::Error),
+    #[error(transparent)]
+    Config(#[from] config::Error),
     #[error("Invalid worktree name: {name}, {message}", name = .name, message = .message)]
     InvalidWorktreeName { name: String, message: &'static str },
     #[error("Remote \"{name}\" not found", name = .name)]
@@ -572,7 +573,8 @@ pub fn add_worktree(
 
     let remotes = &repo.remotes()?;
 
-    let config = repo::read_worktree_root_config(directory)?;
+    let config: Option<repo::WorktreeRootConfig> =
+        config::read_worktree_root_config(directory)?.map(Into::into);
 
     if repo.find_worktree(name).is_ok() {
         return Err(Error::WorktreeAlreadyExists {
