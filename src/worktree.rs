@@ -210,7 +210,7 @@ use std::{fmt, path::Path};
 
 use thiserror::Error;
 
-use super::{BranchName, RemoteName, config, repo};
+use super::{BranchName, RemoteName, Warning, config, repo};
 
 pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
@@ -345,8 +345,8 @@ impl<'a> Worktree<'a, WithLocalTargetSelected<'a>> {
 }
 
 impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
-    fn create(self, directory: &Path) -> Result<Option<Vec<String>>, Error> {
-        let mut warnings: Vec<String> = vec![];
+    fn create(self, directory: &Path) -> Result<Option<Vec<Warning>>, Error> {
+        let mut warnings: Vec<Warning> = vec![];
 
         let mut branch = if let Some(branch) = self.extra.local_branch {
             branch
@@ -388,7 +388,7 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
 
             if let Some(remote_branch) = remote_branch {
                 if branch.commit()?.id().hex_string() != remote_branch.commit()?.id().hex_string() {
-                    warnings.push(format!("The local branch \"{}\" and the remote branch \"{}/{}\" differ. Make sure to push/pull afterwards!", &self.extra.local_branch_name, &remote_name, &remote_branch_name));
+                    warnings.push(Warning(format!("The local branch \"{}\" and the remote branch \"{}/{}\" differ. Make sure to push/pull afterwards!", &self.extra.local_branch_name, &remote_name, &remote_branch_name)));
                 }
 
                 branch.set_upstream(&remote_name, &remote_branch.basename()?)?;
@@ -607,8 +607,8 @@ pub fn add_worktree(
     name: &WorktreeName,
     track: Option<(RemoteName, BranchName)>,
     no_track: bool,
-) -> Result<Option<Vec<String>>, Error> {
-    let mut warnings: Vec<String> = vec![];
+) -> Result<Option<Vec<Warning>>, Error> {
+    let mut warnings: Vec<Warning> = vec![];
 
     validate_worktree_name(name)?;
 
@@ -785,7 +785,7 @@ pub fn add_worktree(
                             // until I get around to fix that inconsistency
                             // (see module-level doc about), which might be
                             // never, as it's such a rare edge case.
-                            "Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned()
+                            Warning("Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned())
                         );
                         Some(Box::new(default_branch_head))
                     } else {

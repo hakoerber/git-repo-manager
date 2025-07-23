@@ -7,7 +7,7 @@ use git2::Repository;
 use thiserror::Error;
 
 use super::{
-    BranchName, RemoteName, RemoteUrl, SubmoduleName, config,
+    BranchName, RemoteName, RemoteUrl, SubmoduleName, Warning, config,
     output::{print_action, print_success},
     path,
     worktree::{self, WorktreeName},
@@ -350,7 +350,7 @@ impl Worktree {
         &self.name
     }
 
-    pub fn forward_branch(&self, rebase: bool, stash: bool) -> Result<Option<String>, Error> {
+    pub fn forward_branch(&self, rebase: bool, stash: bool) -> Result<Option<Warning>, Error> {
         let repo = RepoHandle::open(Path::new(&self.name.as_str()), false)?;
 
         if let Ok(remote_branch) = repo
@@ -366,7 +366,7 @@ impl Worktree {
                     repo.stash()?;
                     stashed_changes = true;
                 } else {
-                    return Ok(Some(String::from("Worktree contains changes")));
+                    return Ok(Some(Warning(String::from("Worktree contains changes"))));
                 }
             }
 
@@ -422,7 +422,9 @@ impl Worktree {
                 }
                 if !analysis.is_fast_forward() {
                     unstash()?;
-                    return Ok(Some(String::from("Worktree cannot be fast forwarded")));
+                    return Ok(Some(Warning(String::from(
+                        "Worktree cannot be fast forwarded",
+                    ))));
                 }
 
                 repo.0.reset(
@@ -433,7 +435,9 @@ impl Worktree {
             }
             unstash()?;
         } else {
-            return Ok(Some(String::from("No remote branch to rebase onto")));
+            return Ok(Some(Warning(String::from(
+                "No remote branch to rebase onto",
+            ))));
         }
 
         Ok(None)
@@ -443,7 +447,7 @@ impl Worktree {
         &self,
         config: &Option<WorktreeRootConfig>,
         stash: bool,
-    ) -> Result<Option<String>, Error> {
+    ) -> Result<Option<Warning>, Error> {
         let repo = RepoHandle::open(Path::new(&self.name.as_str()), false)?;
 
         let guess_default_branch = || repo.default_branch()?.name();
@@ -470,7 +474,7 @@ impl Worktree {
                 repo.stash()?;
                 stashed_changes = true;
             } else {
-                return Ok(Some(String::from("Worktree contains changes")));
+                return Ok(Some(Warning("Worktree contains changes".to_owned())));
             }
         }
 
@@ -1411,7 +1415,7 @@ impl RepoHandle {
         Ok(())
     }
 
-    pub fn cleanup_worktrees(&self, directory: &Path) -> Result<Vec<String>, Error> {
+    pub fn cleanup_worktrees(&self, directory: &Path) -> Result<Vec<Warning>, Error> {
         let mut warnings = Vec::new();
 
         let worktrees = self.get_worktrees()?;
@@ -1461,14 +1465,14 @@ impl RepoHandle {
                     Err(error) => match error {
                         Error::WorktreeRemovalFailure(ref removal_error) => match *removal_error {
                             WorktreeRemoveFailureReason::Changes(ref changes) => {
-                                warnings.push(format!(
+                                warnings.push(Warning(format!(
                                     "Changes found in {}: {}, skipping",
                                     &worktree.name(),
                                     &changes
-                                ));
+                                )));
                             }
                             WorktreeRemoveFailureReason::NotMerged(ref message) => {
-                                warnings.push(message.clone());
+                                warnings.push(Warning(message.clone()));
                             }
                             WorktreeRemoveFailureReason::Error(_) => {
                                 return Err(error);
@@ -1478,10 +1482,10 @@ impl RepoHandle {
                     },
                 }
             } else {
-                warnings.push(format!(
+                warnings.push(Warning(format!(
                     "Worktree {} does not have a directory",
                     &worktree.name()
-                ));
+                )));
             }
         }
         Ok(warnings)
