@@ -1,13 +1,28 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use thiserror::Error;
+
+#[derive(Debug)]
+pub struct EnvVariableName(String);
+
+impl fmt::Display for EnvVariableName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("found non-utf8 path: {:?}", .path)]
     NonUtf8 { path: PathBuf },
     #[error("failed getting env variable `{}`: {}", .variable, .error)]
-    Env { variable: String, error: String },
+    Env {
+        variable: EnvVariableName,
+        error: String,
+    },
     #[error("failed expanding path: {}", .error)]
     Expand { error: String },
 }
@@ -24,7 +39,7 @@ pub fn path_as_string(path: &Path) -> Result<String, Error> {
 pub fn env_home() -> Result<PathBuf, Error> {
     Ok(PathBuf::from(std::env::var("HOME").map_err(|e| {
         Error::Env {
-            variable: "HOME".to_owned(),
+            variable: EnvVariableName("HOME".to_owned()),
             error: e.to_string(),
         }
     })?))
