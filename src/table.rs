@@ -171,7 +171,7 @@ pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<Strin
     for tree in config.get_trees()? {
         let repos = tree.repos.unwrap_or_default();
 
-        let root_path = path::expand_path(Path::new(&tree.root))?;
+        let root_path = path::expand_path(Path::new(&tree.root.path()))?;
 
         let mut table = Table::new();
         add_table_header(&mut table);

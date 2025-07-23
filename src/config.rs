@@ -1,4 +1,7 @@
-use std::{path::Path, process};
+use std::{
+    path::{Path, PathBuf},
+    process,
+};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -243,11 +246,11 @@ impl Config {
                         .map(RepoConfig::from_repo)
                         .collect();
                     let tree = ConfigTree {
-                        root: if let Some(namespace) = namespace {
-                            path::path_as_string(&Path::new(&config.root).join(namespace))?
+                        root: tree::Root::new(if let Some(namespace) = namespace {
+                            PathBuf::from(&config.root).join(namespace)
                         } else {
-                            path::path_as_string(Path::new(&config.root))?
-                        },
+                            PathBuf::from(&config.root)
+                        }),
                         repos: Some(repos),
                     };
                     trees.push(tree);
@@ -273,20 +276,20 @@ impl Config {
                     // The `unwrap()` is safe here as we are testing via `starts_with()`
                     // beforehand
                     #[expect(clippy::missing_panics_doc, reason = "explicit checks for prefixes")]
-                    let path = {
+                    let root = {
                         let mut path = tree
                             .root
                             .strip_prefix(&home)
                             .expect("checked for HOME prefix explicitly");
-                        if path.starts_with('/') {
+                        if path.starts_with(Path::new("/")) {
                             path = path
-                                .strip_prefix('/')
+                                .strip_prefix(Path::new("/"))
                                 .expect("will always be an absolute path");
                         }
                         path
                     };
 
-                    tree.root = Path::new("~").join(path).display().to_string();
+                    tree.root = tree::Root::new(Path::new("~").join(root.path()));
                 }
             }
         }
@@ -305,14 +308,14 @@ impl Config {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigTree {
-    pub root: String,
+    pub root: tree::Root,
     pub repos: Option<Vec<RepoConfig>>,
 }
 
 impl ConfigTree {
-    pub fn from_repos(root: String, repos: Vec<repo::Repo>) -> Self {
+    pub fn from_repos(root: &Path, repos: Vec<repo::Repo>) -> Self {
         Self {
-            root,
+            root: tree::Root::new(root.to_path_buf()),
             repos: Some(repos.into_iter().map(RepoConfig::from_repo).collect()),
         }
     }

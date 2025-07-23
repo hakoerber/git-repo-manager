@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
@@ -19,11 +20,11 @@ pub enum Error {
     Repo(#[from] repo::Error),
     #[error(transparent)]
     Worktree(#[from] worktree::Error),
-    #[error("Failed to open \"{}\": Not found", .path)]
-    NotFound { path: String },
-    #[error("Failed to open \"{}\": {}", .path, .kind)]
+    #[error("Failed to open \"{:?}\": Not found", .path)]
+    NotFound { path: PathBuf },
+    #[error("Failed to open \"{:?}\": {}", .path, .kind)]
     Open {
-        path: String,
+        path: PathBuf,
         kind: std::io::ErrorKind,
     },
     #[error(transparent)]
@@ -40,10 +41,47 @@ pub enum Error {
     CloneFailed { message: String },
     #[error(transparent)]
     Path(#[from] path::Error),
+    #[error("cannot strip prefix")]
+    StripPrefix {
+        path: PathBuf,
+        prefix: PathBuf,
+        message: String,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Root(PathBuf);
+
+impl Root {
+    pub fn new(s: PathBuf) -> Self {
+        Self(s)
+    }
+
+    pub fn path(&self) -> &Path {
+        self.0.as_path()
+    }
+
+    pub fn starts_with(&self, base: &Path) -> bool {
+        self.0.as_path().starts_with(base)
+    }
+
+    pub fn strip_prefix(&self, prefix: &Path) -> Result<Self, Error> {
+        Ok(Self(
+            self.0
+                .as_path()
+                .strip_prefix(prefix)
+                .map_err(|e| Error::StripPrefix {
+                    path: self.0.clone(),
+                    prefix: prefix.to_path_buf(),
+                    message: e.to_string(),
+                })?
+                .to_path_buf(),
+        ))
+    }
 }
 
 pub struct Tree {
-    pub root: String,
+    pub root: Root,
     pub repos: Vec<repo::Repo>,
 }
 
@@ -83,7 +121,7 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
             .map(config::RepoConfig::into_repo)
             .collect();
 
-        let root_path = path::expand_path(Path::new(&tree.root))?;
+        let root_path = path::expand_path(Path::new(&tree.root.0))?;
 
         for repo in &repos {
             managed_repos_absolute_paths.push(RepoPath(root_path.join(repo.fullname())));
@@ -164,10 +202,14 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
                 }
             }
             Err(e) => {
-                let path = path.display().to_string();
                 return Err(match e.kind() {
-                    std::io::ErrorKind::NotFound => Error::NotFound { path },
-                    kind => Error::Open { path, kind },
+                    std::io::ErrorKind::NotFound => Error::NotFound {
+                        path: path.to_path_buf(),
+                    },
+                    kind => Error::Open {
+                        path: path.to_path_buf(),
+                        kind,
+                    },
                 });
             }
         }
@@ -262,7 +304,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
         }
     }
 
-    let current_remotes: Vec<String> = repo_handle.remotes()?;
+    let current_remotes = repo_handle.remotes()?;
 
     for remote in &repo.remotes {
         let current_remote = repo_handle.find_remote(&remote.name)?;

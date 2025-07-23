@@ -21,21 +21,23 @@ pub fn path_as_string(path: &Path) -> Result<String, Error> {
         })
 }
 
-pub fn env_home() -> Result<String, Error> {
-    std::env::var("HOME").map_err(|e| Error::Env {
-        variable: "HOME".to_owned(),
-        error: e.to_string(),
-    })
+pub fn env_home() -> Result<PathBuf, Error> {
+    Ok(PathBuf::from(std::env::var("HOME").map_err(|e| {
+        Error::Env {
+            variable: "HOME".to_owned(),
+            error: e.to_string(),
+        }
+    })?))
 }
 
 pub fn expand_path(path: &Path) -> Result<PathBuf, Error> {
-    let home = env_home()?;
+    let home = path_as_string(&env_home()?)?;
     let expanded_path = match shellexpand::full_with_context(
         &path_as_string(path)?,
-        || Some(home),
+        || Some(home.clone()),
         |name| -> Result<Option<String>, Error> {
             match name {
-                "HOME" => Ok(Some(env_home()?)),
+                "HOME" => Ok(Some(home.clone())),
                 _ => Ok(None),
             }
         },

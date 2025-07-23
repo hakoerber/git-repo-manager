@@ -207,7 +207,7 @@ pub fn find_in_tree(
 
     Ok((
         tree::Tree {
-            root: path::path_as_string(&root)?,
+            root: tree::Root::new(root),
             repos,
         },
         warnings,

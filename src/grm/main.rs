@@ -1,13 +1,16 @@
 #![forbid(unsafe_code)]
 
-use std::{path::Path, process};
+use std::{
+    path::{Path, PathBuf},
+    process,
+};
 
 mod cmd;
 
 use grm::{
     auth, config, find_in_tree,
     output::{print, print_error, print_success, print_warning, println},
-    path, provider,
+    provider,
     provider::Provider,
     repo, table, tree, worktree,
 };
@@ -95,26 +98,12 @@ fn main() {
                             #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                             for (namespace, repolist) in repos {
                                 let root = if let Some(namespace) = namespace {
-                                    match path::path_as_string(
-                                        &Path::new(&args.root).join(namespace),
-                                    ) {
-                                        Ok(root) => root,
-                                        Err(error) => {
-                                            print_error(&format!("Path error: {error}"));
-                                            process::exit(1);
-                                        }
-                                    }
+                                    PathBuf::from(&args.root).join(namespace)
                                 } else {
-                                    match path::path_as_string(Path::new(&args.root)) {
-                                        Ok(root) => root,
-                                        Err(error) => {
-                                            print_error(&format!("Path error: {error}"));
-                                            process::exit(1);
-                                        }
-                                    }
+                                    PathBuf::from(&args.root)
                                 };
 
-                                let tree = config::ConfigTree::from_repos(root, repolist);
+                                let tree = config::ConfigTree::from_repos(&root, repolist);
                                 trees.push(tree);
                             }
 
@@ -362,24 +351,11 @@ fn main() {
                     #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                     for (namespace, namespace_repos) in repos {
                         let tree = config::ConfigTree {
-                            root: if let Some(namespace) = namespace {
-                                match path::path_as_string(&Path::new(&config.root).join(namespace))
-                                {
-                                    Ok(root) => root,
-                                    Err(error) => {
-                                        print_error(&format!("Path error: {error}"));
-                                        process::exit(1);
-                                    }
-                                }
+                            root: tree::Root::new(if let Some(namespace) = namespace {
+                                PathBuf::from(&config.root).join(namespace)
                             } else {
-                                match path::path_as_string(Path::new(&config.root)) {
-                                    Ok(root) => root,
-                                    Err(error) => {
-                                        print_error(&format!("Path error: {error}"));
-                                        process::exit(1);
-                                    }
-                                }
-                            },
+                                PathBuf::from(&config.root)
+                            }),
                             repos: Some(
                                 namespace_repos
                                     .into_iter()
@@ -480,23 +456,11 @@ fn main() {
                     #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                     for (namespace, repolist) in repos {
                         let tree = config::ConfigTree {
-                            root: if let Some(namespace) = namespace {
-                                match path::path_as_string(&Path::new(&args.root).join(namespace)) {
-                                    Ok(root) => root,
-                                    Err(error) => {
-                                        print_error(&format!("Path error: {error}"));
-                                        process::exit(1);
-                                    }
-                                }
+                            root: tree::Root::new(if let Some(namespace) = namespace {
+                                PathBuf::from(&args.root).join(namespace)
                             } else {
-                                match path::path_as_string(Path::new(&args.root)) {
-                                    Ok(root) => root,
-                                    Err(error) => {
-                                        print_error(&format!("Path error: {error}"));
-                                        process::exit(1);
-                                    }
-                                }
-                            },
+                                PathBuf::from(&args.root)
+                            }),
                             repos: Some(
                                 repolist
                                     .into_iter()
