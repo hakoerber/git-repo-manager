@@ -112,6 +112,15 @@ where
     }
 }
 
+impl<T> From<ureq::http::header::ToStrError> for ApiErrorResponse<T>
+where
+    T: JsonError,
+{
+    fn from(s: ureq::http::header::ToStrError) -> ApiErrorResponse<T> {
+        ApiErrorResponse::String(s.to_string())
+    }
+}
+
 pub trait JsonError {
     fn to_string(self) -> String;
 }
@@ -164,8 +173,11 @@ pub trait Provider {
         let mut results = vec![];
 
         match ureq::get(uri)
-            .set("accept", accept_header.unwrap_or("application/json"))
-            .set(
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .header("accept", accept_header.unwrap_or("application/json"))
+            .header(
                 "authorization",
                 &format!(
                     "{} {}",
@@ -175,31 +187,35 @@ pub trait Provider {
             )
             .call()
         {
-            Err(ureq::Error::Transport(error)) => return Err(error.to_string())?,
-            Err(ureq::Error::Status(_code, response)) => {
-                let r: Self::Error = response
-                    .into_json()
-                    .map_err(|error| format!("Failed deserializing error response: {error}"))?;
-                return Err(ApiErrorResponse::Json(r));
-            }
-            Ok(response) => {
-                if let Some(link_header) = response.header("link") {
-                    let link_header =
-                        parse_link_header::parse(link_header).map_err(|error| error.to_string())?;
+            Err(ureq::Error::Http(error)) => return Err(format!("http error: {}", error))?,
+            Err(e) => return Err(format!("unknown error: {e}"))?,
+            Ok(mut response) => {
+                if !response.status().is_success() {
+                    let result: Self::Error = response
+                        .body_mut()
+                        .read_json()
+                        .map_err(|error| format!("Failed deserializing error response: {error}"))?;
+                    return Err(ApiErrorResponse::Json(result));
+                } else {
+                    if let Some(link_header) = response.headers().get("link") {
+                        let link_header = parse_link_header::parse(link_header.to_str()?)
+                            .map_err(|error| error.to_string())?;
 
-                    let next_page = link_header.get(&Some(String::from("next")));
+                        let next_page = link_header.get(&Some(String::from("next")));
 
-                    if let Some(page) = next_page {
-                        let following_repos = self.call_list(&page.raw_uri, accept_header)?;
-                        results.extend(following_repos);
+                        if let Some(page) = next_page {
+                            let following_repos = self.call_list(&page.raw_uri, accept_header)?;
+                            results.extend(following_repos);
+                        }
                     }
+
+                    let result: Vec<Self::Project> = response
+                        .body_mut()
+                        .read_json()
+                        .map_err(|error| format!("Failed deserializing response: {error}"))?;
+
+                    results.extend(result);
                 }
-
-                let result: Vec<Self::Project> = response
-                    .into_json()
-                    .map_err(|error| format!("Failed deserializing response: {error}"))?;
-
-                results.extend(result);
             }
         }
 
@@ -327,23 +343,29 @@ where
     U: serde::de::DeserializeOwned + JsonError,
 {
     let response = match ureq::get(uri)
-        .set("accept", accept_header.unwrap_or("application/json"))
-        .set(
+        .header("accept", accept_header.unwrap_or("application/json"))
+        .header(
             "authorization",
             &format!("{} {}", &auth_header_key, &secret_token.access()),
         )
         .call()
     {
-        Err(ureq::Error::Transport(error)) => return Err(error.to_string())?,
-        Err(ureq::Error::Status(_code, response)) => {
-            let response: U = response
-                .into_json()
-                .map_err(|error| format!("Failed deserializing error response: {error}"))?;
-            return Err(ApiErrorResponse::Json(response));
+        Err(ureq::Error::Http(error)) => return Err(format!("http error: {}", error))?,
+        Err(e) => return Err(format!("unknown error: {e}"))?,
+        Ok(mut response) => {
+            if !response.status().is_success() {
+                let result: U = response
+                    .body_mut()
+                    .read_json()
+                    .map_err(|error| format!("Failed deserializing error response: {error}"))?;
+                return Err(ApiErrorResponse::Json(result));
+            } else {
+                response
+                    .body_mut()
+                    .read_json()
+                    .map_err(|error| format!("Failed deserializing response: {error}"))?
+            }
         }
-        Ok(response) => response
-            .into_json()
-            .map_err(|error| format!("Failed deserializing response: {error}"))?,
     };
 
     Ok(response)
