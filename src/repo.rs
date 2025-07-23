@@ -13,7 +13,7 @@ use super::{
     worktree::{self, WorktreeName},
 };
 
-const GIT_CONFIG_BARE_KEY: &str = "core.bare";
+const GIT_CONFIG_BARE_KEY: GitConfigKey = GitConfigKey("core.bare");
 const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -69,7 +69,13 @@ pub enum GitPushDefaultSetting {
 }
 
 #[derive(Debug)]
-pub struct GitConfigKey(String);
+pub struct GitConfigKey(&'static str);
+
+impl GitConfigKey {
+    fn as_str(&self) -> &str {
+        self.0
+    }
+}
 
 impl fmt::Display for GitConfigKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -804,9 +810,9 @@ impl RepoHandle {
         let mut config = self.config()?;
 
         config
-            .set_bool(GIT_CONFIG_BARE_KEY, value)
+            .set_bool(GIT_CONFIG_BARE_KEY.as_str(), value)
             .map_err(|error| Error::GitConfigSetError {
-                key: GitConfigKey(GIT_CONFIG_BARE_KEY.to_owned()),
+                key: GIT_CONFIG_BARE_KEY,
                 error: error.to_string(),
             })
     }
@@ -923,7 +929,7 @@ impl RepoHandle {
                 },
             )
             .map_err(|error| Error::GitConfigSetError {
-                key: GitConfigKey(GIT_CONFIG_BARE_KEY.to_owned()),
+                key: GIT_CONFIG_BARE_KEY,
                 error: error.to_string(),
             })
     }
