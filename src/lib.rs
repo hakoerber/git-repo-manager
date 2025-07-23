@@ -47,17 +47,20 @@ enum Repos {
 }
 
 /// Find all git repositories under root, recursively
-fn find_repos(root: &Path, exclusion_pattern: Option<&str>) -> Result<FindResult, Error> {
+fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<FindResult, Error> {
     let mut repos: Vec<repo::Repo> = Vec::new();
     let mut repo_in_root = false;
     let mut warnings = Vec::new();
 
-    let exlusion_regex: regex::Regex = regex::Regex::new(exclusion_pattern.unwrap_or(r"^$"))
-        .map_err(|e| Error::InvalidRegex {
-            message: e.to_string(),
-        })?;
     for path in tree::find_repo_paths(root)? {
-        if exclusion_pattern.is_some() && exlusion_regex.is_match(&path::path_as_string(&path)?) {
+        if exclusion_pattern
+            .as_ref()
+            .map(|regex| -> Result<bool, Error> {
+                Ok(regex.is_match(&path::path_as_string(&path)?))
+            })
+            .transpose()?
+            .unwrap_or(false)
+        {
             warnings.push(Warning(format!(
                 "[skipped] {}",
                 &path::path_as_string(&path)?
@@ -184,7 +187,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&str>) -> Result<FindResult
 
 pub fn find_in_tree(
     path: &Path,
-    exclusion_pattern: Option<&str>,
+    exclusion_pattern: Option<&regex::Regex>,
 ) -> Result<(tree::Tree, Vec<Warning>), Error> {
     let mut warnings = Vec::new();
 

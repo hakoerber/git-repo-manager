@@ -209,14 +209,28 @@ fn main() {
                         }
                     };
 
-                    let (found_repos, warnings) = match find_in_tree(&path, args.exclude.as_deref())
-                    {
-                        Ok((repos, warnings)) => (repos, warnings),
-                        Err(error) => {
-                            print_error(&error.to_string());
-                            process::exit(1);
+                    let exclusion_pattern = args.exclude.as_ref().map(|s|
+                        match regex::Regex::new(s) {
+                            Ok(regex) => regex,
+                            Err(error) => {
+                                print_error(&format!(
+                                    "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
+                                    &path.display(),
+                                    error
+                                ));
+                                process::exit(1);
+                            }
                         }
-                    };
+                    );
+
+                    let (found_repos, warnings) =
+                        match find_in_tree(&path, exclusion_pattern.as_ref()) {
+                            Ok((repos, warnings)) => (repos, warnings),
+                            Err(error) => {
+                                print_error(&error.to_string());
+                                process::exit(1);
+                            }
+                        };
 
                     let trees = config::ConfigTrees::from_trees(vec![found_repos]);
                     if trees.trees_ref().iter().all(|t| match t.repos {
