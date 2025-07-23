@@ -1,18 +1,15 @@
 use serde::Deserialize;
 
-use super::auth;
-use super::escape;
-use super::ApiErrorResponse;
-use super::Filter;
-use super::JsonError;
-use super::Project;
-use super::Provider;
+use super::{
+    ApiError, Error, Filter, JsonError, Project, ProjectName, ProjectNamespace, Provider,
+    RemoteUrl, Url, auth, escape,
+};
 
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
-const GITHUB_API_BASEURL: &str = match option_env!("GITHUB_API_BASEURL") {
+const GITHUB_API_BASEURL: Url = Url::new_static(match option_env!("GITHUB_API_BASEURL") {
     Some(url) => url,
     None => "https://api.github.com",
-};
+});
 
 #[derive(Deserialize)]
 pub struct GithubProject {
@@ -30,24 +27,24 @@ struct GithubUser {
 }
 
 impl Project for GithubProject {
-    fn name(&self) -> String {
-        self.name.clone()
+    fn name(&self) -> ProjectName {
+        ProjectName::new(self.name.clone())
     }
 
-    fn namespace(&self) -> Option<String> {
+    fn namespace(&self) -> Option<ProjectNamespace> {
         if let Some((namespace, _name)) = self.full_name.rsplit_once('/') {
-            Some(namespace.to_string())
+            Some(ProjectNamespace(namespace.to_owned()))
         } else {
             None
         }
     }
 
-    fn ssh_url(&self) -> String {
-        self.ssh_url.clone()
+    fn ssh_url(&self) -> RemoteUrl {
+        RemoteUrl::new(self.ssh_url.clone())
     }
 
-    fn http_url(&self) -> String {
-        self.clone_url.clone()
+    fn http_url(&self) -> RemoteUrl {
+        RemoteUrl::new(self.clone_url.clone())
     }
 
     fn private(&self) -> bool {
@@ -72,16 +69,18 @@ pub struct Github {
 }
 
 impl Provider for Github {
-    type Project = GithubProject;
     type Error = GithubApiErrorResponse;
+    type Project = GithubProject;
 
     fn new(
         filter: Filter,
         secret_token: auth::AuthToken,
-        api_url_override: Option<String>,
-    ) -> Result<Self, String> {
+        api_url_override: Option<Url>,
+    ) -> Result<Self, Error> {
         if api_url_override.is_some() {
-            return Err("API URL overriding is not supported for Github".to_string());
+            return Err(Error::Provider(
+                "API URL overriding is not supported for Github".to_owned(),
+            ));
         }
         Ok(Self {
             filter,
@@ -103,40 +102,50 @@ impl Provider for Github {
 
     fn get_user_projects(
         &self,
-        user: &str,
-    ) -> Result<Vec<GithubProject>, ApiErrorResponse<GithubApiErrorResponse>> {
+        user: &super::User,
+    ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/users/{}/repos", escape(user)),
+            &Url::new(format!(
+                "{}/users/{}/repos",
+                GITHUB_API_BASEURL.as_str(),
+                escape(&user.0)
+            )),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
     fn get_group_projects(
         &self,
-        group: &str,
-    ) -> Result<Vec<GithubProject>, ApiErrorResponse<GithubApiErrorResponse>> {
+        group: &super::Group,
+    ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/orgs/{}/repos?type=all", escape(group)),
+            &Url::new(format!(
+                "{}/orgs/{}/repos?type=all",
+                GITHUB_API_BASEURL.as_str(),
+                escape(&group.0)
+            )),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
     fn get_accessible_projects(
         &self,
-    ) -> Result<Vec<GithubProject>, ApiErrorResponse<GithubApiErrorResponse>> {
+    ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/user/repos"),
+            &Url::new(format!("{}/user/repos", GITHUB_API_BASEURL.as_str())),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
-    fn get_current_user(&self) -> Result<String, ApiErrorResponse<GithubApiErrorResponse>> {
-        Ok(super::call::<GithubUser, GithubApiErrorResponse>(
-            &format!("{GITHUB_API_BASEURL}/user"),
-            Self::auth_header_key(),
-            self.secret_token(),
-            Some(ACCEPT_HEADER_JSON),
-        )?
-        .username)
+    fn get_current_user(&self) -> Result<super::User, ApiError<GithubApiErrorResponse>> {
+        Ok(super::User(
+            super::call::<GithubUser, GithubApiErrorResponse>(
+                &format!("{}/user", GITHUB_API_BASEURL.as_str()),
+                Self::auth_header_key(),
+                self.secret_token(),
+                Some(ACCEPT_HEADER_JSON),
+            )?
+            .username,
+        ))
     }
 }

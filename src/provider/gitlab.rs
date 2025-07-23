@@ -1,12 +1,9 @@
 use serde::Deserialize;
 
-use super::auth;
-use super::escape;
-use super::ApiErrorResponse;
-use super::Filter;
-use super::JsonError;
-use super::Project;
-use super::Provider;
+use super::{
+    ApiError, Error, Filter, JsonError, Project, ProjectName, ProjectNamespace, Provider,
+    RemoteUrl, Url, auth, escape,
+};
 
 const ACCEPT_HEADER_JSON: &str = "application/json";
 const GITLAB_API_BASEURL: &str = match option_env!("GITLAB_API_BASEURL") {
@@ -38,24 +35,24 @@ struct GitlabUser {
 }
 
 impl Project for GitlabProject {
-    fn name(&self) -> String {
-        self.name.clone()
+    fn name(&self) -> ProjectName {
+        ProjectName::new(self.name.clone())
     }
 
-    fn namespace(&self) -> Option<String> {
+    fn namespace(&self) -> Option<ProjectNamespace> {
         if let Some((namespace, _name)) = self.path_with_namespace.rsplit_once('/') {
-            Some(namespace.to_string())
+            Some(ProjectNamespace::new(namespace.to_owned()))
         } else {
             None
         }
     }
 
-    fn ssh_url(&self) -> String {
-        self.ssh_url_to_repo.clone()
+    fn ssh_url(&self) -> RemoteUrl {
+        RemoteUrl::new(self.ssh_url_to_repo.clone())
     }
 
-    fn http_url(&self) -> String {
-        self.http_url_to_repo.clone()
+    fn http_url(&self) -> RemoteUrl {
+        RemoteUrl::new(self.http_url_to_repo.clone())
     }
 
     fn private(&self) -> bool {
@@ -78,27 +75,31 @@ impl JsonError for GitlabApiErrorResponse {
 pub struct Gitlab {
     filter: Filter,
     secret_token: auth::AuthToken,
-    api_url_override: Option<String>,
+    api_url_override: Option<Url>,
 }
 
 impl Gitlab {
-    fn api_url(&self) -> String {
-        match self.api_url_override {
-            Some(ref s) => s.trim_end_matches('/').to_string(),
-            None => GITLAB_API_BASEURL.to_string(),
-        }
+    fn api_url(&self) -> Url {
+        Url::new(
+            self.api_url_override
+                .as_ref()
+                .map(Url::as_str)
+                .unwrap_or(GITLAB_API_BASEURL)
+                .trim_end_matches('/')
+                .to_owned(),
+        )
     }
 }
 
 impl Provider for Gitlab {
-    type Project = GitlabProject;
     type Error = GitlabApiErrorResponse;
+    type Project = GitlabProject;
 
     fn new(
         filter: Filter,
         secret_token: auth::AuthToken,
-        api_url_override: Option<String>,
-    ) -> Result<Self, String> {
+        api_url_override: Option<Url>,
+    ) -> Result<Self, Error> {
         Ok(Self {
             filter,
             secret_token,
@@ -120,44 +121,50 @@ impl Provider for Gitlab {
 
     fn get_user_projects(
         &self,
-        user: &str,
-    ) -> Result<Vec<GitlabProject>, ApiErrorResponse<GitlabApiErrorResponse>> {
+        user: &super::User,
+    ) -> Result<Vec<GitlabProject>, ApiError<GitlabApiErrorResponse>> {
         self.call_list(
-            &format!("{}/api/v4/users/{}/projects", self.api_url(), escape(user)),
+            &Url::new(format!(
+                "{}/api/v4/users/{}/projects",
+                self.api_url().as_str(),
+                escape(&user.0)
+            )),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
     fn get_group_projects(
         &self,
-        group: &str,
-    ) -> Result<Vec<GitlabProject>, ApiErrorResponse<GitlabApiErrorResponse>> {
+        group: &super::Group,
+    ) -> Result<Vec<GitlabProject>, ApiError<GitlabApiErrorResponse>> {
         self.call_list(
-            &format!(
+            &Url::new(format!(
                 "{}/api/v4/groups/{}/projects?include_subgroups=true&archived=false",
-                self.api_url(),
-                escape(group),
-            ),
+                self.api_url().as_str(),
+                escape(&group.0),
+            )),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
     fn get_accessible_projects(
         &self,
-    ) -> Result<Vec<GitlabProject>, ApiErrorResponse<GitlabApiErrorResponse>> {
+    ) -> Result<Vec<GitlabProject>, ApiError<GitlabApiErrorResponse>> {
         self.call_list(
-            &format!("{}/api/v4/projects", self.api_url(),),
+            &Url::new(format!("{}/api/v4/projects", self.api_url().as_str())),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
-    fn get_current_user(&self) -> Result<String, ApiErrorResponse<GitlabApiErrorResponse>> {
-        Ok(super::call::<GitlabUser, GitlabApiErrorResponse>(
-            &format!("{}/api/v4/user", self.api_url()),
-            Self::auth_header_key(),
-            self.secret_token(),
-            Some(ACCEPT_HEADER_JSON),
-        )?
-        .username)
+    fn get_current_user(&self) -> Result<super::User, ApiError<GitlabApiErrorResponse>> {
+        Ok(super::User(
+            super::call::<GitlabUser, GitlabApiErrorResponse>(
+                &format!("{}/api/v4/user", self.api_url().as_str()),
+                Self::auth_header_key(),
+                self.secret_token(),
+                Some(ACCEPT_HEADER_JSON),
+            )?
+            .username,
+        ))
     }
 }

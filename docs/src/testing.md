@@ -51,7 +51,7 @@ run. As a general rule, comprehensiveness is more important than test suite
 runtime (so if in doubt, better to add another parameter to catch every edge
 case). But try to keep the total runtime sane. Currently, the whole `just test-e2e`
 target runs ~8'000 tests and takes around 5 minutes on my machine, exlucding
-binary and docker build time. I'd say that keeping it under 10 minutes is a good
+binary and podman build time. I'd say that keeping it under 10 minutes is a good
 idea.
 
 To optimize tests, look out for two patterns: Dependency and Orthogonality
@@ -119,6 +119,6 @@ def test_param1(...):
 def test_param2(...):
 ```
 
-The tests are running in Docker via docker-compose. This is mainly needed to
+The tests are running in podman via podman-compose. This is mainly needed to
 test networking functionality like GitLab integration, with the GitLab API being
 mocked by a simple flask container.

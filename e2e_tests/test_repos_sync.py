@@ -312,7 +312,7 @@ def test_repos_sync_root_is_file(configtype):
 
             cmd = grm(["repos", "sync", "config", "--config", config.name])
             assert cmd.returncode != 0
-            assert "notadirectory" in cmd.stderr.lower()
+            assert "not a directory" in cmd.stderr.lower()
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])

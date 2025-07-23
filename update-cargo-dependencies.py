@@ -7,10 +7,11 @@ import tomlkit
 with open("./Cargo.toml", "r") as cargo_config:
     cargo = tomlkit.parse(cargo_config.read())
 
-update_necessary = True
+update_necessary = False
 
 for tier in ["dependencies", "dev-dependencies"]:
     for name, dependency in cargo[tier].items():
+        print(f"checking {name}")
         version = dependency["version"].lstrip("=")
 
         args = [
@@ -18,7 +19,16 @@ for tier in ["dependencies", "dev-dependencies"]:
             "upgrade",
             "--incompatible",
             "--pinned",
+            "--package",
+            name,
+        ]
+        args = [
+            "cargo",
+            "upgrade",
+            "--incompatible",
+            "--pinned",
             "--ignore-rust-version",
+            "--recursive",
             "--package",
             name,
         ]
@@ -33,11 +43,6 @@ for tier in ["dependencies", "dev-dependencies"]:
             new_version = {dep: cfg for dep, cfg in cargo[tier].items() if dep == name}[
                 name
             ]["version"].lstrip("=")
-
-        subprocess.run(
-            ["cargo", "update", "--recursive", "--package", name],
-            check=True,
-        )
 
         if version != new_version:
             update_necessary = True

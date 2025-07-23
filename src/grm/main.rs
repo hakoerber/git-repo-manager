@@ -1,22 +1,21 @@
 #![forbid(unsafe_code)]
 
-use std::path::Path;
-use std::process;
+use std::{
+    path::{Path, PathBuf},
+    process,
+};
 
 mod cmd;
 
-use grm::auth;
-use grm::config;
-use grm::find_in_tree;
-use grm::output::*;
-use grm::path;
-use grm::provider;
-use grm::provider::Provider;
-use grm::repo;
-use grm::table;
-use grm::tree;
-use grm::worktree;
+use grm::{
+    BranchName, RemoteName, auth, config, find_in_tree,
+    output::{print, print_error, print_success, print_warning, println},
+    provider::{self, Provider},
+    repo, table, tree,
+    worktree::{self, WorktreeName},
+};
 
+#[expect(clippy::cognitive_complexity, reason = "fine for main()")]
 fn main() {
     let opts = cmd::parse();
 
@@ -24,10 +23,10 @@ fn main() {
         cmd::SubCommand::Repos(repos) => match repos.action {
             cmd::ReposAction::Sync(sync) => match sync {
                 cmd::SyncAction::Config(args) => {
-                    let config = match config::read_config(&args.config) {
+                    let config = match config::read_config(Path::new(&args.config)) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&error);
+                            print_error(&error.to_string());
                             process::exit(1);
                         }
                     };
@@ -52,8 +51,18 @@ fn main() {
                         }
                     };
 
-                    let filter =
-                        provider::Filter::new(args.users, args.groups, args.owner, args.access);
+                    let filter = provider::Filter::new(
+                        args.users
+                            .into_iter()
+                            .map(|user| provider::User::new(user))
+                            .collect(),
+                        args.groups
+                            .into_iter()
+                            .map(|group| provider::Group::new(group))
+                            .collect(),
+                        args.owner,
+                        args.access,
+                    );
 
                     if filter.empty() {
                         print_warning("You did not specify any filters, so no repos will match");
@@ -62,48 +71,53 @@ fn main() {
                     let worktree = args.worktree == "true";
 
                     let repos = match args.provider {
-                        cmd::RemoteProvider::Github => {
-                            match provider::Github::new(filter, token, args.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Sync error: {error}"));
-                                    process::exit(1);
-                                }
+                        cmd::RemoteProvider::Github => match provider::Github::new(
+                            filter,
+                            token,
+                            args.api_url.map(provider::Url::new),
+                        ) {
+                            Ok(provider) => provider,
+                            Err(error) => {
+                                print_error(&format!("Sync error: {error}"));
+                                process::exit(1);
                             }
-                            .get_repos(
-                                worktree,
-                                args.force_ssh,
-                                args.remote_name,
-                            )
                         }
-                        cmd::RemoteProvider::Gitlab => {
-                            match provider::Gitlab::new(filter, token, args.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Sync error: {error}"));
-                                    process::exit(1);
-                                }
+                        .get_repos(
+                            worktree,
+                            args.force_ssh,
+                            args.remote_name.map(RemoteName::new),
+                        ),
+                        cmd::RemoteProvider::Gitlab => match provider::Gitlab::new(
+                            filter,
+                            token,
+                            args.api_url.map(provider::Url::new),
+                        ) {
+                            Ok(provider) => provider,
+                            Err(error) => {
+                                print_error(&format!("Sync error: {error}"));
+                                process::exit(1);
                             }
-                            .get_repos(
-                                worktree,
-                                args.force_ssh,
-                                args.remote_name,
-                            )
                         }
+                        .get_repos(
+                            worktree,
+                            args.force_ssh,
+                            args.remote_name.map(RemoteName::new),
+                        ),
                     };
 
                     match repos {
                         Ok(repos) => {
-                            let mut trees: Vec<config::ConfigTree> = vec![];
+                            let mut trees: Vec<config::Tree> = vec![];
 
+                            #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                             for (namespace, repolist) in repos {
                                 let root = if let Some(namespace) = namespace {
-                                    path::path_as_string(&Path::new(&args.root).join(namespace))
+                                    PathBuf::from(&args.root).join(namespace.as_str())
                                 } else {
-                                    path::path_as_string(Path::new(&args.root))
+                                    PathBuf::from(&args.root)
                                 };
 
-                                let tree = config::ConfigTree::from_repos(root, repolist);
+                                let tree = config::Tree::from_repos(&root, repolist);
                                 trees.push(tree);
                             }
 
@@ -128,19 +142,19 @@ fn main() {
                     }
                 }
             },
-            cmd::ReposAction::Status(args) => match &args.config {
-                Some(config_path) => {
-                    let config = match config::read_config(config_path) {
+            cmd::ReposAction::Status(args) => {
+                if let Some(config_path) = args.config {
+                    let config = match config::read_config(Path::new(&config_path)) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&error);
+                            print_error(&error.to_string());
                             process::exit(1);
                         }
                     };
                     match table::get_status_table(config) {
                         Ok((tables, errors)) => {
                             for table in tables {
-                                println!("{table}");
+                                println(&format!("{table}"));
                             }
                             for error in errors {
                                 print_error(&format!("Error: {error}"));
@@ -151,8 +165,7 @@ fn main() {
                             process::exit(1);
                         }
                     }
-                }
-                None => {
+                } else {
                     let dir = match std::env::current_dir() {
                         Ok(dir) => dir,
                         Err(error) => {
@@ -163,7 +176,7 @@ fn main() {
 
                     match table::show_single_repo_status(&dir) {
                         Ok((table, warnings)) => {
-                            println!("{table}");
+                            println(&format!("{table}"));
                             for warning in warnings {
                                 print_warning(&warning);
                             }
@@ -174,7 +187,7 @@ fn main() {
                         }
                     }
                 }
-            },
+            }
             cmd::ReposAction::Find(find) => match find {
                 cmd::FindAction::Local(args) => {
                     let path = Path::new(&args.path);
@@ -191,33 +204,50 @@ fn main() {
                         Ok(path) => path,
                         Err(error) => {
                             print_error(&format!(
+                                "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
+                                &path.display(),
+                                error
+                            ));
+                            process::exit(1);
+                        }
+                    };
+
+                    let exclusion_pattern = args.exclude.as_ref().map(|s|
+                        match regex::Regex::new(s) {
+                            Ok(regex) => regex,
+                            Err(error) => {
+                                print_error(&format!(
                                     "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
                                     &path.display(),
                                     error
                                 ));
-                            process::exit(1);
+                                process::exit(1);
+                            }
                         }
-                    };
+                    );
 
-                    let (found_repos, warnings) = match find_in_tree(&path, args.exclude.as_deref())
-                    {
-                        Ok((repos, warnings)) => (repos, warnings),
-                        Err(error) => {
-                            print_error(&error);
-                            process::exit(1);
-                        }
-                    };
+                    let (found_repos, warnings) =
+                        match find_in_tree(&path, exclusion_pattern.as_ref()) {
+                            Ok((repos, warnings)) => (repos, warnings),
+                            Err(error) => {
+                                print_error(&error.to_string());
+                                process::exit(1);
+                            }
+                        };
 
                     let trees = config::ConfigTrees::from_trees(vec![found_repos]);
-                    if trees.trees_ref().iter().all(|t| match &t.repos {
+                    if trees.trees_ref().iter().all(|t| match t.repos {
                         None => false,
-                        Some(r) => r.is_empty(),
+                        Some(ref r) => r.is_empty(),
                     }) {
                         print_warning("No repositories found");
                     } else {
                         let mut config = trees.to_config();
 
-                        config.normalize();
+                        if let Err(error) = config.normalize() {
+                            print_error(&format!("Path error: {error}"));
+                            process::exit(1);
+                        }
 
                         match args.format {
                             cmd::ConfigFormat::Toml => {
@@ -231,7 +261,7 @@ fn main() {
                                         process::exit(1);
                                     }
                                 };
-                                print!("{toml}");
+                                print(&toml);
                             }
                             cmd::ConfigFormat::Yaml => {
                                 let yaml = match config.as_yaml() {
@@ -244,7 +274,7 @@ fn main() {
                                         process::exit(1);
                                     }
                                 };
-                                print!("{yaml}");
+                                print(&yaml);
                             }
                         }
                     }
@@ -253,13 +283,14 @@ fn main() {
                     }
                 }
                 cmd::FindAction::Config(args) => {
-                    let config: config::ConfigProvider = match config::read_config(&args.config) {
-                        Ok(config) => config,
-                        Err(error) => {
-                            print_error(&error);
-                            process::exit(1);
-                        }
-                    };
+                    let config: config::ConfigProvider =
+                        match config::read_config(Path::new(&args.config)) {
+                            Ok(config) => config,
+                            Err(error) => {
+                                print_error(&error.to_string());
+                                process::exit(1);
+                            }
+                        };
 
                     let token = match auth::get_token_from_command(&config.token_command) {
                         Ok(token) => token,
@@ -277,8 +308,18 @@ fn main() {
                     });
 
                     let filter = provider::Filter::new(
-                        filters.users.unwrap_or_default(),
-                        filters.groups.unwrap_or_default(),
+                        filters
+                            .users
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(Into::into)
+                            .collect(),
+                        filters
+                            .groups
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(Into::into)
+                            .collect(),
                         filters.owner.unwrap_or(false),
                         filters.access.unwrap_or(false),
                     );
@@ -287,9 +328,13 @@ fn main() {
                         print_warning("You did not specify any filters, so no repos will match");
                     }
 
-                    let repos = match config.provider {
+                    let repos = match config.provider.into() {
                         provider::RemoteProvider::Github => {
-                            match match provider::Github::new(filter, token, config.api_url) {
+                            match match provider::Github::new(
+                                filter,
+                                token,
+                                config.api_url.map(provider::Url::new),
+                            ) {
                                 Ok(provider) => provider,
                                 Err(error) => {
                                     print_error(&format!("Error: {error}"));
@@ -299,7 +344,7 @@ fn main() {
                             .get_repos(
                                 config.worktree.unwrap_or(false),
                                 config.force_ssh.unwrap_or(false),
-                                config.remote_name,
+                                config.remote_name.map(RemoteName::new),
                             ) {
                                 Ok(provider) => provider,
                                 Err(error) => {
@@ -309,7 +354,11 @@ fn main() {
                             }
                         }
                         provider::RemoteProvider::Gitlab => {
-                            match match provider::Gitlab::new(filter, token, config.api_url) {
+                            match match provider::Gitlab::new(
+                                filter,
+                                token,
+                                config.api_url.map(provider::Url::new),
+                            ) {
                                 Ok(provider) => provider,
                                 Err(error) => {
                                     print_error(&format!("Error: {error}"));
@@ -319,7 +368,7 @@ fn main() {
                             .get_repos(
                                 config.worktree.unwrap_or(false),
                                 config.force_ssh.unwrap_or(false),
-                                config.remote_name,
+                                config.remote_name.map(RemoteName::new),
                             ) {
                                 Ok(provider) => provider,
                                 Err(error) => {
@@ -332,19 +381,16 @@ fn main() {
 
                     let mut trees = vec![];
 
+                    #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                     for (namespace, namespace_repos) in repos {
-                        let tree = config::ConfigTree {
-                            root: if let Some(namespace) = namespace {
-                                path::path_as_string(&Path::new(&config.root).join(namespace))
+                        let tree = config::Tree {
+                            root: tree::Root::new(if let Some(namespace) = namespace {
+                                PathBuf::from(&config.root).join(namespace.as_str())
                             } else {
-                                path::path_as_string(Path::new(&config.root))
-                            },
-                            repos: Some(
-                                namespace_repos
-                                    .into_iter()
-                                    .map(config::RepoConfig::from_repo)
-                                    .collect(),
-                            ),
+                                PathBuf::from(&config.root)
+                            })
+                            .into(),
+                            repos: Some(namespace_repos.into_iter().map(Into::into).collect()),
                         };
                         trees.push(tree);
                     }
@@ -363,7 +409,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{toml}");
+                            print(&toml);
                         }
                         cmd::ConfigFormat::Yaml => {
                             let yaml = match config.as_yaml() {
@@ -376,7 +422,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{yaml}");
+                            print(&yaml);
                         }
                     }
                 }
@@ -389,8 +435,18 @@ fn main() {
                         }
                     };
 
-                    let filter =
-                        provider::Filter::new(args.users, args.groups, args.owner, args.access);
+                    let filter = provider::Filter::new(
+                        args.users
+                            .into_iter()
+                            .map(|user| provider::User::new(user))
+                            .collect(),
+                        args.groups
+                            .into_iter()
+                            .map(|group| provider::Group::new(group))
+                            .collect(),
+                        args.owner,
+                        args.access,
+                    );
 
                     if filter.empty() {
                         print_warning("You did not specify any filters, so no repos will match");
@@ -399,34 +455,38 @@ fn main() {
                     let worktree = args.worktree == "true";
 
                     let repos = match args.provider {
-                        cmd::RemoteProvider::Github => {
-                            match provider::Github::new(filter, token, args.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Error: {error}"));
-                                    process::exit(1);
-                                }
+                        cmd::RemoteProvider::Github => match provider::Github::new(
+                            filter,
+                            token,
+                            args.api_url.map(provider::Url::new),
+                        ) {
+                            Ok(provider) => provider,
+                            Err(error) => {
+                                print_error(&format!("Error: {error}"));
+                                process::exit(1);
                             }
-                            .get_repos(
-                                worktree,
-                                args.force_ssh,
-                                args.remote_name,
-                            )
                         }
-                        cmd::RemoteProvider::Gitlab => {
-                            match provider::Gitlab::new(filter, token, args.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Error: {error}"));
-                                    process::exit(1);
-                                }
+                        .get_repos(
+                            worktree,
+                            args.force_ssh,
+                            args.remote_name.map(RemoteName::new),
+                        ),
+                        cmd::RemoteProvider::Gitlab => match provider::Gitlab::new(
+                            filter,
+                            token,
+                            args.api_url.map(provider::Url::new),
+                        ) {
+                            Ok(provider) => provider,
+                            Err(error) => {
+                                print_error(&format!("Error: {error}"));
+                                process::exit(1);
                             }
-                            .get_repos(
-                                worktree,
-                                args.force_ssh,
-                                args.remote_name,
-                            )
                         }
+                        .get_repos(
+                            worktree,
+                            args.force_ssh,
+                            args.remote_name.map(RemoteName::new),
+                        ),
                     };
 
                     let repos = repos.unwrap_or_else(|error| {
@@ -434,28 +494,28 @@ fn main() {
                         process::exit(1);
                     });
 
-                    let mut trees: Vec<config::ConfigTree> = vec![];
+                    let mut trees: Vec<config::Tree> = vec![];
 
+                    #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                     for (namespace, repolist) in repos {
-                        let tree = config::ConfigTree {
-                            root: if let Some(namespace) = namespace {
-                                path::path_as_string(&Path::new(&args.root).join(namespace))
+                        let tree = config::Tree {
+                            root: tree::Root::new(if let Some(namespace) = namespace {
+                                PathBuf::from(&args.root).join(namespace.as_str())
                             } else {
-                                path::path_as_string(Path::new(&args.root))
-                            },
-                            repos: Some(
-                                repolist
-                                    .into_iter()
-                                    .map(config::RepoConfig::from_repo)
-                                    .collect(),
-                            ),
+                                PathBuf::from(&args.root)
+                            })
+                            .into(),
+                            repos: Some(repolist.into_iter().map(Into::into).collect()),
                         };
                         trees.push(tree);
                     }
 
                     let mut config = config::Config::from_trees(trees);
 
-                    config.normalize();
+                    if let Err(error) = config.normalize() {
+                        print_error(&format!("Path error: {error}"));
+                        process::exit(1);
+                    }
 
                     match args.format {
                         cmd::ConfigFormat::Toml => {
@@ -469,7 +529,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{toml}");
+                            print(&toml);
                         }
                         cmd::ConfigFormat::Yaml => {
                             let yaml = match config.as_yaml() {
@@ -482,7 +542,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{yaml}");
+                            print(&yaml);
                         }
                     }
                 }
@@ -497,32 +557,43 @@ fn main() {
             match args.action {
                 cmd::WorktreeAction::Add(action_args) => {
                     if action_args.track.is_some() && action_args.no_track {
-                        print_warning("You are using --track and --no-track at the same time. --track will be ignored");
+                        print_warning(
+                            "You are using --track and --no-track at the same time. --track will be ignored",
+                        );
                     }
-                    let track = match &action_args.track {
-                        Some(branch) => {
+                    let track = match action_args.track {
+                        Some(ref branch) => {
                             let split = branch.split_once('/');
 
-                            if split.is_none()
-                                || split.unwrap().0.is_empty()
-                                || split.unwrap().1.is_empty()
-                            {
-                                print_error("Tracking branch needs to match the pattern <remote>/<branch_name>");
-                                process::exit(1);
+                            let (remote_name, remote_branch_name) = match split {
+                                None => {
+                                    print_error(
+                                        "Tracking branch needs to match the pattern <remote>/<branch_name>, no slash found",
+                                    );
+                                    process::exit(1);
+                                }
+                                Some(s) if s.0.is_empty() || s.1.is_empty() => {
+                                    print_error(
+                                        "Tracking branch needs to match the pattern <remote>/<branch_name>",
+                                    );
+                                    process::exit(1);
+                                }
+                                Some((remote_name, remote_branch_name)) => {
+                                    (remote_name, remote_branch_name)
+                                }
                             };
 
-                            // unwrap() here is safe because we checked for
-                            // is_none() explictily before
-                            let (remote_name, remote_branch_name) = split.unwrap();
-
-                            Some((remote_name, remote_branch_name))
+                            Some((
+                                RemoteName::new(remote_name.to_owned()),
+                                BranchName::new(remote_branch_name.to_owned()),
+                            ))
                         }
                         None => None,
                     };
 
                     match worktree::add_worktree(
                         &cwd,
-                        &action_args.name,
+                        &WorktreeName::new(action_args.name.clone()),
                         track,
                         action_args.no_track,
                     ) {
@@ -541,13 +612,16 @@ fn main() {
                     }
                 }
                 cmd::WorktreeAction::Delete(action_args) => {
-                    let worktree_config = match repo::read_worktree_root_config(&cwd) {
-                        Ok(config) => config,
-                        Err(error) => {
-                            print_error(&format!("Error getting worktree configuration: {error}"));
-                            process::exit(1);
-                        }
-                    };
+                    let worktree_config: Option<repo::WorktreeRootConfig> =
+                        match config::read_worktree_root_config(&cwd) {
+                            Ok(config) => config.map(Into::into),
+                            Err(error) => {
+                                print_error(&format!(
+                                    "Error getting worktree configuration: {error}"
+                                ));
+                                process::exit(1);
+                            }
+                        };
 
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
                         print_error(&format!("Error opening repository: {error}"));
@@ -556,25 +630,31 @@ fn main() {
 
                     match repo.remove_worktree(
                         &cwd,
-                        &action_args.name,
+                        &WorktreeName::new(action_args.name.clone()),
                         Path::new(&action_args.name),
                         action_args.force,
-                        &worktree_config,
+                        worktree_config.as_ref(),
                     ) {
                         Ok(()) => print_success(&format!("Worktree {} deleted", &action_args.name)),
                         Err(error) => {
                             match error {
-                                repo::WorktreeRemoveFailureReason::Error(msg) => {
-                                    print_error(&msg);
+                                repo::Error::WorktreeRemovalFailure(reason) => match reason {
+                                    repo::WorktreeRemoveFailureReason::Error(msg) => {
+                                        print_error(&msg);
+                                        process::exit(1);
+                                    }
+                                    repo::WorktreeRemoveFailureReason::Changes(changes) => {
+                                        print_warning(format!(
+                                            "Changes in worktree: {changes}. Refusing to delete"
+                                        ));
+                                    }
+                                    repo::WorktreeRemoveFailureReason::NotMerged(message) => {
+                                        print_warning(&message);
+                                    }
+                                },
+                                e => {
+                                    print_error(&e.to_string());
                                     process::exit(1);
-                                }
-                                repo::WorktreeRemoveFailureReason::Changes(changes) => {
-                                    print_warning(&format!(
-                                        "Changes in worktree: {changes}. Refusing to delete"
-                                    ));
-                                }
-                                repo::WorktreeRemoveFailureReason::NotMerged(message) => {
-                                    print_warning(&message);
                                 }
                             }
                             process::exit(1);
@@ -589,7 +669,7 @@ fn main() {
 
                     match table::get_worktree_status_table(&repo, &cwd) {
                         Ok((table, errors)) => {
-                            println!("{table}");
+                            println(&format!("{table}"));
                             for error in errors {
                                 print_error(&format!("Error: {error}"));
                             }
@@ -608,7 +688,7 @@ fn main() {
                     // * Set `core.bare` to `true`
 
                     let repo = repo::RepoHandle::open(&cwd, false).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -618,25 +698,33 @@ fn main() {
 
                     match repo.convert_to_worktree(&cwd) {
                         Ok(()) => print_success("Conversion done"),
-                        Err(reason) => {
-                            match reason {
-                                repo::WorktreeConversionFailureReason::Changes => {
-                                    print_error("Changes found in repository, refusing to convert");
-                                }
-                                repo::WorktreeConversionFailureReason::Ignored => {
-                                    print_error("Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.");
-                                }
-                                repo::WorktreeConversionFailureReason::Error(error) => {
-                                    print_error(&format!("Error during conversion: {error}"));
-                                }
+                        Err(error) => {
+                            match error {
+                                repo::Error::WorktreeConversionFailure(reason) => match reason {
+                                    repo::WorktreeConversionFailureReason::Changes => {
+                                        print_error(
+                                            "Changes found in repository, refusing to convert",
+                                        );
+                                    }
+                                    repo::WorktreeConversionFailureReason::Ignored => {
+                                        print_error(
+                                            "Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.",
+                                        );
+                                    }
+                                    repo::WorktreeConversionFailureReason::Error(error) => {
+                                        print_error(&format!("Error during conversion: {error}"));
+                                    }
+                                },
+                                e => print_error(&e.to_string()),
                             }
+
                             process::exit(1);
                         }
                     }
                 }
                 cmd::WorktreeAction::Clean(_args) => {
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -662,15 +750,15 @@ fn main() {
                             process::exit(1);
                         })
                     {
-                        print_warning(&format!(
+                        print_warning(format!(
                             "Found {}, which is not a valid worktree directory!",
-                            &unmanaged_worktree
+                            unmanaged_worktree.display()
                         ));
                     }
                 }
                 cmd::WorktreeAction::Fetch(_args) => {
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -686,7 +774,7 @@ fn main() {
                 }
                 cmd::WorktreeAction::Pull(args) => {
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -711,7 +799,7 @@ fn main() {
                                 process::exit(1);
                             })
                         {
-                            print_warning(&format!("{}: {}", worktree.name(), warning));
+                            print_warning(format!("{}: {}", worktree.name(), warning));
                             failures = true;
                         } else {
                             print_success(&format!("{}: Done", worktree.name()));
@@ -727,7 +815,7 @@ fn main() {
                         process::exit(1);
                     }
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -742,10 +830,12 @@ fn main() {
                         });
                     }
 
-                    let config = repo::read_worktree_root_config(&cwd).unwrap_or_else(|error| {
-                        print_error(&format!("Failed to read worktree configuration: {error}"));
-                        process::exit(1);
-                    });
+                    let config = config::read_worktree_root_config(&cwd)
+                        .unwrap_or_else(|error| {
+                            print_error(&format!("Failed to read worktree configuration: {error}"));
+                            process::exit(1);
+                        })
+                        .map(Into::into);
 
                     let worktrees = repo.get_worktrees().unwrap_or_else(|error| {
                         print_error(&format!("Error getting worktrees: {error}"));
@@ -766,7 +856,7 @@ fn main() {
                                 })
                             {
                                 failures = true;
-                                print_warning(&format!("{}: {}", worktree.name(), warning));
+                                print_warning(format!("{}: {}", worktree.name(), warning));
                             }
                         }
                     }
@@ -780,7 +870,7 @@ fn main() {
                             })
                         {
                             failures = true;
-                            print_warning(&format!("{}: {}", worktree.name(), warning));
+                            print_warning(format!("{}: {}", worktree.name(), warning));
                         } else {
                             print_success(&format!("{}: Done", worktree.name()));
                         }

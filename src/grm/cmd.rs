@@ -318,16 +318,16 @@ pub struct WorktreeDeleteArgs {
 }
 
 #[derive(Parser)]
-pub struct WorktreeStatusArgs {}
+pub struct WorktreeStatusArgs;
 
 #[derive(Parser)]
-pub struct WorktreeConvertArgs {}
+pub struct WorktreeConvertArgs;
 
 #[derive(Parser)]
-pub struct WorktreeCleanArgs {}
+pub struct WorktreeCleanArgs;
 
 #[derive(Parser)]
-pub struct WorktreeFetchArgs {}
+pub struct WorktreeFetchArgs;
 
 #[derive(Parser)]
 pub struct WorktreePullArgs {
