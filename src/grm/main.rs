@@ -20,195 +20,195 @@ fn main() {
     let opts = cmd::parse();
 
     match opts.subcmd {
-        cmd::SubCommand::Repos(repos) => match repos.action {
-            cmd::ReposAction::Sync(sync) => match sync {
-                cmd::SyncAction::Config(args) => {
-                    let config = match config::read_config(&args.config) {
-                        Ok(config) => config,
-                        Err(error) => {
-                            print_error(&error.to_string());
-                            process::exit(1);
-                        }
-                    };
-                    match tree::sync_trees(config, args.init_worktree == "true") {
-                        Ok(success) => {
-                            if !success {
-                                process::exit(1)
+        cmd::SubCommand::Repos(repos) => {
+            match repos.action {
+                cmd::ReposAction::Sync(sync) => match sync {
+                    cmd::SyncAction::Config(args) => {
+                        let config = match config::read_config(&args.config) {
+                            Ok(config) => config,
+                            Err(error) => {
+                                print_error(&error.to_string());
+                                process::exit(1);
                             }
-                        }
-                        Err(error) => {
-                            print_error(&format!("Sync error: {error}"));
-                            process::exit(1);
-                        }
-                    }
-                }
-                cmd::SyncAction::Remote(args) => {
-                    let token = match auth::get_token_from_command(&args.token_command) {
-                        Ok(token) => token,
-                        Err(error) => {
-                            print_error(&format!("Getting token from command failed: {error}"));
-                            process::exit(1);
-                        }
-                    };
-
-                    let filter = provider::Filter::new(
-                        args.users
-                            .into_iter()
-                            .map(|user| provider::User::new(user))
-                            .collect(),
-                        args.groups
-                            .into_iter()
-                            .map(|group| provider::Group::new(group))
-                            .collect(),
-                        args.owner,
-                        args.access,
-                    );
-
-                    if filter.empty() {
-                        print_warning("You did not specify any filters, so no repos will match");
-                    }
-
-                    let worktree = args.worktree == "true";
-
-                    let repos = match args.provider {
-                        cmd::RemoteProvider::Github => {
-                            match provider::Github::new(filter, token, args.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Sync error: {error}"));
-                                    process::exit(1);
+                        };
+                        match tree::sync_trees(config, args.init_worktree == "true") {
+                            Ok(success) => {
+                                if !success {
+                                    process::exit(1)
                                 }
                             }
-                            .get_repos(
-                                worktree,
-                                args.force_ssh,
-                                args.remote_name,
-                            )
-                        }
-                        cmd::RemoteProvider::Gitlab => {
-                            match provider::Gitlab::new(filter, token, args.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Sync error: {error}"));
-                                    process::exit(1);
-                                }
+                            Err(error) => {
+                                print_error(&format!("Sync error: {error}"));
+                                process::exit(1);
                             }
-                            .get_repos(
-                                worktree,
-                                args.force_ssh,
-                                args.remote_name,
-                            )
                         }
-                    };
-
-                    match repos {
-                        Ok(repos) => {
-                            let mut trees: Vec<config::Tree> = vec![];
-
-                            #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
-                            for (namespace, repolist) in repos {
-                                let root = if let Some(namespace) = namespace {
-                                    PathBuf::from(&args.root).join(namespace)
-                                } else {
-                                    PathBuf::from(&args.root)
-                                };
-
-                                let tree = config::Tree::from_repos(&root, repolist);
-                                trees.push(tree);
+                    }
+                    cmd::SyncAction::Remote(args) => {
+                        let token = match auth::get_token_from_command(&args.token_command) {
+                            Ok(token) => token,
+                            Err(error) => {
+                                print_error(&format!("Getting token from command failed: {error}"));
+                                process::exit(1);
                             }
+                        };
 
-                            let config = config::Config::from_trees(trees);
+                        let filter = provider::Filter::new(
+                            args.users
+                                .into_iter()
+                                .map(|user| provider::User::new(user))
+                                .collect(),
+                            args.groups
+                                .into_iter()
+                                .map(|group| provider::Group::new(group))
+                                .collect(),
+                            args.owner,
+                            args.access,
+                        );
 
-                            match tree::sync_trees(config, args.init_worktree == "true") {
-                                Ok(success) => {
-                                    if !success {
-                                        process::exit(1)
+                        if filter.empty() {
+                            print_warning(
+                                "You did not specify any filters, so no repos will match",
+                            );
+                        }
+
+                        let worktree = args.worktree == "true";
+
+                        let repos =
+                            match args.provider {
+                                cmd::RemoteProvider::Github => match provider::Github::new(
+                                    filter,
+                                    token,
+                                    args.api_url.map(provider::Url::new),
+                                ) {
+                                    Ok(provider) => provider,
+                                    Err(error) => {
+                                        print_error(&format!("Sync error: {error}"));
+                                        process::exit(1);
                                     }
                                 }
-                                Err(error) => {
-                                    print_error(&format!("Sync error: {error}"));
-                                    process::exit(1);
+                                .get_repos(worktree, args.force_ssh, args.remote_name),
+                                cmd::RemoteProvider::Gitlab => match provider::Gitlab::new(
+                                    filter,
+                                    token,
+                                    args.api_url.map(provider::Url::new),
+                                ) {
+                                    Ok(provider) => provider,
+                                    Err(error) => {
+                                        print_error(&format!("Sync error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
+                                .get_repos(worktree, args.force_ssh, args.remote_name),
+                            };
+
+                        match repos {
+                            Ok(repos) => {
+                                let mut trees: Vec<config::Tree> = vec![];
+
+                                #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
+                                for (namespace, repolist) in repos {
+                                    let root = if let Some(namespace) = namespace {
+                                        PathBuf::from(&args.root).join(namespace.as_str())
+                                    } else {
+                                        PathBuf::from(&args.root)
+                                    };
+
+                                    let tree = config::Tree::from_repos(&root, repolist);
+                                    trees.push(tree);
+                                }
+
+                                let config = config::Config::from_trees(trees);
+
+                                match tree::sync_trees(config, args.init_worktree == "true") {
+                                    Ok(success) => {
+                                        if !success {
+                                            process::exit(1)
+                                        }
+                                    }
+                                    Err(error) => {
+                                        print_error(&format!("Sync error: {error}"));
+                                        process::exit(1);
+                                    }
                                 }
                             }
-                        }
-                        Err(error) => {
-                            print_error(&format!("Sync error: {error}"));
-                            process::exit(1);
+                            Err(error) => {
+                                print_error(&format!("Sync error: {error}"));
+                                process::exit(1);
+                            }
                         }
                     }
-                }
-            },
-            cmd::ReposAction::Status(args) => {
-                if let Some(config_path) = args.config {
-                    let config = match config::read_config(&config_path) {
-                        Ok(config) => config,
-                        Err(error) => {
-                            print_error(&error.to_string());
-                            process::exit(1);
+                },
+                cmd::ReposAction::Status(args) => {
+                    if let Some(config_path) = args.config {
+                        let config = match config::read_config(&config_path) {
+                            Ok(config) => config,
+                            Err(error) => {
+                                print_error(&error.to_string());
+                                process::exit(1);
+                            }
+                        };
+                        match table::get_status_table(config) {
+                            Ok((tables, errors)) => {
+                                for table in tables {
+                                    println(&format!("{table}"));
+                                }
+                                for error in errors {
+                                    print_error(&format!("Error: {error}"));
+                                }
+                            }
+                            Err(error) => {
+                                print_error(&format!("Error getting status: {error}"));
+                                process::exit(1);
+                            }
                         }
-                    };
-                    match table::get_status_table(config) {
-                        Ok((tables, errors)) => {
-                            for table in tables {
+                    } else {
+                        let dir = match std::env::current_dir() {
+                            Ok(dir) => dir,
+                            Err(error) => {
+                                print_error(&format!("Could not open current directory: {error}"));
+                                process::exit(1);
+                            }
+                        };
+
+                        match table::show_single_repo_status(&dir) {
+                            Ok((table, warnings)) => {
                                 println(&format!("{table}"));
+                                for warning in warnings {
+                                    print_warning(&warning);
+                                }
                             }
-                            for error in errors {
-                                print_error(&format!("Error: {error}"));
+                            Err(error) => {
+                                print_error(&format!("Error getting status: {error}"));
+                                process::exit(1);
                             }
-                        }
-                        Err(error) => {
-                            print_error(&format!("Error getting status: {error}"));
-                            process::exit(1);
-                        }
-                    }
-                } else {
-                    let dir = match std::env::current_dir() {
-                        Ok(dir) => dir,
-                        Err(error) => {
-                            print_error(&format!("Could not open current directory: {error}"));
-                            process::exit(1);
-                        }
-                    };
-
-                    match table::show_single_repo_status(&dir) {
-                        Ok((table, warnings)) => {
-                            println(&format!("{table}"));
-                            for warning in warnings {
-                                print_warning(&warning);
-                            }
-                        }
-                        Err(error) => {
-                            print_error(&format!("Error getting status: {error}"));
-                            process::exit(1);
                         }
                     }
                 }
-            }
-            cmd::ReposAction::Find(find) => match find {
-                cmd::FindAction::Local(args) => {
-                    let path = Path::new(&args.path);
-                    if !path.exists() {
-                        print_error(&format!("Path \"{}\" does not exist", path.display()));
-                        process::exit(1);
-                    }
-                    if !path.is_dir() {
-                        print_error(&format!("Path \"{}\" is not a directory", path.display()));
-                        process::exit(1);
-                    }
-
-                    let path = match path.canonicalize() {
-                        Ok(path) => path,
-                        Err(error) => {
-                            print_error(&format!(
-                                "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
-                                &path.display(),
-                                error
-                            ));
+                cmd::ReposAction::Find(find) => match find {
+                    cmd::FindAction::Local(args) => {
+                        let path = Path::new(&args.path);
+                        if !path.exists() {
+                            print_error(&format!("Path \"{}\" does not exist", path.display()));
                             process::exit(1);
                         }
-                    };
+                        if !path.is_dir() {
+                            print_error(&format!("Path \"{}\" is not a directory", path.display()));
+                            process::exit(1);
+                        }
 
-                    let exclusion_pattern = args.exclude.as_ref().map(|s|
+                        let path = match path.canonicalize() {
+                            Ok(path) => path,
+                            Err(error) => {
+                                print_error(&format!(
+                                    "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
+                                    &path.display(),
+                                    error
+                                ));
+                                process::exit(1);
+                            }
+                        };
+
+                        let exclusion_pattern = args.exclude.as_ref().map(|s|
                         match regex::Regex::new(s) {
                             Ok(regex) => regex,
                             Err(error) => {
@@ -222,23 +222,288 @@ fn main() {
                         }
                     );
 
-                    let (found_repos, warnings) =
-                        match find_in_tree(&path, exclusion_pattern.as_ref()) {
-                            Ok((repos, warnings)) => (repos, warnings),
+                        let (found_repos, warnings) =
+                            match find_in_tree(&path, exclusion_pattern.as_ref()) {
+                                Ok((repos, warnings)) => (repos, warnings),
+                                Err(error) => {
+                                    print_error(&error.to_string());
+                                    process::exit(1);
+                                }
+                            };
+
+                        let trees = config::ConfigTrees::from_trees(vec![found_repos]);
+                        if trees.trees_ref().iter().all(|t| match t.repos {
+                            None => false,
+                            Some(ref r) => r.is_empty(),
+                        }) {
+                            print_warning("No repositories found");
+                        } else {
+                            let mut config = trees.to_config();
+
+                            if let Err(error) = config.normalize() {
+                                print_error(&format!("Path error: {error}"));
+                                process::exit(1);
+                            }
+
+                            match args.format {
+                                cmd::ConfigFormat::Toml => {
+                                    let toml = match config.as_toml() {
+                                        Ok(toml) => toml,
+                                        Err(error) => {
+                                            print_error(&format!(
+                                                "Failed converting config to TOML: {}",
+                                                &error
+                                            ));
+                                            process::exit(1);
+                                        }
+                                    };
+                                    print(&toml);
+                                }
+                                cmd::ConfigFormat::Yaml => {
+                                    let yaml = match config.as_yaml() {
+                                        Ok(yaml) => yaml,
+                                        Err(error) => {
+                                            print_error(&format!(
+                                                "Failed converting config to YAML: {}",
+                                                &error
+                                            ));
+                                            process::exit(1);
+                                        }
+                                    };
+                                    print(&yaml);
+                                }
+                            }
+                        }
+                        for warning in warnings {
+                            print_warning(&warning);
+                        }
+                    }
+                    cmd::FindAction::Config(args) => {
+                        let config: config::ConfigProvider = match config::read_config(&args.config)
+                        {
+                            Ok(config) => config,
                             Err(error) => {
                                 print_error(&error.to_string());
                                 process::exit(1);
                             }
                         };
 
-                    let trees = config::ConfigTrees::from_trees(vec![found_repos]);
-                    if trees.trees_ref().iter().all(|t| match t.repos {
-                        None => false,
-                        Some(ref r) => r.is_empty(),
-                    }) {
-                        print_warning("No repositories found");
-                    } else {
-                        let mut config = trees.to_config();
+                        let token = match auth::get_token_from_command(&config.token_command) {
+                            Ok(token) => token,
+                            Err(error) => {
+                                print_error(&format!("Getting token from command failed: {error}"));
+                                process::exit(1);
+                            }
+                        };
+
+                        let filters = config.filters.unwrap_or(config::ConfigProviderFilter {
+                            access: Some(false),
+                            owner: Some(false),
+                            users: Some(vec![]),
+                            groups: Some(vec![]),
+                        });
+
+                        let filter = provider::Filter::new(
+                            filters
+                                .users
+                                .unwrap_or_default()
+                                .into_iter()
+                                .map(Into::into)
+                                .collect(),
+                            filters
+                                .groups
+                                .unwrap_or_default()
+                                .into_iter()
+                                .map(Into::into)
+                                .collect(),
+                            filters.owner.unwrap_or(false),
+                            filters.access.unwrap_or(false),
+                        );
+
+                        if filter.empty() {
+                            print_warning(
+                                "You did not specify any filters, so no repos will match",
+                            );
+                        }
+
+                        let repos = match config.provider.into() {
+                            provider::RemoteProvider::Github => {
+                                match match provider::Github::new(
+                                    filter,
+                                    token,
+                                    config.api_url.map(provider::Url::new),
+                                ) {
+                                    Ok(provider) => provider,
+                                    Err(error) => {
+                                        print_error(&format!("Error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
+                                .get_repos(
+                                    config.worktree.unwrap_or(false),
+                                    config.force_ssh.unwrap_or(false),
+                                    config.remote_name,
+                                ) {
+                                    Ok(provider) => provider,
+                                    Err(error) => {
+                                        print_error(&format!("Error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
+                            }
+                            provider::RemoteProvider::Gitlab => {
+                                match match provider::Gitlab::new(
+                                    filter,
+                                    token,
+                                    config.api_url.map(provider::Url::new),
+                                ) {
+                                    Ok(provider) => provider,
+                                    Err(error) => {
+                                        print_error(&format!("Error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
+                                .get_repos(
+                                    config.worktree.unwrap_or(false),
+                                    config.force_ssh.unwrap_or(false),
+                                    config.remote_name,
+                                ) {
+                                    Ok(provider) => provider,
+                                    Err(error) => {
+                                        print_error(&format!("Error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
+                            }
+                        };
+
+                        let mut trees = vec![];
+
+                        #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
+                        for (namespace, namespace_repos) in repos {
+                            let tree = config::Tree {
+                                root: tree::Root::new(if let Some(namespace) = namespace {
+                                    PathBuf::from(&config.root).join(namespace.as_str())
+                                } else {
+                                    PathBuf::from(&config.root)
+                                })
+                                .into(),
+                                repos: Some(namespace_repos.into_iter().map(Into::into).collect()),
+                            };
+                            trees.push(tree);
+                        }
+
+                        let config = config::Config::from_trees(trees);
+
+                        match args.format {
+                            cmd::ConfigFormat::Toml => {
+                                let toml = match config.as_toml() {
+                                    Ok(toml) => toml,
+                                    Err(error) => {
+                                        print_error(&format!(
+                                            "Failed converting config to TOML: {}",
+                                            &error
+                                        ));
+                                        process::exit(1);
+                                    }
+                                };
+                                print(&toml);
+                            }
+                            cmd::ConfigFormat::Yaml => {
+                                let yaml = match config.as_yaml() {
+                                    Ok(yaml) => yaml,
+                                    Err(error) => {
+                                        print_error(&format!(
+                                            "Failed converting config to YAML: {}",
+                                            &error
+                                        ));
+                                        process::exit(1);
+                                    }
+                                };
+                                print(&yaml);
+                            }
+                        }
+                    }
+                    cmd::FindAction::Remote(args) => {
+                        let token = match auth::get_token_from_command(&args.token_command) {
+                            Ok(token) => token,
+                            Err(error) => {
+                                print_error(&format!("Getting token from command failed: {error}"));
+                                process::exit(1);
+                            }
+                        };
+
+                        let filter = provider::Filter::new(
+                            args.users
+                                .into_iter()
+                                .map(|user| provider::User::new(user))
+                                .collect(),
+                            args.groups
+                                .into_iter()
+                                .map(|group| provider::Group::new(group))
+                                .collect(),
+                            args.owner,
+                            args.access,
+                        );
+
+                        if filter.empty() {
+                            print_warning(
+                                "You did not specify any filters, so no repos will match",
+                            );
+                        }
+
+                        let worktree = args.worktree == "true";
+
+                        let repos =
+                            match args.provider {
+                                cmd::RemoteProvider::Github => match provider::Github::new(
+                                    filter,
+                                    token,
+                                    args.api_url.map(provider::Url::new),
+                                ) {
+                                    Ok(provider) => provider,
+                                    Err(error) => {
+                                        print_error(&format!("Error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
+                                .get_repos(worktree, args.force_ssh, args.remote_name),
+                                cmd::RemoteProvider::Gitlab => match provider::Gitlab::new(
+                                    filter,
+                                    token,
+                                    args.api_url.map(provider::Url::new),
+                                ) {
+                                    Ok(provider) => provider,
+                                    Err(error) => {
+                                        print_error(&format!("Error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
+                                .get_repos(worktree, args.force_ssh, args.remote_name),
+                            };
+
+                        let repos = repos.unwrap_or_else(|error| {
+                            print_error(&format!("Error: {error}"));
+                            process::exit(1);
+                        });
+
+                        let mut trees: Vec<config::Tree> = vec![];
+
+                        #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
+                        for (namespace, repolist) in repos {
+                            let tree = config::Tree {
+                                root: tree::Root::new(if let Some(namespace) = namespace {
+                                    PathBuf::from(&args.root).join(namespace.as_str())
+                                } else {
+                                    PathBuf::from(&args.root)
+                                })
+                                .into(),
+                                repos: Some(repolist.into_iter().map(Into::into).collect()),
+                            };
+                            trees.push(tree);
+                        }
+
+                        let mut config = config::Config::from_trees(trees);
 
                         if let Err(error) = config.normalize() {
                             print_error(&format!("Path error: {error}"));
@@ -274,263 +539,9 @@ fn main() {
                             }
                         }
                     }
-                    for warning in warnings {
-                        print_warning(&warning);
-                    }
-                }
-                cmd::FindAction::Config(args) => {
-                    let config: config::ConfigProvider = match config::read_config(&args.config) {
-                        Ok(config) => config,
-                        Err(error) => {
-                            print_error(&error.to_string());
-                            process::exit(1);
-                        }
-                    };
-
-                    let token = match auth::get_token_from_command(&config.token_command) {
-                        Ok(token) => token,
-                        Err(error) => {
-                            print_error(&format!("Getting token from command failed: {error}"));
-                            process::exit(1);
-                        }
-                    };
-
-                    let filters = config.filters.unwrap_or(config::ConfigProviderFilter {
-                        access: Some(false),
-                        owner: Some(false),
-                        users: Some(vec![]),
-                        groups: Some(vec![]),
-                    });
-
-                    let filter = provider::Filter::new(
-                        filters
-                            .users
-                            .unwrap_or_default()
-                            .into_iter()
-                            .map(Into::into)
-                            .collect(),
-                        filters
-                            .groups
-                            .unwrap_or_default()
-                            .into_iter()
-                            .map(Into::into)
-                            .collect(),
-                        filters.owner.unwrap_or(false),
-                        filters.access.unwrap_or(false),
-                    );
-
-                    if filter.empty() {
-                        print_warning("You did not specify any filters, so no repos will match");
-                    }
-
-                    let repos = match config.provider.into() {
-                        provider::RemoteProvider::Github => {
-                            match match provider::Github::new(filter, token, config.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Error: {error}"));
-                                    process::exit(1);
-                                }
-                            }
-                            .get_repos(
-                                config.worktree.unwrap_or(false),
-                                config.force_ssh.unwrap_or(false),
-                                config.remote_name,
-                            ) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Error: {error}"));
-                                    process::exit(1);
-                                }
-                            }
-                        }
-                        provider::RemoteProvider::Gitlab => {
-                            match match provider::Gitlab::new(filter, token, config.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Error: {error}"));
-                                    process::exit(1);
-                                }
-                            }
-                            .get_repos(
-                                config.worktree.unwrap_or(false),
-                                config.force_ssh.unwrap_or(false),
-                                config.remote_name,
-                            ) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Error: {error}"));
-                                    process::exit(1);
-                                }
-                            }
-                        }
-                    };
-
-                    let mut trees = vec![];
-
-                    #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
-                    for (namespace, namespace_repos) in repos {
-                        let tree = config::Tree {
-                            root: tree::Root::new(if let Some(namespace) = namespace {
-                                PathBuf::from(&config.root).join(namespace)
-                            } else {
-                                PathBuf::from(&config.root)
-                            })
-                            .into(),
-                            repos: Some(namespace_repos.into_iter().map(Into::into).collect()),
-                        };
-                        trees.push(tree);
-                    }
-
-                    let config = config::Config::from_trees(trees);
-
-                    match args.format {
-                        cmd::ConfigFormat::Toml => {
-                            let toml = match config.as_toml() {
-                                Ok(toml) => toml,
-                                Err(error) => {
-                                    print_error(&format!(
-                                        "Failed converting config to TOML: {}",
-                                        &error
-                                    ));
-                                    process::exit(1);
-                                }
-                            };
-                            print(&toml);
-                        }
-                        cmd::ConfigFormat::Yaml => {
-                            let yaml = match config.as_yaml() {
-                                Ok(yaml) => yaml,
-                                Err(error) => {
-                                    print_error(&format!(
-                                        "Failed converting config to YAML: {}",
-                                        &error
-                                    ));
-                                    process::exit(1);
-                                }
-                            };
-                            print(&yaml);
-                        }
-                    }
-                }
-                cmd::FindAction::Remote(args) => {
-                    let token = match auth::get_token_from_command(&args.token_command) {
-                        Ok(token) => token,
-                        Err(error) => {
-                            print_error(&format!("Getting token from command failed: {error}"));
-                            process::exit(1);
-                        }
-                    };
-
-                    let filter = provider::Filter::new(
-                        args.users
-                            .into_iter()
-                            .map(|user| provider::User::new(user))
-                            .collect(),
-                        args.groups
-                            .into_iter()
-                            .map(|group| provider::Group::new(group))
-                            .collect(),
-                        args.owner,
-                        args.access,
-                    );
-
-                    if filter.empty() {
-                        print_warning("You did not specify any filters, so no repos will match");
-                    }
-
-                    let worktree = args.worktree == "true";
-
-                    let repos = match args.provider {
-                        cmd::RemoteProvider::Github => {
-                            match provider::Github::new(filter, token, args.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Error: {error}"));
-                                    process::exit(1);
-                                }
-                            }
-                            .get_repos(
-                                worktree,
-                                args.force_ssh,
-                                args.remote_name,
-                            )
-                        }
-                        cmd::RemoteProvider::Gitlab => {
-                            match provider::Gitlab::new(filter, token, args.api_url) {
-                                Ok(provider) => provider,
-                                Err(error) => {
-                                    print_error(&format!("Error: {error}"));
-                                    process::exit(1);
-                                }
-                            }
-                            .get_repos(
-                                worktree,
-                                args.force_ssh,
-                                args.remote_name,
-                            )
-                        }
-                    };
-
-                    let repos = repos.unwrap_or_else(|error| {
-                        print_error(&format!("Error: {error}"));
-                        process::exit(1);
-                    });
-
-                    let mut trees: Vec<config::Tree> = vec![];
-
-                    #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
-                    for (namespace, repolist) in repos {
-                        let tree = config::Tree {
-                            root: tree::Root::new(if let Some(namespace) = namespace {
-                                PathBuf::from(&args.root).join(namespace)
-                            } else {
-                                PathBuf::from(&args.root)
-                            })
-                            .into(),
-                            repos: Some(repolist.into_iter().map(Into::into).collect()),
-                        };
-                        trees.push(tree);
-                    }
-
-                    let mut config = config::Config::from_trees(trees);
-
-                    if let Err(error) = config.normalize() {
-                        print_error(&format!("Path error: {error}"));
-                        process::exit(1);
-                    }
-
-                    match args.format {
-                        cmd::ConfigFormat::Toml => {
-                            let toml = match config.as_toml() {
-                                Ok(toml) => toml,
-                                Err(error) => {
-                                    print_error(&format!(
-                                        "Failed converting config to TOML: {}",
-                                        &error
-                                    ));
-                                    process::exit(1);
-                                }
-                            };
-                            print(&toml);
-                        }
-                        cmd::ConfigFormat::Yaml => {
-                            let yaml = match config.as_yaml() {
-                                Ok(yaml) => yaml,
-                                Err(error) => {
-                                    print_error(&format!(
-                                        "Failed converting config to YAML: {}",
-                                        &error
-                                    ));
-                                    process::exit(1);
-                                }
-                            };
-                            print(&yaml);
-                        }
-                    }
-                }
-            },
-        },
+                },
+            }
+        }
         cmd::SubCommand::Worktree(args) => {
             let cwd = std::env::current_dir().unwrap_or_else(|error| {
                 print_error(&format!("Could not open current directory: {error}"));

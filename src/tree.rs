@@ -100,7 +100,7 @@ pub fn find_unmanaged_repos(
     for path in find_repo_paths(root_path)? {
         if !managed_repos
             .iter()
-            .any(|r| Path::new(root_path).join(r.fullname()) == path)
+            .any(|r| Path::new(root_path).join(r.fullname().as_str()) == path)
         {
             unmanaged_repos.push(RepoPath(path));
         }
@@ -120,11 +120,11 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
         let root_path = path::expand_path(Path::new(&tree.root.0))?;
 
         for repo in &tree.repos {
-            managed_repos_absolute_paths.push(RepoPath(root_path.join(repo.fullname())));
+            managed_repos_absolute_paths.push(RepoPath(root_path.join(repo.fullname().as_str())));
             match sync_repo(&root_path, repo, init_worktree) {
-                Ok(()) => print_repo_success(&repo.name, "OK"),
+                Ok(()) => print_repo_success(repo.name.as_str(), "OK"),
                 Err(error) => {
-                    print_repo_error(&repo.name, &error.to_string());
+                    print_repo_error(repo.name.as_str(), &error.to_string());
                     failures = true;
                 }
             }
@@ -215,7 +215,7 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
 }
 
 fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result<(), Error> {
-    let repo_path = root_path.join(repo.fullname());
+    let repo_path = root_path.join(repo.fullname().as_str());
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
     let mut newly_created = false;
@@ -250,7 +250,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     } else if let Some(first) = repo.remotes.first() {
         match repo::clone_repo(first, &repo_path, repo.worktree_setup) {
             Ok(()) => {
-                print_repo_success(&repo.name, "Repository successfully cloned");
+                print_repo_success(repo.name.as_str(), "Repository successfully cloned");
             }
             Err(e) => {
                 return Err(Error::CloneFailed {
@@ -262,12 +262,12 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
         newly_created = true;
     } else {
         print_repo_action(
-            &repo.name,
+            repo.name.as_str(),
             "Repository does not have remotes configured, initializing new",
         );
         match repo::RepoHandle::init(&repo_path, repo.worktree_setup) {
             Ok(_repo_handle) => {
-                print_repo_success(&repo.name, "Repository created");
+                print_repo_success(repo.name.as_str(), "Repository created");
             }
             Err(e) => {
                 return Err(Error::InitFailed {
@@ -299,7 +299,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                 )?;
             }
             Err(_error) => print_repo_error(
-                &repo.name,
+                repo.name.as_str(),
                 "Could not determine default branch, skipping worktree initializtion",
             ),
         }
@@ -315,14 +315,14 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
 
             if remote.url != current_url {
                 print_repo_action(
-                    &repo.name,
+                    repo.name.as_str(),
                     &format!("Updating remote {} to \"{}\"", &remote.name, &remote.url),
                 );
                 repo_handle.remote_set_url(&remote.name, &remote.url)?;
             }
         } else {
             print_repo_action(
-                &repo.name,
+                repo.name.as_str(),
                 &format!(
                     "Setting up new remote \"{}\" to \"{}\"",
                     &remote.name, &remote.url
@@ -335,7 +335,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     for current_remote in &current_remotes {
         if !repo.remotes.iter().any(|r| &r.name == current_remote) {
             print_repo_action(
-                &repo.name,
+                repo.name.as_str(),
                 &format!("Deleting remote \"{}\"", &current_remote),
             );
             repo_handle.remote_delete(current_remote)?;

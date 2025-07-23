@@ -91,6 +91,60 @@ pub fn escape(s: &str) -> String {
     url_escape::encode_component(s).to_string()
 }
 
+#[derive(PartialEq, Eq)]
+pub struct ProjectName(String);
+
+impl ProjectName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl From<repo::ProjectName> for ProjectName {
+    fn from(other: repo::ProjectName) -> Self {
+        Self(other.into_string())
+    }
+}
+
+impl From<ProjectName> for repo::ProjectName {
+    fn from(other: ProjectName) -> Self {
+        Self::new(other.into_string())
+    }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct ProjectNamespace(String);
+
+impl ProjectNamespace {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<repo::ProjectNamespace> for ProjectNamespace {
+    fn from(other: repo::ProjectNamespace) -> Self {
+        Self(other.into_string())
+    }
+}
+
+impl From<ProjectNamespace> for repo::ProjectNamespace {
+    fn from(other: ProjectNamespace) -> Self {
+        Self::new(other.into_string())
+    }
+}
+
 pub trait Project {
     fn into_repo_config(
         self,
@@ -102,8 +156,8 @@ pub trait Project {
         Self: Sized,
     {
         repo::Repo {
-            name: self.name(),
-            namespace: self.namespace(),
+            name: self.name().into(),
+            namespace: self.namespace().map(Into::into),
             worktree_setup,
             remotes: vec![repo::Remote {
                 name: RemoteName::new(provider_name.to_owned()),
@@ -121,8 +175,8 @@ pub trait Project {
         }
     }
 
-    fn name(&self) -> String;
-    fn namespace(&self) -> Option<String>;
+    fn name(&self) -> ProjectName;
+    fn namespace(&self) -> Option<ProjectNamespace>;
     fn ssh_url(&self) -> RemoteUrl;
     fn http_url(&self) -> RemoteUrl;
     fn private(&self) -> bool;
@@ -282,7 +336,7 @@ pub trait Provider {
         worktree_setup: bool,
         force_ssh: bool,
         remote_name: Option<String>,
-    ) -> Result<HashMap<Option<String>, Vec<repo::Repo>>, Error> {
+    ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, Error> {
         let mut repos = vec![];
 
         if self.filter().owner {
@@ -367,7 +421,7 @@ pub trait Provider {
             }
         }
 
-        let mut ret: HashMap<Option<String>, Vec<repo::Repo>> = HashMap::new();
+        let mut ret: HashMap<Option<ProjectNamespace>, Vec<repo::Repo>> = HashMap::new();
 
         let remote_name = remote_name.unwrap_or_else(|| DEFAULT_REMOTE_NAME.to_owned());
 

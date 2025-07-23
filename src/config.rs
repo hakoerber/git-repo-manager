@@ -250,7 +250,7 @@ impl Config {
                     let repos = namespace_repos.into_iter().map(Into::into).collect();
                     let tree = Tree {
                         root: Root(if let Some(namespace) = namespace {
-                            PathBuf::from(&config.root).join(namespace)
+                            PathBuf::from(&config.root).join(namespace.as_str())
                         } else {
                             PathBuf::from(&config.root)
                         }),

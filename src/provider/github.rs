@@ -1,6 +1,9 @@
 use serde::Deserialize;
 
-use super::{ApiError, Error, Filter, JsonError, Project, Provider, RemoteUrl, Url, auth, escape};
+use super::{
+    ApiError, Error, Filter, JsonError, Project, ProjectName, ProjectNamespace, Provider,
+    RemoteUrl, Url, auth, escape,
+};
 
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
 const GITHUB_API_BASEURL: &str = match option_env!("GITHUB_API_BASEURL") {
@@ -24,13 +27,13 @@ struct GithubUser {
 }
 
 impl Project for GithubProject {
-    fn name(&self) -> String {
-        self.name.clone()
+    fn name(&self) -> ProjectName {
+        ProjectName::new(self.name.clone())
     }
 
-    fn namespace(&self) -> Option<String> {
+    fn namespace(&self) -> Option<ProjectNamespace> {
         if let Some((namespace, _name)) = self.full_name.rsplit_once('/') {
-            Some(namespace.to_owned())
+            Some(ProjectNamespace(namespace.to_owned()))
         } else {
             None
         }

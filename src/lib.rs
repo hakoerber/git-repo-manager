@@ -232,8 +232,8 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                 };
 
                 repos.push(repo::Repo {
-                    name,
-                    namespace,
+                    name: repo::ProjectName::new(name),
+                    namespace: namespace.map(repo::ProjectNamespace::new),
                     remotes,
                     worktree_setup: is_worktree,
                 });

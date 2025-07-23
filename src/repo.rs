@@ -166,10 +166,44 @@ impl From<Remote> for config::Remote {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ProjectName(String);
+
+impl ProjectName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug)]
+pub struct ProjectNamespace(String);
+
+impl ProjectNamespace {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Debug)]
 pub struct Repo {
-    pub name: String,
-    pub namespace: Option<String>,
+    pub name: ProjectName,
+    pub namespace: Option<ProjectNamespace>,
     pub worktree_setup: bool,
     pub remotes: Vec<Remote>,
 }
@@ -183,8 +217,8 @@ impl From<config::Repo> for Repo {
         };
 
         Self {
-            name,
-            namespace,
+            name: ProjectName::new(name),
+            namespace: namespace.map(ProjectNamespace::new),
             worktree_setup: other.worktree_setup,
             remotes: other
                 .remotes
@@ -197,7 +231,7 @@ impl From<config::Repo> for Repo {
 impl From<Repo> for config::Repo {
     fn from(other: Repo) -> Self {
         Self {
-            name: other.name,
+            name: other.name.into_string(),
             worktree_setup: other.worktree_setup,
             remotes: Some(other.remotes.into_iter().map(Into::into).collect()),
         }
@@ -205,10 +239,12 @@ impl From<Repo> for config::Repo {
 }
 
 impl Repo {
-    pub fn fullname(&self) -> String {
+    pub fn fullname(&self) -> ProjectName {
         match self.namespace {
-            Some(ref namespace) => format!("{}/{}", namespace, self.name),
-            None => self.name.clone(),
+            Some(ref namespace) => {
+                ProjectName(format!("{}/{}", namespace.as_str(), self.name.as_str()))
+            }
+            None => ProjectName(self.name.as_str().to_owned()),
         }
     }
 
@@ -1836,20 +1872,26 @@ mod tests {
     #[test]
     fn repo_check_fullname() {
         let with_namespace = Repo {
-            name: "name".to_string(),
-            namespace: Some("namespace".to_string()),
+            name: ProjectName::new("name".to_owned()),
+            namespace: Some(ProjectNamespace::new("namespace".to_owned())),
             worktree_setup: false,
             remotes: Vec::new(),
         };
 
         let without_namespace = Repo {
-            name: "name".to_string(),
+            name: ProjectName::new("name".to_owned()),
             namespace: None,
             worktree_setup: false,
             remotes: Vec::new(),
         };
 
-        assert_eq!(with_namespace.fullname(), "namespace/name");
-        assert_eq!(without_namespace.fullname(), "name");
+        assert_eq!(
+            with_namespace.fullname(),
+            ProjectName::new("namespace/name".to_owned())
+        );
+        assert_eq!(
+            without_namespace.fullname(),
+            ProjectName::new("name".to_owned())
+        );
     }
 }
