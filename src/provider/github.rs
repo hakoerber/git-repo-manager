@@ -6,10 +6,10 @@ use super::{
 };
 
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
-const GITHUB_API_BASEURL: &str = match option_env!("GITHUB_API_BASEURL") {
+const GITHUB_API_BASEURL: Url = Url::new_static(match option_env!("GITHUB_API_BASEURL") {
     Some(url) => url,
     None => "https://api.github.com",
-};
+});
 
 #[derive(Deserialize)]
 pub struct GithubProject {
@@ -106,7 +106,8 @@ impl Provider for Github {
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
             &Url::new(format!(
-                "{GITHUB_API_BASEURL}/users/{}/repos",
+                "{}/users/{}/repos",
+                GITHUB_API_BASEURL.as_str(),
                 escape(&user.0)
             )),
             Some(ACCEPT_HEADER_JSON),
@@ -119,7 +120,8 @@ impl Provider for Github {
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
             &Url::new(format!(
-                "{GITHUB_API_BASEURL}/orgs/{}/repos?type=all",
+                "{}/orgs/{}/repos?type=all",
+                GITHUB_API_BASEURL.as_str(),
                 escape(&group.0)
             )),
             Some(ACCEPT_HEADER_JSON),
@@ -130,7 +132,7 @@ impl Provider for Github {
         &self,
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &Url::new(format!("{GITHUB_API_BASEURL}/user/repos")),
+            &Url::new(format!("{}/user/repos", GITHUB_API_BASEURL.as_str())),
             Some(ACCEPT_HEADER_JSON),
         )
     }
@@ -138,7 +140,7 @@ impl Provider for Github {
     fn get_current_user(&self) -> Result<super::User, ApiError<GithubApiErrorResponse>> {
         Ok(super::User(
             super::call::<GithubUser, GithubApiErrorResponse>(
-                &format!("{GITHUB_API_BASEURL}/user"),
+                &format!("{}/user", GITHUB_API_BASEURL.as_str()),
                 Self::auth_header_key(),
                 self.secret_token(),
                 Some(ACCEPT_HEADER_JSON),

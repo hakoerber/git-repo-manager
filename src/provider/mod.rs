@@ -1,7 +1,7 @@
 pub mod github;
 pub mod gitlab;
 
-use std::{collections::HashMap, fmt};
+use std::{borrow::Cow, collections::HashMap, fmt};
 
 pub use github::Github;
 pub use gitlab::Gitlab;
@@ -9,11 +9,15 @@ use thiserror::Error;
 
 use super::{RemoteName, RemoteUrl, auth, config, repo};
 
-pub struct Url(String);
+pub struct Url(Cow<'static, str>);
 
 impl Url {
     pub fn new(from: String) -> Self {
-        Self(from)
+        Self(Cow::Owned(from))
+    }
+
+    pub const fn new_static(from: &'static str) -> Self {
+        Self(Cow::Borrowed(from))
     }
 
     pub fn as_str(&self) -> &str {
