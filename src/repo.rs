@@ -1491,7 +1491,7 @@ impl RepoHandle {
         Ok(warnings)
     }
 
-    pub fn find_unmanaged_worktrees(&self, directory: &Path) -> Result<Vec<String>, Error> {
+    pub fn find_unmanaged_worktrees(&self, directory: &Path) -> Result<Vec<PathBuf>, Error> {
         let worktrees = self.get_worktrees()?;
 
         let mut unmanaged_worktrees = Vec::new();
@@ -1546,7 +1546,7 @@ impl RepoHandle {
                 .iter()
                 .any(|worktree| worktree.name().as_str() == dirname)
             {
-                unmanaged_worktrees.push(dirname);
+                unmanaged_worktrees.push(PathBuf::from(dirname));
             }
         }
         Ok(unmanaged_worktrees)

@@ -746,7 +746,7 @@ fn main() {
                     {
                         print_warning(format!(
                             "Found {}, which is not a valid worktree directory!",
-                            &unmanaged_worktree
+                            unmanaged_worktree.display()
                         ));
                     }
                 }

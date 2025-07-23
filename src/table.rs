@@ -159,7 +159,7 @@ pub fn get_worktree_status_table(
     {
         errors.push(format!(
             "Found {}, which is not a valid worktree directory!",
-            &worktree
+            &path::path_as_string(&worktree)?
         ));
     }
     Ok((table, errors))
