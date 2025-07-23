@@ -570,7 +570,7 @@ fn main() {
                                         process::exit(1);
                                     }
                                     repo::WorktreeRemoveFailureReason::Changes(changes) => {
-                                        print_warning(&format!(
+                                        print_warning(format!(
                                             "Changes in worktree: {changes}. Refusing to delete"
                                         ));
                                     }
@@ -674,7 +674,7 @@ fn main() {
                             process::exit(1);
                         })
                     {
-                        print_warning(&format!(
+                        print_warning(format!(
                             "Found {}, which is not a valid worktree directory!",
                             &unmanaged_worktree
                         ));
@@ -723,7 +723,7 @@ fn main() {
                                 process::exit(1);
                             })
                         {
-                            print_warning(&format!("{}: {}", worktree.name(), warning));
+                            print_warning(format!("{}: {}", worktree.name(), warning));
                             failures = true;
                         } else {
                             print_success(&format!("{}: Done", worktree.name()));
@@ -778,7 +778,7 @@ fn main() {
                                 })
                             {
                                 failures = true;
-                                print_warning(&format!("{}: {}", worktree.name(), warning));
+                                print_warning(format!("{}: {}", worktree.name(), warning));
                             }
                         }
                     }
@@ -792,7 +792,7 @@ fn main() {
                             })
                         {
                             failures = true;
-                            print_warning(&format!("{}: {}", worktree.name(), warning));
+                            print_warning(format!("{}: {}", worktree.name(), warning));
                         } else {
                             print_success(&format!("{}: Done", worktree.name()));
                         }

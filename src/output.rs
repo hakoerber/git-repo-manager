@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use console::{Style, Term};
 
 pub fn print_repo_error(repo: &str, message: &str) {
@@ -30,7 +32,7 @@ pub fn print_action(message: &str) {
         .unwrap();
 }
 
-pub fn print_warning(message: &str) {
+pub fn print_warning(message: impl Display) {
     let stderr = Term::stderr();
     let mut style = Style::new().yellow();
     if stderr.is_term() {

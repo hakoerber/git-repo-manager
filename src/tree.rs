@@ -113,7 +113,7 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
         {
             continue;
         }
-        print_warning(&format!(
+        print_warning(format!(
             "Found unmanaged repository: \"{}\"",
             path::path_as_string(unmanaged_repo_absolute_path)
         ));
