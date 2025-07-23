@@ -109,7 +109,7 @@ fn add_repo_status(
             String::new()
         } else {
             match repo_status.head {
-                Some(head) => head,
+                Some(head) => head.into_string(),
                 None => String::from("Empty"),
             }
         },
@@ -281,7 +281,7 @@ fn add_worktree_status(
             }
             None => String::from("\u{2714}"),
         },
-        &local_branch.name().map_err(Error::Repo)?,
+        local_branch.name().map_err(Error::Repo)?.as_str(),
         &upstream_output,
     ]);
 

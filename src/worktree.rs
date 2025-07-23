@@ -210,7 +210,7 @@ use std::path::Path;
 
 use thiserror::Error;
 
-use super::{config, repo};
+use super::{BranchName, config, repo};
 
 pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
@@ -222,21 +222,21 @@ enum LocalBranchInfo<'a> {
 }
 
 struct WithLocalBranchName<'a> {
-    local_branch_name: String,
+    local_branch_name: BranchName,
     local_branch: LocalBranchInfo<'a>,
 }
 
 struct WithLocalTargetSelected<'a> {
-    local_branch_name: String,
+    local_branch_name: BranchName,
     local_branch: Option<repo::Branch<'a>>,
     target_commit: Option<Box<repo::Commit<'a>>>,
 }
 
 struct WithRemoteTrackingBranch<'a> {
-    local_branch_name: String,
+    local_branch_name: BranchName,
     local_branch: Option<repo::Branch<'a>>,
     target_commit: Option<Box<repo::Commit<'a>>>,
-    remote_tracking_branch: Option<(String, String)>,
+    remote_tracking_branch: Option<(String, BranchName)>,
     prefix: Option<String>,
 }
 
@@ -246,9 +246,9 @@ struct Worktree<'a, S: WorktreeState> {
 }
 
 impl<'a> WithLocalBranchName<'a> {
-    fn new(name: &str, worktree: &Worktree<'a, Init>) -> Result<Self, Error> {
+    fn new(name: &BranchName, worktree: &Worktree<'a, Init>) -> Result<Self, Error> {
         Ok(Self {
-            local_branch_name: name.to_owned(),
+            local_branch_name: name.clone(),
             local_branch: {
                 let branch = worktree.repo.find_local_branch(name)?;
                 match branch {
@@ -277,7 +277,7 @@ impl<'a> Worktree<'a, Init> {
 
     fn set_local_branch_name(
         self,
-        name: &str,
+        name: &BranchName,
     ) -> Result<Worktree<'a, WithLocalBranchName<'a>>, Error> {
         Ok(Worktree::<WithLocalBranchName> {
             repo: self.repo,
@@ -337,7 +337,8 @@ impl<'a> Worktree<'a, WithLocalTargetSelected<'a>> {
                 local_branch_name: self.extra.local_branch_name,
                 local_branch: self.extra.local_branch,
                 target_commit: self.extra.target_commit,
-                remote_tracking_branch: branch.map(|(s1, s2)| (s1.to_owned(), s2.to_owned())),
+                remote_tracking_branch: branch
+                    .map(|(s1, s2)| (s1.to_owned(), BranchName::new(s2.to_owned()))),
                 prefix: prefix.map(ToOwned::to_owned),
             },
         }
@@ -366,7 +367,10 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
         if let Some((remote_name, remote_branch_name)) = self.extra.remote_tracking_branch {
             let remote_branch_with_prefix = if let Some(ref prefix) = self.extra.prefix {
                 self.repo
-                    .find_remote_branch(&remote_name, &format!("{prefix}/{remote_branch_name}"))
+                    .find_remote_branch(
+                        &remote_name,
+                        &BranchName::new(format!("{prefix}/{remote_branch_name}")),
+                    )
                     .ok()
             } else {
                 None
@@ -401,11 +405,14 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                 if let Some(prefix) = self.extra.prefix {
                     remote.push(
                         &self.extra.local_branch_name,
-                        &format!("{prefix}/{remote_branch_name}"),
+                        &BranchName::new(format!("{prefix}/{remote_branch_name}")),
                         self.repo,
                     )?;
 
-                    branch.set_upstream(&remote_name, &format!("{prefix}/{remote_branch_name}"))?;
+                    branch.set_upstream(
+                        &remote_name,
+                        &BranchName::new(format!("{prefix}/{remote_branch_name}")),
+                    )?;
                 } else {
                     remote.push(
                         &self.extra.local_branch_name,
@@ -418,10 +425,11 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
             }
         }
 
+        let branch_name = self.extra.local_branch_name.into_string();
         // We have to create subdirectories first, otherwise adding the worktree
         // will fail
-        if self.extra.local_branch_name.contains('/') {
-            let path = Path::new(&self.extra.local_branch_name);
+        if branch_name.contains('/') {
+            let path = Path::new(&branch_name);
             if let Some(base) = path.parent() {
                 // This is a workaround of a bug in libgit2 (?)
                 //
@@ -491,11 +499,8 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
             }
         }
 
-        self.repo.new_worktree(
-            &self.extra.local_branch_name,
-            &directory.join(&self.extra.local_branch_name),
-            &branch,
-        )?;
+        self.repo
+            .new_worktree(&branch_name, &directory.join(&branch_name), &branch)?;
 
         Ok(if warnings.is_empty() {
             None
@@ -621,11 +626,14 @@ pub fn add_worktree(
     // first while still being borrowed by `Worktree`.
     let default_branch_head = repo.default_branch()?.commit_owned()?;
 
-    let worktree = Worktree::<Init>::new(&repo).set_local_branch_name(name)?;
+    let worktree =
+        Worktree::<Init>::new(&repo).set_local_branch_name(&BranchName::new(name.to_owned()))?;
 
     let get_remote_head =
         |remote_name: &str, remote_branch_name: &str| -> Result<Option<Box<repo::Commit>>, Error> {
-            if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
+            if let Ok(remote_branch) = repo
+                .find_remote_branch(remote_name, &BranchName::new(remote_branch_name.to_owned()))
+            {
                 Ok(Some(Box::new(remote_branch.commit_owned()?)))
             } else {
                 Ok(None)
@@ -635,7 +643,9 @@ pub fn add_worktree(
     let worktree = if worktree.local_branch_already_exists() {
         worktree.select_commit(None)
     } else if let Some((remote_name, remote_branch_name)) = if no_track { None } else { track } {
-        if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
+        if let Ok(remote_branch) =
+            repo.find_remote_branch(remote_name, &BranchName::new(remote_branch_name.to_owned()))
+        {
             worktree.select_commit(Some(Box::new(remote_branch.commit_owned()?)))
         } else {
             worktree.select_commit(Some(Box::new(default_branch_head)))
@@ -662,7 +672,7 @@ pub fn add_worktree(
                 let commit = if let Some(ref default_remote) = default_remote {
                     if let Some(prefix) = prefix {
                         if let Ok(remote_branch) = repo
-                            .find_remote_branch(default_remote, &format!("{prefix}/{name}"))
+                            .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))
                         {
                             Some(Box::new(remote_branch.commit_owned()?))
                         } else {
@@ -673,7 +683,7 @@ pub fn add_worktree(
                     }
                     .or({
                         if let Ok(remote_branch) =
-                            repo.find_remote_branch(default_remote, name)
+                            repo.find_remote_branch(default_remote, &BranchName::new(name.to_owned()))
                         {
                             Some(Box::new(remote_branch.commit_owned()?))
                         } else {
@@ -689,7 +699,7 @@ pub fn add_worktree(
                             if let Some(prefix) = prefix {
                                 if let Ok(remote_branch) = repo.find_remote_branch(
                                     remote_name,
-                                    &format!("{prefix}/{name}"),
+                                    &BranchName::new(format!("{prefix}/{name}")),
                                 ) {
                                     Some(Box::new(remote_branch.commit_owned()?))
                                 } else {
@@ -701,7 +711,7 @@ pub fn add_worktree(
                         })
                         .or({
                             if let Ok(remote_branch) =
-                                repo.find_remote_branch(remote_name, name)
+                                repo.find_remote_branch(remote_name, &BranchName::new(name.to_owned()))
                             {
                                 Some(Box::new(remote_branch.commit_owned()?))
                             } else {

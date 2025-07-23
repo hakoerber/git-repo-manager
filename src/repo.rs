@@ -4,7 +4,7 @@ use git2::Repository;
 use thiserror::Error;
 
 use super::{
-    config,
+    BranchName, config,
     output::{print_action, print_success},
     path, worktree,
 };
@@ -110,7 +110,7 @@ pub enum Error {
         .message
     )]
     PushFailed {
-        local_branch: String,
+        local_branch: BranchName,
         remote_name: String,
         remote_url: String,
         message: String,
@@ -233,14 +233,16 @@ impl From<config::TrackingConfig> for TrackingConfig {
 }
 
 pub struct WorktreeRootConfig {
-    pub persistent_branches: Option<Vec<String>>,
+    pub persistent_branches: Option<Vec<BranchName>>,
     pub track: Option<TrackingConfig>,
 }
 
 impl From<config::WorktreeRootConfig> for WorktreeRootConfig {
     fn from(other: config::WorktreeRootConfig) -> Self {
         Self {
-            persistent_branches: other.persistent_branches,
+            persistent_branches: other
+                .persistent_branches
+                .map(|branches| branches.into_iter().map(BranchName::new).collect()),
             track: other.track.map(Into::into),
         }
     }
@@ -273,7 +275,7 @@ pub struct RepoStatus {
 
     pub remotes: Vec<String>,
 
-    pub head: Option<String>,
+    pub head: Option<BranchName>,
 
     pub changes: Option<RepoChanges>,
 
@@ -281,7 +283,7 @@ pub struct RepoStatus {
 
     pub submodules: Option<Vec<(String, SubmoduleStatus)>>,
 
-    pub branches: Vec<(String, Option<(String, RemoteTrackingStatus)>)>,
+    pub branches: Vec<(BranchName, Option<(String, RemoteTrackingStatus)>)>,
 }
 
 pub struct Worktree {
@@ -303,7 +305,7 @@ impl Worktree {
         let repo = RepoHandle::open(Path::new(&self.name), false)?;
 
         if let Ok(remote_branch) = repo
-            .find_local_branch(&self.name)?
+            .find_local_branch(&BranchName::new(self.name.clone()))?
             .ok_or(Error::NotFound)?
             .upstream()
         {
@@ -589,7 +591,9 @@ impl RepoHandle {
         // unwrap() is safe here, as we can be certain that a branch with that
         // name exists
         let branch = self
-            .find_local_branch(head.shorthand().ok_or(Error::BranchNameNotUtf8)?)?
+            .find_local_branch(&BranchName::new(
+                head.shorthand().ok_or(Error::BranchNameNotUtf8)?.to_owned(),
+            ))?
             .ok_or(Error::NotFound)?;
         Ok(branch)
     }
@@ -708,16 +712,16 @@ impl RepoHandle {
     pub fn find_remote_branch(
         &self,
         remote_name: &str,
-        branch_name: &str,
+        branch_name: &BranchName,
     ) -> Result<Branch<'_>, Error> {
         Ok(Branch(self.0.find_branch(
-            &format!("{remote_name}/{branch_name}"),
+            &format!("{remote_name}/{}", branch_name.as_str()),
             git2::BranchType::Remote,
         )?))
     }
 
-    pub fn find_local_branch(&self, name: &str) -> Result<Option<Branch<'_>>, Error> {
-        match self.0.find_branch(name, git2::BranchType::Local) {
+    pub fn find_local_branch(&self, name: &BranchName) -> Result<Option<Branch<'_>>, Error> {
+        match self.0.find_branch(name.as_str(), git2::BranchType::Local) {
             Ok(branch) => Ok(Some(Branch(branch))),
             Err(e) => match e.code() {
                 git2::ErrorCode::NotFound => Ok(None),
@@ -726,8 +730,8 @@ impl RepoHandle {
         }
     }
 
-    pub fn create_branch(&self, name: &str, target: &Commit) -> Result<Branch<'_>, Error> {
-        Ok(Branch(self.0.branch(name, &target.0, false)?))
+    pub fn create_branch(&self, name: &BranchName, target: &Commit) -> Result<Branch<'_>, Error> {
+        Ok(Branch(self.0.branch(name.as_str(), &target.0, false)?))
     }
 
     pub fn make_bare(&self, value: bool) -> Result<(), Error> {
@@ -993,11 +997,13 @@ impl RepoHandle {
         let mut branches = Vec::new();
         for branch in self.0.branches(Some(git2::BranchType::Local))? {
             let (local_branch, _branch_type) = branch?;
-            let branch_name = local_branch
-                .name()
-                .map_err(|e| Error::CannotGetBranchName { inner: e })?
-                .ok_or(Error::BranchNameNotUtf8)?
-                .to_owned();
+            let branch_name = BranchName::new(
+                local_branch
+                    .name()
+                    .map_err(|e| Error::CannotGetBranchName { inner: e })?
+                    .ok_or(Error::BranchNameNotUtf8)?
+                    .to_owned(),
+            );
             let remote_branch = match local_branch.upstream() {
                 Ok(remote_branch) => {
                     let remote_branch_name = remote_branch
@@ -1057,13 +1063,15 @@ impl RepoHandle {
 
         // Note that <remote>/HEAD only exists after a normal clone, there is no way to
         // get the remote HEAD afterwards. So this is a "best effort" approach.
-        if let Ok(remote_head) = self.find_remote_branch(remote_name, "HEAD") {
+        if let Ok(remote_head) =
+            self.find_remote_branch(remote_name, &BranchName::new("HEAD".to_owned()))
+        {
             if let Some(pointer_name) = remote_head.as_reference().symbolic_target() {
                 if let Some(local_branch_name) =
                     pointer_name.strip_prefix(&format!("refs/remotes/{remote_name}/"))
                 {
                     return Ok(Some(
-                        self.find_local_branch(local_branch_name)?
+                        self.find_local_branch(&BranchName(local_branch_name.to_owned()))?
                             .ok_or(Error::NotFound)?,
                     ));
                 } else {
@@ -1112,7 +1120,7 @@ impl RepoHandle {
                     || default_branches
                         .iter()
                         .map(Branch::name)
-                        .collect::<Result<Vec<String>, Error>>()?
+                        .collect::<Result<Vec<BranchName>, Error>>()?
                         .windows(2)
                         .all(
                             #[expect(
@@ -1202,7 +1210,7 @@ impl RepoHandle {
             )))
         })?;
 
-        if branch_name != name {
+        if branch_name.as_str() != name {
             return Err(Error::WorktreeRemovalFailure(
                 WorktreeRemoveFailureReason::Error(format!(
                     "Branch \"{}\" is checked out in worktree \"{}\", this does not look correct",
@@ -1367,12 +1375,14 @@ impl RepoHandle {
 
         for worktree in worktrees
             .iter()
-            .filter(|worktree| worktree.name() != default_branch_name)
+            .filter(|worktree| worktree.name() != default_branch_name.as_str())
             .filter(|worktree| match config {
                 None => true,
                 Some(ref config) => match config.persistent_branches.as_ref() {
                     None => true,
-                    Some(branches) => !branches.iter().any(|branch| branch == worktree.name()),
+                    Some(branches) => !branches
+                        .iter()
+                        .any(|branch| branch.as_str() == worktree.name()),
                 },
             })
         {
@@ -1430,7 +1440,8 @@ impl RepoHandle {
                     .expect("each entry is guaranteed to have the prefix"),
             )?;
 
-            let config = config::read_worktree_root_config(directory)?;
+            let config: Option<WorktreeRootConfig> =
+                config::read_worktree_root_config(directory)?.map(Into::into);
 
             let guess_default_branch = || {
                 self.default_branch()
@@ -1461,7 +1472,7 @@ impl RepoHandle {
                 continue;
             }
             if let Some(default_branch_name) = default_branch_name {
-                if dirname == default_branch_name {
+                if dirname == default_branch_name.as_str() {
                     continue;
                 }
             }
@@ -1512,16 +1523,20 @@ impl<'a> Branch<'a> {
         Ok(Commit(self.0.into_reference().peel_to_commit()?))
     }
 
-    pub fn set_upstream(&mut self, remote_name: &str, branch_name: &str) -> Result<(), Error> {
+    pub fn set_upstream(
+        &mut self,
+        remote_name: &str,
+        branch_name: &BranchName,
+    ) -> Result<(), Error> {
         self.0
-            .set_upstream(Some(&format!("{remote_name}/{branch_name}")))?;
+            .set_upstream(Some(&format!("{remote_name}/{}", branch_name.as_str())))?;
         Ok(())
     }
 
-    pub fn name(&self) -> Result<String, Error> {
-        self.0
-            .name()
-            .map(|name| name.ok_or(Error::BranchNameNotUtf8).map(ToOwned::to_owned))?
+    pub fn name(&self) -> Result<BranchName, Error> {
+        Ok(BranchName::new(
+            self.0.name()?.ok_or(Error::BranchNameNotUtf8)?.to_owned(),
+        ))
     }
 
     pub fn upstream(&self) -> Result<Branch<'_>, Error> {
@@ -1532,10 +1547,10 @@ impl<'a> Branch<'a> {
         Ok(self.0.delete()?)
     }
 
-    pub fn basename(&self) -> Result<String, Error> {
+    pub fn basename(&self) -> Result<BranchName, Error> {
         let name = self.name()?;
-        if let Some((_prefix, basename)) = name.split_once('/') {
-            Ok(basename.to_owned())
+        if let Some((_prefix, basename)) = name.as_str().split_once('/') {
+            Ok(BranchName::new(basename.to_owned()))
         } else {
             Ok(name)
         }
@@ -1584,13 +1599,14 @@ impl RemoteHandle<'_> {
         self.0.connected()
     }
 
-    pub fn default_branch(&self) -> Result<String, Error> {
-        Ok(self
-            .0
-            .default_branch()?
-            .as_str()
-            .ok_or(Error::RemoteBranchNameNotUtf8)?
-            .to_owned())
+    pub fn default_branch(&self) -> Result<BranchName, Error> {
+        Ok(BranchName(
+            self.0
+                .default_branch()?
+                .as_str()
+                .ok_or(Error::RemoteBranchNameNotUtf8)?
+                .to_owned(),
+        ))
     }
 
     pub fn is_pushable(&self) -> Result<bool, Error> {
@@ -1600,8 +1616,8 @@ impl RemoteHandle<'_> {
 
     pub fn push(
         &mut self,
-        local_branch_name: &str,
-        remote_branch_name: &str,
+        local_branch_name: &BranchName,
+        remote_branch_name: &BranchName,
         _repo: &RepoHandle,
     ) -> Result<(), Error> {
         if !self.is_pushable()? {
@@ -1611,12 +1627,15 @@ impl RemoteHandle<'_> {
         let mut push_options = git2::PushOptions::new();
         push_options.remote_callbacks(get_remote_callbacks());
 
-        let push_refspec =
-            format!("+refs/heads/{local_branch_name}:refs/heads/{remote_branch_name}");
+        let push_refspec = format!(
+            "+refs/heads/{}:refs/heads/{}",
+            local_branch_name.as_str(),
+            remote_branch_name.as_str()
+        );
         self.0
             .push(&[push_refspec], Some(&mut push_options))
             .map_err(|error| Error::PushFailed {
-                local_branch: local_branch_name.to_owned(),
+                local_branch: local_branch_name.clone(),
                 remote_name: match self.name() {
                     Ok(name) => name,
                     Err(e) => return e,
@@ -1694,7 +1713,7 @@ pub fn clone_repo(
         }
 
         // Ignore <remote>/HEAD, as this is not something we can check out
-        if local_branch_name == "HEAD" {
+        if local_branch_name.as_str() == "HEAD" {
             continue;
         }
 

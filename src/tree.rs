@@ -290,7 +290,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     if newly_created && repo.worktree_setup && init_worktree {
         match repo_handle.default_branch() {
             Ok(branch) => {
-                worktree::add_worktree(&repo_path, &branch.name()?, None, false)?;
+                worktree::add_worktree(&repo_path, branch.name()?.as_str(), None, false)?;
             }
             Err(_error) => print_repo_error(
                 &repo.name,

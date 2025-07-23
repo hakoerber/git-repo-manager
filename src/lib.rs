@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 
-use std::{fmt::Display, path::Path};
+use std::{
+    fmt::{self, Display},
+    path::Path,
+};
 
 use thiserror::Error;
 
@@ -44,6 +47,29 @@ struct FindResult {
 enum Repos {
     InSearchRoot(repo::Repo),
     List(Vec<repo::Repo>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BranchName(String);
+
+impl fmt::Display for BranchName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl BranchName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
 }
 
 /// Find all git repositories under root, recursively
