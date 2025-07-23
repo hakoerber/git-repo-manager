@@ -24,7 +24,7 @@ fn main() {
             match repos.action {
                 cmd::ReposAction::Sync(sync) => match sync {
                     cmd::SyncAction::Config(args) => {
-                        let config = match config::read_config(&args.config) {
+                        let config = match config::read_config(Path::new(&args.config)) {
                             Ok(config) => config,
                             Err(error) => {
                                 print_error(&error.to_string());
@@ -140,7 +140,7 @@ fn main() {
                 },
                 cmd::ReposAction::Status(args) => {
                     if let Some(config_path) = args.config {
-                        let config = match config::read_config(&config_path) {
+                        let config = match config::read_config(Path::new(&config_path)) {
                             Ok(config) => config,
                             Err(error) => {
                                 print_error(&error.to_string());
@@ -279,14 +279,14 @@ fn main() {
                         }
                     }
                     cmd::FindAction::Config(args) => {
-                        let config: config::ConfigProvider = match config::read_config(&args.config)
-                        {
-                            Ok(config) => config,
-                            Err(error) => {
-                                print_error(&error.to_string());
-                                process::exit(1);
-                            }
-                        };
+                        let config: config::ConfigProvider =
+                            match config::read_config(Path::new(&args.config)) {
+                                Ok(config) => config,
+                                Err(error) => {
+                                    print_error(&error.to_string());
+                                    process::exit(1);
+                                }
+                            };
 
                         let token = match auth::get_token_from_command(&config.token_command) {
                             Ok(token) => token,

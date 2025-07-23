@@ -159,10 +159,10 @@ pub enum Error {
     Serialization(#[from] SerializationError),
     #[error(transparent)]
     Path(#[from] path::Error),
-    #[error("Error reading configuration file \"{}\": {}", .path, .message)]
-    ReadConfig { message: String, path: String },
-    #[error("Error parsing configuration file \"{}\": {}", .path, .message)]
-    ParseConfig { message: String, path: String },
+    #[error("Error reading configuration file \"{:?}\": {}", .path, .message)]
+    ReadConfig { message: String, path: PathBuf },
+    #[error("Error parsing configuration file \"{:?}\": {}", .path, .message)]
+    ParseConfig { message: String, path: PathBuf },
     #[error("cannot strip prefix \"{:?}\" from \"{:?}\": {}", .prefix, .path, message)]
     StripPrefix {
         path: PathBuf,
@@ -368,15 +368,15 @@ impl Tree {
 
 #[derive(Debug, Error)]
 pub enum ReadConfigError {
-    #[error("Configuration file not found at {}", .path)]
-    NotFound { path: String },
-    #[error("Error reading configuration file at `{}`: {}", .path, .message)]
-    Generic { path: String, message: String },
-    #[error("Error parsing configuration file at `{}`: {}", .path, .message)]
-    Parse { path: String, message: String },
+    #[error("Configuration file not found at `{:?}`", .path)]
+    NotFound { path: PathBuf },
+    #[error("Error reading configuration file at `{:?}`: {}", .path, .message)]
+    Generic { path: PathBuf, message: String },
+    #[error("Error parsing configuration file at `{:?}`: {}", .path, .message)]
+    Parse { path: PathBuf, message: String },
 }
 
-pub fn read_config<'a, T>(path: &str) -> Result<T, ReadConfigError>
+pub fn read_config<'a, T>(path: &Path) -> Result<T, ReadConfigError>
 where
     T: for<'de> serde::Deserialize<'de>,
 {
@@ -437,7 +437,7 @@ pub fn read_worktree_root_config(
             _ => {
                 return Err(Error::ReadConfig {
                     message: e.to_string(),
-                    path: path.display().to_string(),
+                    path,
                 });
             }
         },
@@ -448,7 +448,7 @@ pub fn read_worktree_root_config(
         Err(e) => {
             return Err(Error::ParseConfig {
                 message: e.to_string(),
-                path: path.display().to_string(),
+                path,
             });
         }
     };

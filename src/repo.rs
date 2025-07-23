@@ -1,4 +1,7 @@
-use std::{iter, path::Path};
+use std::{
+    iter,
+    path::{Path, PathBuf},
+};
 
 use git2::Repository;
 use thiserror::Error;
@@ -67,10 +70,10 @@ pub enum GitPushDefaultSetting {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Error reading configuration file \"{}\": {}", .path, .message)]
-    ReadConfig { message: String, path: String },
-    #[error("Error parsing configuration file \"{}\": {}", .path, .message)]
-    ParseConfig { message: String, path: String },
+    #[error("Error reading configuration file \"{:?}\": {}", .path, .message)]
+    ReadConfig { message: String, path: PathBuf },
+    #[error("Error parsing configuration file \"{:?}\": {}", .path, .message)]
+    ParseConfig { message: String, path: PathBuf },
     #[error(transparent)]
     Libgit(#[from] git2::Error),
     #[error(transparent)]
