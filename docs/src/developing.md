@@ -33,7 +33,7 @@ You will need the following tools:
 * [`just`](https://github.com/casey/just), a command runner like `make`. See
   [here](https://github.com/casey/just#installation) for installation
   instructions (it's most likely just a simple `cargo install just`).
-* Docker & docker-compose for the e2e tests
+* Podman & podman-compose for the e2e tests
 * `isort`, `black` and `shfmt` for formatting.
 * `ruff` and `shellcheck` for linting.
 * `python-tomlkit` for the dependency update script.
@@ -43,8 +43,8 @@ Here are the tools:
 
 | Distribution  | Command                                                                                                            |
 | ------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Arch Linux    | `pacman -S --needed python3 rustup just docker docker-compose python-black shfmt shellcheck mdbook python-tomlkit` |
-| Ubuntu/Debian | `apt-get install --no-install-recommends python3 docker.io docker-compose black shellcheck python3-tomlkit`        |
+| Arch Linux    | `pacman -S --needed python3 rustup just podman podman-compose python-black shfmt shellcheck mdbook python-tomlkit` |
+| Ubuntu/Debian | `apt-get install --no-install-recommends python3 podman podman-compose black shellcheck python3-tomlkit`           |
 
 Note that you will have to install `just` and `mdbook` manually on Ubuntu (e.g.
 via `cargo install just mdbook` if your rust build environment is set up
@@ -100,7 +100,7 @@ The current Nix environment does not source:
 
 - aarch64-unknown-linux-musl
 - x86_64-unknown-linux-musl
-- docker and related tools
+- podman and related tools
 
 If interest develops this can be added.
 

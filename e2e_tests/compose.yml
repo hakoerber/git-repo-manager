@@ -1,6 +1,6 @@
 services:
   pytest:
-    build: ./docker
+    build: ./main
     volumes:
       - type: bind
         source: ./
@@ -18,7 +18,7 @@ services:
       main:
 
   rest:
-    build: ./docker-rest/
+    build: ./rest/
     expose:
       - "5000"
     networks:
