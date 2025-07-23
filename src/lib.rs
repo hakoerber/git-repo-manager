@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::{
+    borrow::Cow,
     fmt::{self, Display},
     path::Path,
 };
@@ -73,7 +74,7 @@ impl BranchName {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RemoteName(String);
+pub struct RemoteName(Cow<'static, str>);
 
 impl fmt::Display for RemoteName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -83,7 +84,11 @@ impl fmt::Display for RemoteName {
 
 impl RemoteName {
     pub fn new(from: String) -> Self {
-        Self(from)
+        Self(Cow::Owned(from))
+    }
+
+    pub const fn new_static(from: &'static str) -> Self {
+        Self(Cow::Borrowed(from))
     }
 
     pub fn as_str(&self) -> &str {
@@ -91,7 +96,10 @@ impl RemoteName {
     }
 
     pub fn into_string(self) -> String {
-        self.0
+        match self.0 {
+            Cow::Borrowed(s) => s.to_owned(),
+            Cow::Owned(s) => s,
+        }
     }
 }
 

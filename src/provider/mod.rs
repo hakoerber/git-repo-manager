@@ -62,7 +62,7 @@ impl fmt::Display for Group {
     }
 }
 
-const DEFAULT_REMOTE_NAME: &str = "origin";
+const DEFAULT_REMOTE_NAME: RemoteName = RemoteName::new_static("origin");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -148,7 +148,7 @@ impl From<ProjectNamespace> for repo::ProjectNamespace {
 pub trait Project {
     fn into_repo_config(
         self,
-        provider_name: &str,
+        remote_name: &RemoteName,
         worktree_setup: bool,
         force_ssh: bool,
     ) -> repo::Repo
@@ -160,7 +160,7 @@ pub trait Project {
             namespace: self.namespace().map(Into::into),
             worktree_setup,
             remotes: vec![repo::Remote {
-                name: RemoteName::new(provider_name.to_owned()),
+                name: remote_name.clone(),
                 url: if force_ssh || self.private() {
                     self.ssh_url()
                 } else {
@@ -335,7 +335,7 @@ pub trait Provider {
         &self,
         worktree_setup: bool,
         force_ssh: bool,
-        remote_name: Option<String>,
+        remote_name: Option<RemoteName>,
     ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, Error> {
         let mut repos = vec![];
 
@@ -423,7 +423,7 @@ pub trait Provider {
 
         let mut ret: HashMap<Option<ProjectNamespace>, Vec<repo::Repo>> = HashMap::new();
 
-        let remote_name = remote_name.unwrap_or_else(|| DEFAULT_REMOTE_NAME.to_owned());
+        let remote_name = remote_name.unwrap_or(DEFAULT_REMOTE_NAME);
 
         for repo in repos {
             let namespace = repo.namespace();

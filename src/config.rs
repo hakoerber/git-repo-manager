@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
-    auth,
+    RemoteName, auth,
     output::{print_error, print_warning},
     path, provider,
     provider::{Filter, Provider},
@@ -223,7 +223,7 @@ impl Config {
                     .get_repos(
                         config.worktree.unwrap_or(false),
                         config.force_ssh.unwrap_or(false),
-                        config.remote_name,
+                        config.remote_name.map(RemoteName::new),
                     )?,
                     RemoteProvider::Gitlab => match provider::Gitlab::new(
                         filter,
@@ -239,7 +239,7 @@ impl Config {
                     .get_repos(
                         config.worktree.unwrap_or(false),
                         config.force_ssh.unwrap_or(false),
-                        config.remote_name,
+                        config.remote_name.map(RemoteName::new),
                     )?,
                 };
 
