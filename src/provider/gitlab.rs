@@ -1,13 +1,6 @@
 use serde::Deserialize;
 
-use super::auth;
-use super::escape;
-use super::ApiErrorResponse;
-use super::Error;
-use super::Filter;
-use super::JsonError;
-use super::Project;
-use super::Provider;
+use super::{auth, escape, ApiError, Error, Filter, JsonError, Project, Provider};
 
 const ACCEPT_HEADER_JSON: &str = "application/json";
 const GITLAB_API_BASEURL: &str = match option_env!("GITLAB_API_BASEURL") {
@@ -122,7 +115,7 @@ impl Provider for Gitlab {
     fn get_user_projects(
         &self,
         user: &str,
-    ) -> Result<Vec<GitlabProject>, ApiErrorResponse<GitlabApiErrorResponse>> {
+    ) -> Result<Vec<GitlabProject>, ApiError<GitlabApiErrorResponse>> {
         self.call_list(
             &format!("{}/api/v4/users/{}/projects", self.api_url(), escape(user)),
             Some(ACCEPT_HEADER_JSON),
@@ -132,7 +125,7 @@ impl Provider for Gitlab {
     fn get_group_projects(
         &self,
         group: &str,
-    ) -> Result<Vec<GitlabProject>, ApiErrorResponse<GitlabApiErrorResponse>> {
+    ) -> Result<Vec<GitlabProject>, ApiError<GitlabApiErrorResponse>> {
         self.call_list(
             &format!(
                 "{}/api/v4/groups/{}/projects?include_subgroups=true&archived=false",
@@ -145,14 +138,14 @@ impl Provider for Gitlab {
 
     fn get_accessible_projects(
         &self,
-    ) -> Result<Vec<GitlabProject>, ApiErrorResponse<GitlabApiErrorResponse>> {
+    ) -> Result<Vec<GitlabProject>, ApiError<GitlabApiErrorResponse>> {
         self.call_list(
             &format!("{}/api/v4/projects", self.api_url(),),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
-    fn get_current_user(&self) -> Result<String, ApiErrorResponse<GitlabApiErrorResponse>> {
+    fn get_current_user(&self) -> Result<String, ApiError<GitlabApiErrorResponse>> {
         Ok(super::call::<GitlabUser, GitlabApiErrorResponse>(
             &format!("{}/api/v4/user", self.api_url()),
             Self::auth_header_key(),

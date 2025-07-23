@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use super::auth;
 use super::escape;
-use super::ApiErrorResponse;
+use super::ApiError;
 use super::Error;
 use super::Filter;
 use super::JsonError;
@@ -107,7 +107,7 @@ impl Provider for Github {
     fn get_user_projects(
         &self,
         user: &str,
-    ) -> Result<Vec<GithubProject>, ApiErrorResponse<GithubApiErrorResponse>> {
+    ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
             &format!("{GITHUB_API_BASEURL}/users/{}/repos", escape(user)),
             Some(ACCEPT_HEADER_JSON),
@@ -117,7 +117,7 @@ impl Provider for Github {
     fn get_group_projects(
         &self,
         group: &str,
-    ) -> Result<Vec<GithubProject>, ApiErrorResponse<GithubApiErrorResponse>> {
+    ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
             &format!("{GITHUB_API_BASEURL}/orgs/{}/repos?type=all", escape(group)),
             Some(ACCEPT_HEADER_JSON),
@@ -126,14 +126,14 @@ impl Provider for Github {
 
     fn get_accessible_projects(
         &self,
-    ) -> Result<Vec<GithubProject>, ApiErrorResponse<GithubApiErrorResponse>> {
+    ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
             &format!("{GITHUB_API_BASEURL}/user/repos"),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
-    fn get_current_user(&self) -> Result<String, ApiErrorResponse<GithubApiErrorResponse>> {
+    fn get_current_user(&self) -> Result<String, ApiError<GithubApiErrorResponse>> {
         Ok(super::call::<GithubUser, GithubApiErrorResponse>(
             &format!("{GITHUB_API_BASEURL}/user"),
             Self::auth_header_key(),

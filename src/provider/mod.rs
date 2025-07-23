@@ -95,7 +95,8 @@ impl Filter {
     }
 }
 
-pub enum ApiErrorResponse<T>
+#[derive(Debug, Error)]
+pub enum ApiError<T>
 where
     T: JsonError,
 {
@@ -103,21 +104,21 @@ where
     String(String),
 }
 
-impl<T> From<String> for ApiErrorResponse<T>
+impl<T> From<String> for ApiError<T>
 where
     T: JsonError,
 {
-    fn from(s: String) -> Self {
-        Self::String(s)
+    fn from(s: String) -> ApiError<T> {
+        ApiError::String(s)
     }
 }
 
-impl<T> From<ureq::http::header::ToStrError> for ApiErrorResponse<T>
+impl<T> From<ureq::http::header::ToStrError> for ApiError<T>
 where
     T: JsonError,
 {
-    fn from(s: ureq::http::header::ToStrError) -> ApiErrorResponse<T> {
-        ApiErrorResponse::String(s.to_string())
+    fn from(s: ureq::http::header::ToStrError) -> ApiError<T> {
+        ApiError::String(s.to_string())
     }
 }
 
@@ -141,23 +142,17 @@ pub trait Provider {
     fn secret_token(&self) -> &auth::AuthToken;
     fn auth_header_key() -> &'static str;
 
-    fn get_user_projects(
-        &self,
-        user: &str,
-    ) -> Result<Vec<Self::Project>, ApiErrorResponse<Self::Error>>;
+    fn get_user_projects(&self, user: &str) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
 
-    fn get_group_projects(
-        &self,
-        group: &str,
-    ) -> Result<Vec<Self::Project>, ApiErrorResponse<Self::Error>>;
+    fn get_group_projects(&self, group: &str) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
 
-    fn get_own_projects(&self) -> Result<Vec<Self::Project>, ApiErrorResponse<Self::Error>> {
+    fn get_own_projects(&self) -> Result<Vec<Self::Project>, ApiError<Self::Error>> {
         self.get_user_projects(&self.get_current_user()?)
     }
 
-    fn get_accessible_projects(&self) -> Result<Vec<Self::Project>, ApiErrorResponse<Self::Error>>;
+    fn get_accessible_projects(&self) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
 
-    fn get_current_user(&self) -> Result<String, ApiErrorResponse<Self::Error>>;
+    fn get_current_user(&self) -> Result<String, ApiError<Self::Error>>;
 
     ///
     /// Calls the API at specific uri and expects a successful response of `Vec<T>` back, or an error
@@ -169,7 +164,7 @@ pub trait Provider {
         &self,
         uri: &str,
         accept_header: Option<&str>,
-    ) -> Result<Vec<Self::Project>, ApiErrorResponse<Self::Error>> {
+    ) -> Result<Vec<Self::Project>, ApiError<Self::Error>> {
         let mut results = vec![];
 
         match ureq::get(uri)
@@ -195,7 +190,7 @@ pub trait Provider {
                         .body_mut()
                         .read_json()
                         .map_err(|error| format!("Failed deserializing error response: {error}"))?;
-                    return Err(ApiErrorResponse::Json(result));
+                    return Err(ApiError::Json(result));
                 } else {
                     if let Some(link_header) = response.headers().get("link") {
                         let link_header = parse_link_header::parse(link_header.to_str()?)
@@ -233,8 +228,8 @@ pub trait Provider {
         if self.filter().owner {
             repos.extend(self.get_own_projects().map_err(|error| {
                 Error::Response(match error {
-                    ApiErrorResponse::Json(x) => x.to_string(),
-                    ApiErrorResponse::String(s) => s,
+                    ApiError::Json(x) => x.to_string(),
+                    ApiError::String(s) => s,
                 })
             })?);
         }
@@ -242,8 +237,8 @@ pub trait Provider {
         if self.filter().access {
             let accessible_projects = self.get_accessible_projects().map_err(|error| {
                 Error::Response(match error {
-                    ApiErrorResponse::Json(x) => x.to_string(),
-                    ApiErrorResponse::String(s) => s,
+                    ApiError::Json(x) => x.to_string(),
+                    ApiError::String(s) => s,
                 })
             })?;
 
@@ -265,8 +260,8 @@ pub trait Provider {
         for user in &self.filter().users {
             let user_projects = self.get_user_projects(user).map_err(|error| {
                 Error::Response(match error {
-                    ApiErrorResponse::Json(x) => x.to_string(),
-                    ApiErrorResponse::String(s) => s,
+                    ApiError::Json(x) => x.to_string(),
+                    ApiError::String(s) => s,
                 })
             })?;
 
@@ -291,8 +286,8 @@ pub trait Provider {
                     "group \"{}\": {}",
                     group,
                     match error {
-                        ApiErrorResponse::Json(x) => x.to_string(),
-                        ApiErrorResponse::String(s) => s,
+                        ApiError::Json(x) => x.to_string(),
+                        ApiError::String(s) => s,
                     }
                 ))
             })?;
@@ -337,7 +332,7 @@ fn call<T, U>(
     auth_header_key: &str,
     secret_token: &auth::AuthToken,
     accept_header: Option<&str>,
-) -> Result<T, ApiErrorResponse<U>>
+) -> Result<T, ApiError<U>>
 where
     T: serde::de::DeserializeOwned,
     U: serde::de::DeserializeOwned + JsonError,
@@ -358,7 +353,7 @@ where
                     .body_mut()
                     .read_json()
                     .map_err(|error| format!("Failed deserializing error response: {error}"))?;
-                return Err(ApiErrorResponse::Json(result));
+                return Err(ApiError::Json(result));
             } else {
                 response
                     .body_mut()
