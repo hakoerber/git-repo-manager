@@ -11,7 +11,8 @@ use thiserror::Error;
 use super::{
     config,
     output::{print_error, print_repo_action, print_repo_error, print_repo_success, print_warning},
-    path, repo, worktree,
+    path, repo,
+    worktree::{self, WorktreeName},
 };
 
 #[derive(Debug, Error)]
@@ -290,7 +291,12 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     if newly_created && repo.worktree_setup && init_worktree {
         match repo_handle.default_branch() {
             Ok(branch) => {
-                worktree::add_worktree(&repo_path, branch.name()?.as_str(), None, false)?;
+                worktree::add_worktree(
+                    &repo_path,
+                    &WorktreeName::new(branch.name()?.into_string()),
+                    None,
+                    false,
+                )?;
             }
             Err(_error) => print_repo_error(
                 &repo.name,

@@ -206,7 +206,7 @@
 //! * Does the local branch have the correct commit?
 //! * Does the local branch track the correct remote branch?
 //! * Does that remote branch also exist?
-use std::path::Path;
+use std::{fmt, path::Path};
 
 use thiserror::Error;
 
@@ -509,6 +509,29 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorktreeName(String);
+
+impl fmt::Display for WorktreeName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl WorktreeName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
 #[derive(Debug, Error)]
 enum WorktreeValidationErrorReason {
     #[error("cannot start or end with a slash")]
@@ -522,30 +545,32 @@ enum WorktreeValidationErrorReason {
 #[derive(Debug, Error)]
 #[error("invalid worktree name \"{}\": {}", .name, .reason)]
 pub struct WorktreeValidationError {
-    name: String,
+    name: WorktreeName,
     reason: WorktreeValidationErrorReason,
 }
 
 /// A branch name must never start or end with a slash, and it cannot have two
 /// consecutive slashes
-fn validate_worktree_name(name: &str) -> Result<(), WorktreeValidationError> {
+fn validate_worktree_name(name: &WorktreeName) -> Result<(), WorktreeValidationError> {
+    let name = name.as_str();
+
     if name.starts_with('/') || name.ends_with('/') {
         return Err(WorktreeValidationError {
-            name: name.to_owned(),
+            name: WorktreeName::new(name.to_owned()),
             reason: WorktreeValidationErrorReason::SlashAtStartOrEnd,
         });
     }
 
     if name.contains("//") {
         return Err(WorktreeValidationError {
-            name: name.to_owned(),
+            name: WorktreeName::new(name.to_owned()),
             reason: WorktreeValidationErrorReason::ConsecutiveSlashes,
         });
     }
 
     if name.contains(char::is_whitespace) {
         return Err(WorktreeValidationError {
-            name: name.to_owned(),
+            name: WorktreeName::new(name.to_owned()),
             reason: WorktreeValidationErrorReason::ContainsWhitespace,
         });
     }
@@ -570,7 +595,7 @@ pub enum Error {
     #[error("Current directory does not contain a worktree setup")]
     NotAWorktreeSetup,
     #[error("Worktree {} already exists", .name)]
-    WorktreeAlreadyExists { name: String },
+    WorktreeAlreadyExists { name: WorktreeName },
 }
 
 // TECHDEBT
@@ -579,7 +604,7 @@ pub enum Error {
 // should be done by the caller and given as a parameter
 pub fn add_worktree(
     directory: &Path,
-    name: &str,
+    name: &WorktreeName,
     track: Option<(RemoteName, BranchName)>,
     no_track: bool,
 ) -> Result<Option<Vec<String>>, Error> {
@@ -598,9 +623,7 @@ pub fn add_worktree(
         config::read_worktree_root_config(directory)?.map(Into::into);
 
     if repo.find_worktree(name).is_ok() {
-        return Err(Error::WorktreeAlreadyExists {
-            name: name.to_owned(),
-        });
+        return Err(Error::WorktreeAlreadyExists { name: name.clone() });
     }
 
     let track_config = config.and_then(|config| config.track);
@@ -625,15 +648,13 @@ pub fn add_worktree(
     // first while still being borrowed by `Worktree`.
     let default_branch_head = repo.default_branch()?.commit_owned()?;
 
-    let worktree =
-        Worktree::<Init>::new(&repo).set_local_branch_name(&BranchName::new(name.to_owned()))?;
+    let worktree = Worktree::<Init>::new(&repo)
+        .set_local_branch_name(&BranchName::new(name.as_str().to_owned()))?;
 
     let get_remote_head = |remote_name: &RemoteName,
-                           remote_branch_name: &str|
+                           remote_branch_name: &BranchName|
      -> Result<Option<Box<repo::Commit>>, Error> {
-        if let Ok(remote_branch) =
-            repo.find_remote_branch(remote_name, &BranchName::new(remote_branch_name.to_owned()))
-        {
+        if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
             Ok(Some(Box::new(remote_branch.commit_owned()?)))
         } else {
             Ok(None)
@@ -663,12 +684,18 @@ pub fn add_worktree(
                     let remote_name = &remotes[0];
                     let commit: Option<Box<repo::Commit>> = ({
                         if let Some(prefix) = prefix {
-                            get_remote_head(remote_name, &format!("{prefix}/{name}"))?
+                            get_remote_head(
+                                remote_name,
+                                &BranchName::new(format!("{prefix}/{name}")),
+                            )?
                         } else {
                             None
                         }
                     })
-                    .or(get_remote_head(remote_name, name)?)
+                    .or(get_remote_head(
+                        remote_name,
+                        &BranchName::new(name.as_str().to_owned()),
+                    )?)
                     .or_else(|| Some(Box::new(default_branch_head)));
 
                     worktree.select_commit(commit)
@@ -688,7 +715,7 @@ pub fn add_worktree(
                     }
                     .or({
                         if let Ok(remote_branch) =
-                            repo.find_remote_branch(default_remote, &BranchName::new(name.to_owned()))
+                            repo.find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))
                         {
                             Some(Box::new(remote_branch.commit_owned()?))
                         } else {
@@ -716,7 +743,7 @@ pub fn add_worktree(
                         })
                         .or({
                             if let Ok(remote_branch) =
-                                repo.find_remote_branch(remote_name, &BranchName::new(name.to_owned()))
+                                repo.find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))
                             {
                                 Some(Box::new(remote_branch.commit_owned()?))
                             } else {
@@ -787,14 +814,14 @@ pub fn add_worktree(
             {
                 #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
                 worktree.set_remote_tracking_branch(
-                    Some((&remotes[0], &BranchName::new(name.to_owned()))),
+                    Some((&remotes[0], &BranchName::new(name.as_str().to_owned()))),
                     prefix.map(String::as_str),
                 )
             }
             _ => {
                 if let Some(default_remote) = default_remote {
                     worktree.set_remote_tracking_branch(
-                        Some((&default_remote, &BranchName::new(name.to_owned()))),
+                        Some((&default_remote, &BranchName::new(name.as_str().to_owned()))),
                         prefix.map(String::as_str),
                     )
                 } else {
@@ -819,11 +846,59 @@ mod tests {
 
     #[test]
     fn invalid_worktree_names() {
-        assert!(add_worktree(Path::new("/tmp/"), "/leadingslash", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "trailingslash/", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "//", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "test//test", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "test test", None, false).is_err());
-        assert!(add_worktree(Path::new("/tmp/"), "test\ttest", None, false).is_err());
+        assert!(
+            add_worktree(
+                Path::new("/tmp/"),
+                &WorktreeName::new("/leadingslash".to_owned()),
+                None,
+                false
+            )
+            .is_err()
+        );
+        assert!(
+            add_worktree(
+                Path::new("/tmp/"),
+                &WorktreeName::new("trailingslash/".to_owned()),
+                None,
+                false
+            )
+            .is_err()
+        );
+        assert!(
+            add_worktree(
+                Path::new("/tmp/"),
+                &WorktreeName::new("//".to_owned()),
+                None,
+                false
+            )
+            .is_err()
+        );
+        assert!(
+            add_worktree(
+                Path::new("/tmp/"),
+                &WorktreeName::new("test//test".to_owned()),
+                None,
+                false
+            )
+            .is_err()
+        );
+        assert!(
+            add_worktree(
+                Path::new("/tmp/"),
+                &WorktreeName::new("test test".to_owned()),
+                None,
+                false
+            )
+            .is_err()
+        );
+        assert!(
+            add_worktree(
+                Path::new("/tmp/"),
+                &WorktreeName::new("test\ttest".to_owned()),
+                None,
+                false
+            )
+            .is_err()
+        );
     }
 }

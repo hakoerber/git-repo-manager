@@ -6,7 +6,8 @@ use thiserror::Error;
 use super::{
     BranchName, RemoteName, RemoteUrl, config,
     output::{print_action, print_success},
-    path, worktree,
+    path,
+    worktree::{self, WorktreeName},
 };
 
 const GIT_CONFIG_BARE_KEY: &str = "core.bare";
@@ -287,25 +288,25 @@ pub struct RepoStatus {
 }
 
 pub struct Worktree {
-    name: String,
+    name: WorktreeName,
 }
 
 impl Worktree {
     pub fn new(name: &str) -> Self {
         Self {
-            name: name.to_owned(),
+            name: WorktreeName::new(name.to_owned()),
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &WorktreeName {
         &self.name
     }
 
     pub fn forward_branch(&self, rebase: bool, stash: bool) -> Result<Option<String>, Error> {
-        let repo = RepoHandle::open(Path::new(&self.name), false)?;
+        let repo = RepoHandle::open(Path::new(&self.name.as_str()), false)?;
 
         if let Ok(remote_branch) = repo
-            .find_local_branch(&BranchName::new(self.name.clone()))?
+            .find_local_branch(&BranchName::new(self.name.as_str().to_owned()))?
             .ok_or(Error::NotFound)?
             .upstream()
         {
@@ -395,7 +396,7 @@ impl Worktree {
         config: &Option<WorktreeRootConfig>,
         stash: bool,
     ) -> Result<Option<String>, Error> {
-        let repo = RepoHandle::open(Path::new(&self.name), false)?;
+        let repo = RepoHandle::open(Path::new(&self.name.as_str()), false)?;
 
         let guess_default_branch = || repo.default_branch()?.name();
 
@@ -705,13 +706,13 @@ impl RepoHandle {
         Ok(self.0.config()?)
     }
 
-    pub fn find_worktree(&self, name: &str) -> Result<(), Error> {
-        self.0.find_worktree(name)?;
+    pub fn find_worktree(&self, name: &WorktreeName) -> Result<(), Error> {
+        self.0.find_worktree(name.as_str())?;
         Ok(())
     }
 
-    pub fn prune_worktree(&self, name: &str) -> Result<(), Error> {
-        let worktree = self.0.find_worktree(name)?;
+    pub fn prune_worktree(&self, name: &WorktreeName) -> Result<(), Error> {
+        let worktree = self.0.find_worktree(name.as_str())?;
         worktree.prune(None)?;
         Ok(())
     }
@@ -1191,7 +1192,7 @@ impl RepoHandle {
     pub fn remove_worktree(
         &self,
         base_dir: &Path,
-        name: &str,
+        worktree_name: &WorktreeName,
         worktree_dir: &Path,
         force: bool,
         worktree_config: Option<&WorktreeRootConfig>,
@@ -1200,7 +1201,7 @@ impl RepoHandle {
 
         if !fullpath.exists() {
             return Err(Error::WorktreeRemovalFailure(
-                WorktreeRemoveFailureReason::Error(format!("{name} does not exist")),
+                WorktreeRemoveFailureReason::Error(format!("{worktree_name} does not exist")),
             ));
         }
         let worktree_repo = Self::open(&fullpath, false).map_err(|error| {
@@ -1221,7 +1222,7 @@ impl RepoHandle {
             )))
         })?;
 
-        if branch_name.as_str() != name {
+        if branch_name.as_str() != worktree_name.as_str() {
             return Err(Error::WorktreeRemovalFailure(
                 WorktreeRemoveFailureReason::Error(format!(
                     "Branch \"{}\" is checked out in worktree \"{}\", this does not look correct",
@@ -1276,7 +1277,7 @@ impl RepoHandle {
             if has_persistent_branches && !is_merged_into_persistent_branch {
                 return Err(Error::WorktreeRemovalFailure(
                     WorktreeRemoveFailureReason::NotMerged(format!(
-                        "Branch {name} is not merged into any persistent branches"
+                        "Branch {worktree_name} is not merged into any persistent branches"
                     )),
                 ));
             }
@@ -1290,7 +1291,7 @@ impl RepoHandle {
                         if (ahead, behind) != (0, 0) {
                             return Err(Error::WorktreeRemovalFailure(
                                 WorktreeRemoveFailureReason::Changes(format!(
-                                    "Branch {name} is not in line with remote branch"
+                                    "Branch {worktree_name} is not in line with remote branch"
                                 )),
                             ));
                         }
@@ -1298,7 +1299,7 @@ impl RepoHandle {
                     Err(_) => {
                         return Err(Error::WorktreeRemovalFailure(
                             WorktreeRemoveFailureReason::Changes(format!(
-                                "No remote tracking branch for branch {name} found"
+                                "No remote tracking branch for branch {worktree_name} found"
                             )),
                         ));
                     }
@@ -1350,7 +1351,7 @@ impl RepoHandle {
             }
         }
 
-        self.prune_worktree(name).map_err(|e| {
+        self.prune_worktree(worktree_name).map_err(|e| {
             Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
         })?;
         branch.delete().map_err(|e| {
@@ -1386,23 +1387,23 @@ impl RepoHandle {
 
         for worktree in worktrees
             .iter()
-            .filter(|worktree| worktree.name() != default_branch_name.as_str())
+            .filter(|worktree| worktree.name().as_str() != default_branch_name.as_str())
             .filter(|worktree| match config {
                 None => true,
                 Some(ref config) => match config.persistent_branches.as_ref() {
                     None => true,
                     Some(branches) => !branches
                         .iter()
-                        .any(|branch| branch.as_str() == worktree.name()),
+                        .any(|branch| branch.as_str() == worktree.name().as_str()),
                 },
             })
         {
-            let repo_dir = &directory.join(worktree.name());
+            let repo_dir = &directory.join(worktree.name().as_str());
             if repo_dir.exists() {
                 match self.remove_worktree(
                     directory,
                     worktree.name(),
-                    Path::new(worktree.name()),
+                    Path::new(worktree.name().as_str()),
                     false,
                     config.as_ref(),
                 ) {
@@ -1487,7 +1488,10 @@ impl RepoHandle {
                     continue;
                 }
             }
-            if !&worktrees.iter().any(|worktree| worktree.name() == dirname) {
+            if !&worktrees
+                .iter()
+                .any(|worktree| worktree.name().as_str() == dirname)
+            {
                 unmanaged_worktrees.push(dirname);
             }
         }

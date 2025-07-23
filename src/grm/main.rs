@@ -10,9 +10,9 @@ mod cmd;
 use grm::{
     BranchName, RemoteName, auth, config, find_in_tree,
     output::{print, print_error, print_success, print_warning, println},
-    provider,
-    provider::Provider,
-    repo, table, tree, worktree,
+    provider::{self, Provider},
+    repo, table, tree,
+    worktree::{self, WorktreeName},
 };
 
 #[expect(clippy::cognitive_complexity, reason = "fine for main()")]
@@ -576,7 +576,7 @@ fn main() {
 
                     match worktree::add_worktree(
                         &cwd,
-                        &action_args.name,
+                        &WorktreeName::new(action_args.name.clone()),
                         track,
                         action_args.no_track,
                     ) {
@@ -613,7 +613,7 @@ fn main() {
 
                     match repo.remove_worktree(
                         &cwd,
-                        &action_args.name,
+                        &WorktreeName::new(action_args.name.clone()),
                         Path::new(&action_args.name),
                         action_args.force,
                         worktree_config.as_ref(),
