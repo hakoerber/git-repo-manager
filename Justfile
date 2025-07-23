@@ -82,7 +82,7 @@ test-e2e +tests=".": test-binary
         --rm \
         -v $PWD/../target/x86_64-unknown-linux-musl/e2e-tests/grm:/grm \
             pytest \
-            "GRM_BINARY=/grm ALTERNATE_DOMAIN=alternate-rest python3 -m pytest --exitfirst -p no:cacheprovider --color=yes "$@"" \
+            "GRM_BINARY=/grm ALTERNATE_DOMAIN=alternate-rest python3 -m pytest --exitfirst -p no:cacheprovider --color=yes {{tests}}" \
     && docker compose rm --stop -f
 
 update-dependencies: update-cargo-dependencies

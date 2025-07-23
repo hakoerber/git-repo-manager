@@ -24,6 +24,8 @@ pub enum Error {
     InvalidRegex { message: String },
     #[error("Cannot detect root directory. Are you working in /?")]
     CannotDetectRootDirectory,
+    #[error(transparent)]
+    Path(#[from] path::Error),
 }
 
 pub struct Warning(String);
@@ -55,10 +57,10 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&str>) -> Result<FindResult
             message: e.to_string(),
         })?;
     for path in tree::find_repo_paths(root)? {
-        if exclusion_pattern.is_some() && exlusion_regex.is_match(&path::path_as_string(&path)) {
+        if exclusion_pattern.is_some() && exlusion_regex.is_match(&path::path_as_string(&path)?) {
             warnings.push(Warning(format!(
                 "[skipped] {}",
-                &path::path_as_string(&path)
+                &path::path_as_string(&path)?
             )));
             continue;
         }
@@ -76,7 +78,6 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&str>) -> Result<FindResult
                     if is_worktree { " as worktree" } else { "" },
                     error
                 )));
-                continue;
             }
             Ok(repo) => {
                 let remotes = match repo.remotes() {
@@ -84,7 +85,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&str>) -> Result<FindResult
                     Err(error) => {
                         warnings.push(Warning(format!(
                             "{}: Error getting remotes: {}",
-                            &path::path_as_string(&path),
+                            &path::path_as_string(&path)?,
                             error
                         )));
                         continue;
@@ -95,14 +96,14 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&str>) -> Result<FindResult
                 for remote_name in remotes {
                     match repo.find_remote(&remote_name)? {
                         Some(remote) => {
-                            let name = remote.name();
-                            let url = remote.url();
+                            let name = remote.name()?;
+                            let url = remote.url()?;
                             let remote_type = match repo::detect_remote_type(&url) {
                                 Ok(t) => t,
                                 Err(e) => {
                                     warnings.push(Warning(format!(
                                         "{}: Could not handle URL {}. Reason: {}",
-                                        &path::path_as_string(&path),
+                                        &path::path_as_string(&path)?,
                                         &url,
                                         e
                                     )));
@@ -119,45 +120,46 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&str>) -> Result<FindResult
                         None => {
                             warnings.push(Warning(format!(
                                 "{}: Remote {} not found",
-                                &path::path_as_string(&path),
+                                &path::path_as_string(&path)?,
                                 remote_name
                             )));
-                            continue;
                         }
-                    };
+                    }
                 }
                 let remotes = results;
 
                 let (namespace, name) = if path == root {
                     (
                         None,
-                        match &root.parent() {
-                            Some(parent) => {
-                                path::path_as_string(path.strip_prefix(parent).unwrap())
-                            }
-                            None => {
-                                warnings.push(Warning(String::from("Getting name of the search root failed. Do you have a git repository in \"/\"?")));
-                                continue;
-                            }
+                        if let Some(parent) = root.parent() {
+                            path::path_as_string(
+                                path.strip_prefix(parent)
+                                    .expect("checked for prefix explicitly above"),
+                            )?
+                        } else {
+                            warnings.push(Warning(String::from("Getting name of the search root failed. Do you have a git repository in \"/\"?")));
+                            continue;
                         },
                     )
                 } else {
-                    let name = path.strip_prefix(root).unwrap();
-                    let namespace = name.parent().unwrap();
+                    let name = path
+                        .strip_prefix(root)
+                        .expect("checked for prefix explicitly above");
+                    let namespace = name.parent().expect("path always has a parent");
                     (
-                        if namespace == Path::new("") {
-                            None
+                        if namespace != Path::new("") {
+                            Some(path::path_as_string(namespace)?.clone())
                         } else {
-                            Some(path::path_as_string(namespace).to_string())
+                            None
                         },
-                        path::path_as_string(name),
+                        path::path_as_string(name)?,
                     )
                 };
 
                 repos.push(repo::Repo {
                     name,
                     namespace,
-                    remotes: Some(remotes),
+                    remotes,
                     worktree_setup: is_worktree,
                 });
             }
@@ -165,10 +167,13 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&str>) -> Result<FindResult
     }
     Ok(FindResult {
         repos: if repo_in_root {
+            #[expect(clippy::panic, reason = "potential bug")]
             Repos::InSearchRoot(if repos.len() != 1 {
                 panic!("found multiple repos in root?")
             } else {
-                repos.pop().unwrap()
+                repos
+                    .pop()
+                    .expect("checked len() above and list cannot be empty")
             })
         } else {
             Repos::List(repos)
@@ -199,7 +204,7 @@ pub fn find_in_tree(
 
     Ok((
         tree::Tree {
-            root: root.into_os_string().into_string().unwrap(),
+            root: path::path_as_string(&root)?,
             repos,
         },
         warnings,

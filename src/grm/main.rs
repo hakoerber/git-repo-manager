@@ -1,22 +1,18 @@
 #![forbid(unsafe_code)]
 
-use std::path::Path;
-use std::process;
+use std::{path::Path, process};
 
 mod cmd;
 
-use grm::auth;
-use grm::config;
-use grm::find_in_tree;
-use grm::output::*;
-use grm::path;
-use grm::provider;
-use grm::provider::Provider;
-use grm::repo;
-use grm::table;
-use grm::tree;
-use grm::worktree;
+use grm::{
+    auth, config, find_in_tree,
+    output::{print, print_error, print_success, print_warning, println},
+    path, provider,
+    provider::Provider,
+    repo, table, tree, worktree,
+};
 
+#[expect(clippy::cognitive_complexity, reason = "fine for main()")]
 fn main() {
     let opts = cmd::parse();
 
@@ -96,11 +92,26 @@ fn main() {
                         Ok(repos) => {
                             let mut trees: Vec<config::ConfigTree> = vec![];
 
+                            #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                             for (namespace, repolist) in repos {
                                 let root = if let Some(namespace) = namespace {
-                                    path::path_as_string(&Path::new(&args.root).join(namespace))
+                                    match path::path_as_string(
+                                        &Path::new(&args.root).join(namespace),
+                                    ) {
+                                        Ok(root) => root,
+                                        Err(error) => {
+                                            print_error(&format!("Path error: {error}"));
+                                            process::exit(1);
+                                        }
+                                    }
                                 } else {
-                                    path::path_as_string(Path::new(&args.root))
+                                    match path::path_as_string(Path::new(&args.root)) {
+                                        Ok(root) => root,
+                                        Err(error) => {
+                                            print_error(&format!("Path error: {error}"));
+                                            process::exit(1);
+                                        }
+                                    }
                                 };
 
                                 let tree = config::ConfigTree::from_repos(root, repolist);
@@ -128,9 +139,9 @@ fn main() {
                     }
                 }
             },
-            cmd::ReposAction::Status(args) => match &args.config {
-                Some(config_path) => {
-                    let config = match config::read_config(config_path) {
+            cmd::ReposAction::Status(args) => {
+                if let Some(config_path) = args.config {
+                    let config = match config::read_config(&config_path) {
                         Ok(config) => config,
                         Err(error) => {
                             print_error(&error.to_string());
@@ -140,7 +151,7 @@ fn main() {
                     match table::get_status_table(config) {
                         Ok((tables, errors)) => {
                             for table in tables {
-                                println!("{table}");
+                                println(&format!("{table}"));
                             }
                             for error in errors {
                                 print_error(&format!("Error: {error}"));
@@ -151,8 +162,7 @@ fn main() {
                             process::exit(1);
                         }
                     }
-                }
-                None => {
+                } else {
                     let dir = match std::env::current_dir() {
                         Ok(dir) => dir,
                         Err(error) => {
@@ -163,7 +173,7 @@ fn main() {
 
                     match table::show_single_repo_status(&dir) {
                         Ok((table, warnings)) => {
-                            println!("{table}");
+                            println(&format!("{table}"));
                             for warning in warnings {
                                 print_warning(&warning);
                             }
@@ -174,7 +184,7 @@ fn main() {
                         }
                     }
                 }
-            },
+            }
             cmd::ReposAction::Find(find) => match find {
                 cmd::FindAction::Local(args) => {
                     let path = Path::new(&args.path);
@@ -191,10 +201,10 @@ fn main() {
                         Ok(path) => path,
                         Err(error) => {
                             print_error(&format!(
-                                    "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
-                                    &path.display(),
-                                    error
-                                ));
+                                "Failed to canonicalize path \"{}\". This is a bug. Error message: {}",
+                                &path.display(),
+                                error
+                            ));
                             process::exit(1);
                         }
                     };
@@ -209,15 +219,18 @@ fn main() {
                     };
 
                     let trees = config::ConfigTrees::from_trees(vec![found_repos]);
-                    if trees.trees_ref().iter().all(|t| match &t.repos {
+                    if trees.trees_ref().iter().all(|t| match t.repos {
                         None => false,
-                        Some(r) => r.is_empty(),
+                        Some(ref r) => r.is_empty(),
                     }) {
                         print_warning("No repositories found");
                     } else {
                         let mut config = trees.to_config();
 
-                        config.normalize();
+                        if let Err(error) = config.normalize() {
+                            print_error(&format!("Path error: {error}"));
+                            process::exit(1);
+                        }
 
                         match args.format {
                             cmd::ConfigFormat::Toml => {
@@ -231,7 +244,7 @@ fn main() {
                                         process::exit(1);
                                     }
                                 };
-                                print!("{toml}");
+                                print(&toml);
                             }
                             cmd::ConfigFormat::Yaml => {
                                 let yaml = match config.as_yaml() {
@@ -244,7 +257,7 @@ fn main() {
                                         process::exit(1);
                                     }
                                 };
-                                print!("{yaml}");
+                                print(&yaml);
                             }
                         }
                     }
@@ -332,12 +345,26 @@ fn main() {
 
                     let mut trees = vec![];
 
+                    #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                     for (namespace, namespace_repos) in repos {
                         let tree = config::ConfigTree {
                             root: if let Some(namespace) = namespace {
-                                path::path_as_string(&Path::new(&config.root).join(namespace))
+                                match path::path_as_string(&Path::new(&config.root).join(namespace))
+                                {
+                                    Ok(root) => root,
+                                    Err(error) => {
+                                        print_error(&format!("Path error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
                             } else {
-                                path::path_as_string(Path::new(&config.root))
+                                match path::path_as_string(Path::new(&config.root)) {
+                                    Ok(root) => root,
+                                    Err(error) => {
+                                        print_error(&format!("Path error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
                             },
                             repos: Some(
                                 namespace_repos
@@ -363,7 +390,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{toml}");
+                            print(&toml);
                         }
                         cmd::ConfigFormat::Yaml => {
                             let yaml = match config.as_yaml() {
@@ -376,7 +403,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{yaml}");
+                            print(&yaml);
                         }
                     }
                 }
@@ -436,12 +463,25 @@ fn main() {
 
                     let mut trees: Vec<config::ConfigTree> = vec![];
 
+                    #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                     for (namespace, repolist) in repos {
                         let tree = config::ConfigTree {
                             root: if let Some(namespace) = namespace {
-                                path::path_as_string(&Path::new(&args.root).join(namespace))
+                                match path::path_as_string(&Path::new(&args.root).join(namespace)) {
+                                    Ok(root) => root,
+                                    Err(error) => {
+                                        print_error(&format!("Path error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
                             } else {
-                                path::path_as_string(Path::new(&args.root))
+                                match path::path_as_string(Path::new(&args.root)) {
+                                    Ok(root) => root,
+                                    Err(error) => {
+                                        print_error(&format!("Path error: {error}"));
+                                        process::exit(1);
+                                    }
+                                }
                             },
                             repos: Some(
                                 repolist
@@ -455,7 +495,10 @@ fn main() {
 
                     let mut config = config::Config::from_trees(trees);
 
-                    config.normalize();
+                    if let Err(error) = config.normalize() {
+                        print_error(&format!("Path error: {error}"));
+                        process::exit(1);
+                    }
 
                     match args.format {
                         cmd::ConfigFormat::Toml => {
@@ -469,7 +512,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{toml}");
+                            print(&toml);
                         }
                         cmd::ConfigFormat::Yaml => {
                             let yaml = match config.as_yaml() {
@@ -482,7 +525,7 @@ fn main() {
                                     process::exit(1);
                                 }
                             };
-                            print!("{yaml}");
+                            print(&yaml);
                         }
                     }
                 }
@@ -497,23 +540,31 @@ fn main() {
             match args.action {
                 cmd::WorktreeAction::Add(action_args) => {
                     if action_args.track.is_some() && action_args.no_track {
-                        print_warning("You are using --track and --no-track at the same time. --track will be ignored");
+                        print_warning(
+                            "You are using --track and --no-track at the same time. --track will be ignored",
+                        );
                     }
-                    let track = match &action_args.track {
-                        Some(branch) => {
+                    let track = match action_args.track {
+                        Some(ref branch) => {
                             let split = branch.split_once('/');
 
-                            if split.is_none()
-                                || split.unwrap().0.is_empty()
-                                || split.unwrap().1.is_empty()
-                            {
-                                print_error("Tracking branch needs to match the pattern <remote>/<branch_name>");
-                                process::exit(1);
+                            let (remote_name, remote_branch_name) = match split {
+                                None => {
+                                    print_error(
+                                        "Tracking branch needs to match the pattern <remote>/<branch_name>, no slash found",
+                                    );
+                                    process::exit(1);
+                                }
+                                Some(s) if s.0.is_empty() || s.1.is_empty() => {
+                                    print_error(
+                                        "Tracking branch needs to match the pattern <remote>/<branch_name>",
+                                    );
+                                    process::exit(1);
+                                }
+                                Some((remote_name, remote_branch_name)) => {
+                                    (remote_name, remote_branch_name)
+                                }
                             };
-
-                            // unwrap() here is safe because we checked for
-                            // is_none() explictily before
-                            let (remote_name, remote_branch_name) = split.unwrap();
 
                             Some((remote_name, remote_branch_name))
                         }
@@ -559,7 +610,7 @@ fn main() {
                         &action_args.name,
                         Path::new(&action_args.name),
                         action_args.force,
-                        &worktree_config,
+                        worktree_config.as_ref(),
                     ) {
                         Ok(()) => print_success(&format!("Worktree {} deleted", &action_args.name)),
                         Err(error) => {
@@ -595,7 +646,7 @@ fn main() {
 
                     match table::get_worktree_status_table(&repo, &cwd) {
                         Ok((table, errors)) => {
-                            println!("{table}");
+                            println(&format!("{table}"));
                             for error in errors {
                                 print_error(&format!("Error: {error}"));
                             }
@@ -623,7 +674,7 @@ fn main() {
                     });
 
                     match repo.convert_to_worktree(&cwd) {
-                        Ok(_) => print_success("Conversion done"),
+                        Ok(()) => print_success("Conversion done"),
                         Err(error) => {
                             match error {
                                 repo::Error::WorktreeConversionFailure(reason) => match reason {
@@ -633,7 +684,9 @@ fn main() {
                                         );
                                     }
                                     repo::WorktreeConversionFailureReason::Ignored => {
-                                        print_error("Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.");
+                                        print_error(
+                                            "Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.",
+                                        );
                                     }
                                     repo::WorktreeConversionFailureReason::Error(error) => {
                                         print_error(&format!("Error during conversion: {error}"));

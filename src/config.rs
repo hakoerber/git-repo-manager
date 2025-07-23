@@ -3,14 +3,13 @@ use std::{path::Path, process};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::auth;
-use super::output::*;
-use super::path;
-use super::provider;
-use super::provider::Filter;
-use super::provider::Provider;
-use super::repo;
-use super::tree;
+use super::{
+    auth,
+    output::{print_error, print_warning},
+    path, provider,
+    provider::{Filter, Provider},
+    repo, tree,
+};
 
 pub type RemoteProvider = provider::RemoteProvider;
 pub type RemoteType = repo::RemoteType;
@@ -101,15 +100,18 @@ impl RepoConfig {
         Self {
             name: repo.name,
             worktree_setup: repo.worktree_setup,
-            remotes: repo
-                .remotes
-                .map(|remotes| remotes.into_iter().map(RemoteConfig::from_remote).collect()),
+            remotes: Some(
+                repo.remotes
+                    .into_iter()
+                    .map(|r| RemoteConfig::from_remote(r))
+                    .collect(),
+            ),
         }
     }
 
     pub fn into_repo(self) -> repo::Repo {
         let (namespace, name) = if let Some((namespace, name)) = self.name.rsplit_once('/') {
-            (Some(namespace.to_string()), name.to_string())
+            (Some(namespace.to_owned()), name.to_owned())
         } else {
             (None, self.name)
         };
@@ -118,12 +120,10 @@ impl RepoConfig {
             name,
             namespace,
             worktree_setup: self.worktree_setup,
-            remotes: self.remotes.map(|remotes| {
-                remotes
-                    .into_iter()
-                    .map(|remote| remote.into_remote())
-                    .collect()
-            }),
+            remotes: self
+                .remotes
+                .map(|remotes| remotes.into_iter().map(RemoteConfig::into_remote).collect())
+                .unwrap_or_else(|| Vec::new()),
         }
     }
 }
@@ -172,13 +172,15 @@ pub enum Error {
     Provider(#[from] provider::Error),
     #[error(transparent)]
     Serialization(#[from] SerializationError),
+    #[error(transparent)]
+    Path(#[from] path::Error),
 }
 
 impl Config {
     pub fn get_trees(self) -> Result<Vec<ConfigTree>, Error> {
         match self {
-            Config::ConfigTrees(config) => Ok(config.trees),
-            Config::ConfigProvider(config) => {
+            Self::ConfigTrees(config) => Ok(config.trees),
+            Self::ConfigProvider(config) => {
                 let token = auth::get_token_from_command(&config.token_command)?;
 
                 let filters = config.filters.unwrap_or(ConfigProviderFilter {
@@ -234,6 +236,7 @@ impl Config {
 
                 let mut trees = vec![];
 
+                #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
                 for (namespace, namespace_repos) in repos {
                     let repos = namespace_repos
                         .into_iter()
@@ -241,9 +244,9 @@ impl Config {
                         .collect();
                     let tree = ConfigTree {
                         root: if let Some(namespace) = namespace {
-                            path::path_as_string(&Path::new(&config.root).join(namespace))
+                            path::path_as_string(&Path::new(&config.root).join(namespace))?
                         } else {
-                            path::path_as_string(Path::new(&config.root))
+                            path::path_as_string(Path::new(&config.root))?
                         },
                         repos: Some(repos),
                     };
@@ -258,25 +261,36 @@ impl Config {
         Self::ConfigTrees(ConfigTrees { trees })
     }
 
-    pub fn normalize(&mut self) {
-        if let Self::ConfigTrees(config) = self {
-            let home = path::env_home();
+    pub fn normalize(&mut self) -> Result<(), Error> {
+        if let &mut Self::ConfigTrees(ref mut config) = self {
+            let home = path::env_home()?;
             for tree in &mut config.trees_mut().iter_mut() {
                 if tree.root.starts_with(&home) {
-                    // The tilde is not handled differently, it's just a normal path component for `Path`.
-                    // Therefore we can treat it like that during **output**.
+                    // The tilde is not handled differently, it's just a normal path component for
+                    // `Path`. Therefore we can treat it like that during
+                    // **output**.
                     //
                     // The `unwrap()` is safe here as we are testing via `starts_with()`
                     // beforehand
-                    let mut path = tree.root.strip_prefix(&home).unwrap();
-                    if path.starts_with('/') {
-                        path = path.strip_prefix('/').unwrap();
-                    }
+                    #[expect(clippy::missing_panics_doc, reason = "explicit checks for prefixes")]
+                    let path = {
+                        let mut path = tree
+                            .root
+                            .strip_prefix(&home)
+                            .expect("checked for HOME prefix explicitly");
+                        if path.starts_with('/') {
+                            path = path
+                                .strip_prefix('/')
+                                .expect("will always be an absolute path");
+                        }
+                        path
+                    };
 
                     tree.root = Path::new("~").join(path).display().to_string();
                 }
             }
         }
+        Ok(())
     }
 
     pub fn as_toml(&self) -> Result<String, SerializationError> {
@@ -348,7 +362,7 @@ where
                 return Err(ReadConfigError::Parse {
                     path: path.to_owned(),
                     message: e.to_string(),
-                })
+                });
             }
         },
     };

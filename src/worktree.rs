@@ -206,7 +206,6 @@
 //! * Does the local branch have the correct commit?
 //! * Does the local branch track the correct remote branch?
 //! * Does that remote branch also exist?
-use std::cell::RefCell;
 use std::path::Path;
 
 use thiserror::Error;
@@ -218,15 +217,14 @@ pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
 struct Init;
 
+enum LocalBranchInfo<'a> {
+    NoBranch,
+    Branch(repo::Branch<'a>),
+}
+
 struct WithLocalBranchName<'a> {
     local_branch_name: String,
-    /// Outer option: Is there a computed value?
-    /// Inner option: Is there actually a branch?
-    ///
-    /// None => No computed value yet
-    /// Some(None) => No branch
-    /// Some(Some(_)) => Branch
-    local_branch: RefCell<Option<Option<repo::Branch<'a>>>>,
+    local_branch: LocalBranchInfo<'a>,
 }
 
 struct WithLocalTargetSelected<'a> {
@@ -248,12 +246,18 @@ struct Worktree<'a, S: WorktreeState> {
     extra: S,
 }
 
-impl WithLocalBranchName<'_> {
-    fn new(name: String) -> Self {
-        Self {
-            local_branch_name: name,
-            local_branch: RefCell::new(None),
-        }
+impl<'a> WithLocalBranchName<'a> {
+    fn new(name: &str, worktree: &Worktree<'a, Init>) -> Result<Self, Error> {
+        Ok(Self {
+            local_branch_name: name.to_owned(),
+            local_branch: {
+                let branch = worktree.repo.find_local_branch(name)?;
+                match branch {
+                    Some(branch) => LocalBranchInfo::Branch(branch),
+                    None => LocalBranchInfo::NoBranch,
+                }
+            },
+        })
     }
 }
 
@@ -272,11 +276,14 @@ impl<'a> Worktree<'a, Init> {
         }
     }
 
-    fn set_local_branch_name(self, name: &str) -> Worktree<'a, WithLocalBranchName<'a>> {
-        Worktree::<WithLocalBranchName> {
+    fn set_local_branch_name(
+        self,
+        name: &str,
+    ) -> Result<Worktree<'a, WithLocalBranchName<'a>>, Error> {
+        Ok(Worktree::<WithLocalBranchName> {
             repo: self.repo,
-            extra: WithLocalBranchName::new(name.to_string()),
-        }
+            extra: WithLocalBranchName::new(name, &self)?,
+        })
     }
 }
 
@@ -284,40 +291,35 @@ impl<'a, 'b> Worktree<'a, WithLocalBranchName<'b>>
 where
     'a: 'b,
 {
-    fn check_local_branch(&self) {
-        let mut branchref = self.extra.local_branch.borrow_mut();
-        if branchref.is_none() {
-            let branch = self.repo.find_local_branch(&self.extra.local_branch_name);
-            *branchref = Some(branch.ok());
-        }
-    }
+    // fn check_local_branch(&self) {
+    //     let mut branchref = self.extra.local_branch.borrow_mut();
+    //     if branchref.is_none() {
+    //         let branch = self.repo.find_local_branch(&self.extra.local_branch_name);
+    //         *branchref = Some(branch.ok());
+    //     }
+    // }
 
     fn local_branch_already_exists(&self) -> bool {
-        if let Some(branch) = &*self.extra.local_branch.borrow() {
-            return branch.is_some();
-        }
-        self.check_local_branch();
-        // As we just called `check_local_branch`, we can be sure that
-        // `self.extra.local_branch` is set to some `Some` value
-        (*self.extra.local_branch.borrow())
-            .as_ref()
-            .unwrap()
-            .is_some()
+        matches!(
+            self.extra.local_branch,
+            LocalBranchInfo::Branch(ref _branch)
+        )
     }
 
     fn select_commit(
         self,
         commit: Option<Box<repo::Commit<'b>>>,
     ) -> Worktree<'a, WithLocalTargetSelected<'b>> {
-        self.check_local_branch();
-
         Worktree::<'a, WithLocalTargetSelected> {
             repo: self.repo,
             extra: WithLocalTargetSelected::<'b> {
                 local_branch_name: self.extra.local_branch_name,
                 // As we just called `check_local_branch`, we can be sure that
                 // `self.extra.local_branch` is set to some `Some` value
-                local_branch: self.extra.local_branch.into_inner().unwrap(),
+                local_branch: match self.extra.local_branch {
+                    LocalBranchInfo::NoBranch => None,
+                    LocalBranchInfo::Branch(branch) => Some(branch),
+                },
                 target_commit: commit,
             },
         }
@@ -336,8 +338,8 @@ impl<'a> Worktree<'a, WithLocalTargetSelected<'a>> {
                 local_branch_name: self.extra.local_branch_name,
                 local_branch: self.extra.local_branch,
                 target_commit: self.extra.target_commit,
-                remote_tracking_branch: branch.map(|(s1, s2)| (s1.to_string(), s2.to_string())),
-                prefix: prefix.map(|prefix| prefix.to_string()),
+                remote_tracking_branch: branch.map(|(s1, s2)| (s1.to_owned(), s2.to_owned())),
+                prefix: prefix.map(ToOwned::to_owned),
             },
         }
     }
@@ -355,7 +357,10 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                 // TECHDEBT
                 // We must not call this with `Some()` without a valid target.
                 // I'm sure this can be improved, just not sure how.
-                &self.extra.target_commit.unwrap(),
+                &self
+                    .extra
+                    .target_commit
+                    .expect("target_commit must not be empty"),
             )?
         };
 
@@ -379,46 +384,37 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                 remote_branch_without_prefix
             };
 
-            match remote_branch {
-                Some(remote_branch) => {
-                    if branch.commit()?.id().hex_string()
-                        != remote_branch.commit()?.id().hex_string()
-                    {
-                        warnings.push(format!("The local branch \"{}\" and the remote branch \"{}/{}\" differ. Make sure to push/pull afterwards!", &self.extra.local_branch_name, &remote_name, &remote_branch_name));
-                    }
-
-                    branch.set_upstream(&remote_name, &remote_branch.basename()?)?;
+            if let Some(remote_branch) = remote_branch {
+                if branch.commit()?.id().hex_string() != remote_branch.commit()?.id().hex_string() {
+                    warnings.push(format!("The local branch \"{}\" and the remote branch \"{}/{}\" differ. Make sure to push/pull afterwards!", &self.extra.local_branch_name, &remote_name, &remote_branch_name));
                 }
-                None => {
-                    let mut remote = match self.repo.find_remote(&remote_name)? {
-                        Some(remote) => remote,
-                        None => return Err(Error::RemoteNotFound { name: remote_name }),
-                    };
 
-                    if !remote.is_pushable()? {
-                        return Err(Error::RemoteNotPushable { name: remote_name });
-                    }
+                branch.set_upstream(&remote_name, &remote_branch.basename()?)?;
+            } else {
+                let Some(mut remote) = self.repo.find_remote(&remote_name)? else {
+                    return Err(Error::RemoteNotFound { name: remote_name });
+                };
 
-                    if let Some(prefix) = self.extra.prefix {
-                        remote.push(
-                            &self.extra.local_branch_name,
-                            &format!("{prefix}/{remote_branch_name}"),
-                            self.repo,
-                        )?;
+                if !remote.is_pushable()? {
+                    return Err(Error::RemoteNotPushable { name: remote_name });
+                }
 
-                        branch.set_upstream(
-                            &remote_name,
-                            &format!("{prefix}/{remote_branch_name}"),
-                        )?;
-                    } else {
-                        remote.push(
-                            &self.extra.local_branch_name,
-                            &remote_branch_name,
-                            self.repo,
-                        )?;
+                if let Some(prefix) = self.extra.prefix {
+                    remote.push(
+                        &self.extra.local_branch_name,
+                        &format!("{prefix}/{remote_branch_name}"),
+                        self.repo,
+                    )?;
 
-                        branch.set_upstream(&remote_name, &remote_branch_name)?;
-                    }
+                    branch.set_upstream(&remote_name, &format!("{prefix}/{remote_branch_name}"))?;
+                } else {
+                    remote.push(
+                        &self.extra.local_branch_name,
+                        &remote_branch_name,
+                        self.repo,
+                    )?;
+
+                    branch.set_upstream(&remote_name, &remote_branch_name)?;
                 }
             }
         }
@@ -430,8 +426,8 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
             if let Some(base) = path.parent() {
                 // This is a workaround of a bug in libgit2 (?)
                 //
-                // When *not* doing this, we will receive an error from the `Repository::worktree()`
-                // like this:
+                // When *not* doing this, we will receive an error from the
+                // `Repository::worktree()` like this:
                 //
                 // > failed to make directory '/{repo}/.git-main-working-tree/worktrees/dir/test
                 //
@@ -460,9 +456,10 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                 // 32
                 // ```
                 //
-                // I *guess* that the mapping back from the worktree directory under .git to the actual
-                // worktree directory is done via the `gitdir` file inside `.git/worktrees/{worktree}.
-                // This means that the actual directory would not matter. You can verify this by
+                // I *guess* that the mapping back from the worktree directory under .git to the
+                // actual worktree directory is done via the `gitdir` file
+                // inside `.git/worktrees/{worktree}. This means that the actual
+                // directory would not matter. You can verify this by
                 // just renaming it:
                 //
                 // ```
@@ -597,14 +594,15 @@ pub fn add_worktree(
     // enough" errors. This is due to the `repo` reference inside `Worktree` that is
     // passed through each state type.
     //
-    // The `commit` variable will be dropped at the end of the scope, together with all
-    // worktree variables. It will be done in the opposite direction of delcaration (FILO).
+    // The `commit` variable will be dropped at the end of the scope, together with
+    // all worktree variables. It will be done in the opposite direction of
+    // delcaration (FILO).
     //
-    // So if we define `commit` *after* the respective worktrees, it will be dropped first while
-    // still being borrowed by `Worktree`.
+    // So if we define `commit` *after* the respective worktrees, it will be dropped
+    // first while still being borrowed by `Worktree`.
     let default_branch_head = repo.default_branch()?.commit_owned()?;
 
-    let worktree = Worktree::<Init>::new(&repo).set_local_branch_name(name);
+    let worktree = Worktree::<Init>::new(&repo).set_local_branch_name(name)?;
 
     let get_remote_head =
         |remote_name: &str, remote_branch_name: &str| -> Result<Option<Box<repo::Commit>>, Error> {
@@ -627,6 +625,7 @@ pub fn add_worktree(
         match remotes.len() {
             0 => worktree.select_commit(Some(Box::new(default_branch_head))),
             1 => {
+                #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
                 let remote_name = &remotes[0];
                 let commit: Option<Box<repo::Commit>> = ({
                     if let Some(prefix) = prefix {
@@ -707,11 +706,17 @@ pub fn add_worktree(
                         Some(Box::new(default_branch_head))
                     } else if commits.len() == 1 {
                         Some(commits.swap_remove(0))
-                    } else if commits.windows(2).any(|window| {
-                        let c1 = &window[0];
-                        let c2 = &window[1];
-                        (*c1).id().hex_string() != (*c2).id().hex_string()
-                    }) {
+                    } else if commits.windows(2).any(
+                        #[expect(
+                            clippy::missing_asserts_for_indexing,
+                            clippy::indexing_slicing,
+                            reason = "windows function always returns two elements"
+                        )]
+                        |window| {
+                            let c1 = &window[0];
+                            let c2 = &window[1];
+                            (*c1).id().hex_string() != (*c2).id().hex_string()
+                        }) {
                         warnings.push(
                             // TODO this should also include the branch
                             // name. BUT: the branch name may be different
@@ -719,7 +724,7 @@ pub fn add_worktree(
                             // until I get around to fix that inconsistency
                             // (see module-level doc about), which might be
                             // never, as it's such a rare edge case.
-                            "Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_string()
+                            "Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned()
                         );
                         Some(Box::new(default_branch_head))
                     } else {
@@ -732,27 +737,33 @@ pub fn add_worktree(
     };
 
     let worktree = if no_track {
-        worktree.set_remote_tracking_branch(None, prefix.map(|s| s.as_str()))
+        worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
     } else if let Some((remote_name, remote_branch_name)) = track {
         worktree.set_remote_tracking_branch(
             Some((remote_name, remote_branch_name)),
             None, // Always disable prefixing when explicitly given --track
         )
     } else if !enable_tracking {
-        worktree.set_remote_tracking_branch(None, prefix.map(|s| s.as_str()))
+        worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
     } else {
         match remotes.len() {
-            0 => worktree.set_remote_tracking_branch(None, prefix.map(|s| s.as_str())),
-            1 => worktree
-                .set_remote_tracking_branch(Some((&remotes[0], name)), prefix.map(|s| s.as_str())),
+            0 => worktree.set_remote_tracking_branch(None, prefix.map(String::as_str)),
+            1 =>
+            {
+                #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
+                worktree.set_remote_tracking_branch(
+                    Some((&remotes[0], name)),
+                    prefix.map(String::as_str),
+                )
+            }
             _ => {
                 if let Some(default_remote) = default_remote {
                     worktree.set_remote_tracking_branch(
                         Some((&default_remote, name)),
-                        prefix.map(|s| s.as_str()),
+                        prefix.map(String::as_str),
                     )
                 } else {
-                    worktree.set_remote_tracking_branch(None, prefix.map(|s| s.as_str()))
+                    worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
                 }
             }
         }

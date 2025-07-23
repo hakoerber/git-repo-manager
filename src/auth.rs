@@ -59,5 +59,5 @@ pub fn get_token_from_command(command: &str) -> Result<AuthToken, Error> {
         .next()
         .ok_or(Error::TokenCommandNoNewlineInOutput)?;
 
-    Ok(AuthToken(token.to_string()))
+    Ok(AuthToken(token.to_owned()))
 }

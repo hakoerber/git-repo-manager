@@ -1,13 +1,6 @@
 use serde::Deserialize;
 
-use super::auth;
-use super::escape;
-use super::ApiError;
-use super::Error;
-use super::Filter;
-use super::JsonError;
-use super::Project;
-use super::Provider;
+use super::{ApiError, Error, Filter, JsonError, Project, Provider, auth, escape};
 
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
 const GITHUB_API_BASEURL: &str = match option_env!("GITHUB_API_BASEURL") {
@@ -37,7 +30,7 @@ impl Project for GithubProject {
 
     fn namespace(&self) -> Option<String> {
         if let Some((namespace, _name)) = self.full_name.rsplit_once('/') {
-            Some(namespace.to_string())
+            Some(namespace.to_owned())
         } else {
             None
         }
@@ -73,8 +66,8 @@ pub struct Github {
 }
 
 impl Provider for Github {
-    type Project = GithubProject;
     type Error = GithubApiErrorResponse;
+    type Project = GithubProject;
 
     fn new(
         filter: Filter,
@@ -83,7 +76,7 @@ impl Provider for Github {
     ) -> Result<Self, Error> {
         if api_url_override.is_some() {
             return Err(Error::Provider(
-                "API URL overriding is not supported for Github".to_string(),
+                "API URL overriding is not supported for Github".to_owned(),
             ));
         }
         Ok(Self {

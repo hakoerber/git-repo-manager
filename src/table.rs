@@ -1,12 +1,12 @@
-use super::config;
-use super::path;
-use super::repo;
+use std::{
+    fmt::{self, Write},
+    path::Path,
+};
 
 use comfy_table::{Cell, Table};
 use thiserror::Error;
 
-use std::fmt::Write;
-use std::path::Path;
+use super::{config, path, repo};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -16,6 +16,10 @@ pub enum Error {
     Repo(#[from] repo::Error),
     #[error("Directory is not a git directory")]
     NotAGitDirectory,
+    #[error(transparent)]
+    Path(#[from] path::Error),
+    #[error(transparent)]
+    Fmt(#[from] fmt::Error),
 }
 
 fn add_table_header(table: &mut Table) {
@@ -40,6 +44,43 @@ fn add_repo_status(
 ) -> Result<(), Error> {
     let repo_status = repo_handle.status(is_worktree).map_err(Error::Repo)?;
 
+    let branch_info = {
+        let mut acc = String::new();
+        for (branch_name, remote_branch) in repo_status.branches {
+            writeln!(
+                &mut acc,
+                "branch: {}{}",
+                &branch_name,
+                &match remote_branch {
+                    None => String::from(" <!local>"),
+                    Some((remote_branch_name, remote_tracking_status)) => {
+                        format!(
+                            " <{}>{}",
+                            remote_branch_name,
+                            &match remote_tracking_status {
+                                repo::RemoteTrackingStatus::UpToDate => String::from(" \u{2714}"),
+                                repo::RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
+                                repo::RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
+                                repo::RemoteTrackingStatus::Diverged(d1, d2) =>
+                                    format!(" [+{}/-{}]", &d1, &d2),
+                            }
+                        )
+                    }
+                }
+            )?;
+        }
+        acc.trim().to_owned()
+    };
+
+    let remote_status = {
+        let mut acc = String::new();
+        for remote in repo_status.remotes {
+            writeln!(&mut acc, "{remote}")?;
+        }
+
+        acc.trim().to_owned()
+    };
+
     table.add_row([
         repo_name,
         if is_worktree { "\u{2714}" } else { "" },
@@ -58,41 +99,12 @@ fn add_repo_status(
                     if changes.files_deleted > 0 {
                         out.push(format!("Deleted: {}\n", changes.files_deleted));
                     }
-                    out.into_iter().collect::<String>().trim().to_string()
+                    out.into_iter().collect::<String>().trim().to_owned()
                 }
                 None => String::from("\u{2714}"),
             }
         },
-        repo_status
-            .branches
-            .iter()
-            .fold(String::new(), |mut s, (branch_name, remote_branch)| {
-                writeln!(
-                    &mut s,
-                    "branch: {}{}",
-                    &branch_name,
-                    &match remote_branch {
-                        None => String::from(" <!local>"),
-                        Some((remote_branch_name, remote_tracking_status)) => {
-                            format!(
-                                " <{}>{}",
-                                remote_branch_name,
-                                &match remote_tracking_status {
-                                    repo::RemoteTrackingStatus::UpToDate =>
-                                        String::from(" \u{2714}"),
-                                    repo::RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
-                                    repo::RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
-                                    repo::RemoteTrackingStatus::Diverged(d1, d2) =>
-                                        format!(" [+{}/-{}]", &d1, &d2),
-                                }
-                            )
-                        }
-                    }
-                )
-                .unwrap();
-                s
-            })
-            .trim(),
+        &branch_info,
         &if is_worktree {
             String::new()
         } else {
@@ -101,14 +113,7 @@ fn add_repo_status(
                 None => String::from("Empty"),
             }
         },
-        repo_status
-            .remotes
-            .iter()
-            .fold(String::new(), |mut s, r| {
-                writeln!(&mut s, "{r}").unwrap();
-                s
-            })
-            .trim(),
+        &remote_status,
     ]);
 
     Ok(())
@@ -166,7 +171,7 @@ pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<Strin
     for tree in config.get_trees()? {
         let repos = tree.repos.unwrap_or_default();
 
-        let root_path = path::expand_path(Path::new(&tree.root));
+        let root_path = path::expand_path(Path::new(&tree.root))?;
 
         let mut table = Table::new();
         add_table_header(&mut table);
@@ -272,7 +277,7 @@ fn add_worktree_status(
                 if changes.files_deleted > 0 {
                     out.push(format!("Deleted: {}\n", changes.files_deleted));
                 }
-                out.into_iter().collect::<String>().trim().to_string()
+                out.into_iter().collect::<String>().trim().to_owned()
             }
             None => String::from("\u{2714}"),
         },
@@ -300,7 +305,7 @@ pub fn show_single_repo_status(
         } else {
             return Err(error.into());
         }
-    };
+    }
 
     let repo_name = match path.file_name() {
         None => {
@@ -318,11 +323,11 @@ pub fn show_single_repo_status(
                 ));
                 String::from("invalid")
             }
-            Some(name) => name.to_string(),
+            Some(name) => name.to_owned(),
         },
     };
 
-    add_repo_status(&mut table, &repo_name, &repo_handle.unwrap(), is_worktree)?;
+    add_repo_status(&mut table, &repo_name, &repo_handle?, is_worktree)?;
 
     Ok((table, warnings))
 }

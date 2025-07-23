@@ -88,6 +88,10 @@ version = "=0.4.0"
 [dependencies.url-escape]
 version = "=0.1.1"
 
+[dev-dependencies.temp-env]
+version = "=0.3.6"
+default-features = false
+
 [dev-dependencies.outdir-tempdir]
 version = "=0.2.0"
 
@@ -96,3 +100,161 @@ static-build = [
   "git2/vendored-openssl",
   "git2/vendored-libgit2",
 ]
+
+[lints.clippy]
+# enabled groups
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+# pedantic overrides
+too_many_lines = "allow"
+must_use_candidate = "allow"
+map_unwrap_or = "allow"
+missing_errors_doc = "allow"
+if_not_else = "allow"
+similar_names = "allow"
+redundant_else = "allow"
+
+# nursery overrides
+missing_const_for_fn = "allow"
+option_if_let_else = "allow"
+redundant_pub_crate = "allow"
+
+# complexity overrides
+too_many_arguments = "allow"
+
+# style overrides
+new_without_default = "allow"
+redundant_closure = "allow"
+
+# cargo overrides
+multiple_crate_versions = "allow"
+
+# selected restrictions
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+arithmetic_side_effects = "warn"
+as_conversions = "warn"
+assertions_on_result_states = "warn"
+cfg_not_test = "warn"
+clone_on_ref_ptr = "warn"
+create_dir = "warn"
+dbg_macro = "warn"
+decimal_literal_representation = "warn"
+default_numeric_fallback = "warn"
+deref_by_slicing = "warn"
+disallowed_script_idents = "warn"
+empty_drop = "warn"
+empty_enum_variants_with_brackets = "warn"
+empty_structs_with_brackets = "warn"
+exit = "warn"
+filetype_is_file = "warn"
+float_arithmetic = "warn"
+float_cmp_const = "warn"
+fn_to_numeric_cast_any = "warn"
+format_push_string = "warn"
+get_unwrap = "warn"
+indexing_slicing = "warn"
+infinite_loop = "warn"
+inline_asm_x86_att_syntax = "warn"
+inline_asm_x86_intel_syntax = "warn"
+integer_division = "warn"
+iter_over_hash_type = "warn"
+large_include_file = "warn"
+let_underscore_must_use = "warn"
+let_underscore_untyped = "warn"
+little_endian_bytes = "warn"
+lossy_float_literal = "warn"
+map_err_ignore = "warn"
+mem_forget = "warn"
+missing_assert_message = "warn"
+missing_asserts_for_indexing = "warn"
+mixed_read_write_in_expression = "warn"
+modulo_arithmetic = "warn"
+multiple_inherent_impl = "warn"
+multiple_unsafe_ops_per_block = "warn"
+mutex_atomic = "warn"
+panic = "warn"
+partial_pub_fields = "warn"
+pattern_type_mismatch = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+pub_without_shorthand = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+redundant_type_annotations = "warn"
+renamed_function_params = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+same_name_method = "warn"
+self_named_module_files = "warn"
+semicolon_inside_block = "warn"
+str_to_string = "warn"
+string_add = "warn"
+string_lit_chars_any = "warn"
+string_slice = "warn"
+string_to_string = "warn"
+suspicious_xor_used_as_pow = "warn"
+tests_outside_test_module = "warn"
+todo = "warn"
+try_err = "warn"
+undocumented_unsafe_blocks = "warn"
+unimplemented = "warn"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+unnecessary_self_imports = "warn"
+unneeded_field_pattern = "warn"
+unseparated_literal_suffix = "warn"
+unused_result_ok = "warn"
+unwrap_used = "warn"
+use_debug = "warn"
+verbose_file_reads = "warn"
+
+# restrictions explicit allows
+absolute_paths = "allow"
+alloc_instead_of_core = "allow"
+as_underscore = "allow"
+big_endian_bytes = "allow"
+default_union_representation = "allow"
+error_impl_error = "allow"
+exhaustive_enums = "allow"
+exhaustive_structs = "allow"
+expect_used = "allow"
+field_scoped_visibility_modifiers = "allow"
+host_endian_bytes = "allow"
+if_then_some_else_none = "allow"
+impl_trait_in_params = "allow"
+implicit_return = "allow"
+integer_division_remainder_used = "allow"
+min_ident_chars = "allow"
+missing_docs_in_private_items = "allow"
+missing_inline_in_public_items = "allow"
+missing_trait_methods = "allow"
+mod_module_files = "allow"
+needless_raw_strings = "allow"
+non_ascii_literal = "allow"
+non_zero_suggestions = "allow"
+panic_in_result_fn = "allow"
+pathbuf_init_then_push = "allow"
+pub_use = "allow"
+pub_with_shorthand = "allow"
+question_mark_used = "allow"
+ref_patterns = "allow"
+semicolon_outside_block = "allow"
+separated_literal_suffix = "allow"
+shadow_reuse = "allow"
+shadow_same = "allow"
+shadow_unrelated = "allow"
+single_call_fn = "allow"
+single_char_lifetime_names = "allow"
+std_instead_of_alloc = "allow"
+std_instead_of_core = "allow"
+unreachable = "allow"
+unused_trait_names = "allow"
+unwrap_in_result = "allow"
+wildcard_enum_match_arm = "allow"

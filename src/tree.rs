@@ -1,13 +1,15 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use thiserror::Error;
 
-use super::config;
-use super::output::*;
-use super::path;
-use super::repo;
-use super::worktree;
+use super::{
+    config,
+    output::{print_error, print_repo_action, print_repo_error, print_repo_success, print_warning},
+    path, repo, worktree,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -36,6 +38,8 @@ pub enum Error {
     InitFailed { message: String },
     #[error("Repository failed during clone: {}", .message)]
     CloneFailed { message: String },
+    #[error(transparent)]
+    Path(#[from] path::Error),
 }
 
 pub struct Tree {
@@ -73,10 +77,10 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
             .repos
             .unwrap_or_default()
             .into_iter()
-            .map(|repo| repo.into_repo())
+            .map(config::RepoConfig::into_repo)
             .collect();
 
-        let root_path = path::expand_path(Path::new(&tree.root));
+        let root_path = path::expand_path(Path::new(&tree.root))?;
 
         for repo in &repos {
             managed_repos_absolute_paths.push(root_path.join(repo.fullname()));
@@ -115,7 +119,7 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
         }
         print_warning(format!(
             "Found unmanaged repository: \"{}\"",
-            path::path_as_string(unmanaged_repo_absolute_path)
+            path::path_as_string(unmanaged_repo_absolute_path)?
         ));
     }
 
@@ -153,7 +157,7 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
                                 message: e.to_string(),
                             });
                         }
-                    };
+                    }
                 }
             }
             Err(e) => {
@@ -163,7 +167,7 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
                     kind => Error::Open { path, kind },
                 });
             }
-        };
+        }
     }
 
     Ok(repos)
@@ -175,51 +179,34 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
 
     let mut newly_created = false;
 
-    // Syncing a repository can have a few different flows, depending on the repository
-    // that is to be cloned and the local directory:
+    // Syncing a repository can have a few different flows, depending on the
+    // repository that is to be cloned and the local directory:
     //
-    // * If the local directory already exists, we have to make sure that it matches the
-    //   worktree configuration, as there is no way to convert. If the sync is supposed
-    //   to be worktree-aware, but the local directory is not, we abort. Note that we could
-    //   also automatically convert here. In any case, the other direction (converting a
-    //   worktree repository to non-worktree) cannot work, as we'd have to throw away the
-    //   worktrees.
+    // * If the local directory already exists, we have to make sure that it matches
+    //   the worktree configuration, as there is no way to convert. If the sync is
+    //   supposed to be worktree-aware, but the local directory is not, we abort.
+    //   Note that we could also automatically convert here. In any case, the other
+    //   direction (converting a worktree repository to non-worktree) cannot work,
+    //   as we'd have to throw away the worktrees.
     //
-    // * If the local directory does not yet exist, we have to actually do something ;). If
-    //   no remote is specified, we just initialize a new repository (git init) and are done.
+    // * If the local directory does not yet exist, we have to actually do something
+    //   ;). If no remote is specified, we just initialize a new repository (git
+    //   init) and are done.
     //
-    //   If there are (potentially multiple) remotes configured, we have to clone. We assume
-    //   that the first remote is the canonical one that we do the first clone from. After
-    //   cloning, we just add the other remotes as usual (as if they were added to the config
-    //   afterwards)
+    //   If there are (potentially multiple) remotes configured, we have to clone.
+    // We assume   that the first remote is the canonical one that we do the
+    // first clone from. After   cloning, we just add the other remotes as usual
+    // (as if they were added to the config   afterwards)
     //
     // Branch handling:
     //
-    // Handling the branches on checkout is a bit magic. For minimum surprises, we just set
-    // up local tracking branches for all remote branches.
+    // Handling the branches on checkout is a bit magic. For minimum surprises, we
+    // just set up local tracking branches for all remote branches.
     if repo_path.exists() && repo_path.read_dir()?.next().is_some() {
         if repo.worktree_setup && !actual_git_directory.exists() {
             return Err(Error::WorktreeExpected);
-        };
-    } else if repo.remotes.is_none() || repo.remotes.as_ref().unwrap().is_empty() {
-        print_repo_action(
-            &repo.name,
-            "Repository does not have remotes configured, initializing new",
-        );
-        match repo::RepoHandle::init(&repo_path, repo.worktree_setup) {
-            Ok(r) => {
-                print_repo_success(&repo.name, "Repository created");
-                Some(r)
-            }
-            Err(e) => {
-                return Err(Error::InitFailed {
-                    message: e.to_string(),
-                });
-            }
-        };
-    } else {
-        let first = repo.remotes.as_ref().unwrap().first().unwrap();
-
+        }
+    } else if let Some(first) = repo.remotes.first() {
         match repo::clone_repo(first, &repo_path, repo.worktree_setup) {
             Ok(()) => {
                 print_repo_success(&repo.name, "Repository successfully cloned");
@@ -229,9 +216,24 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                     message: e.to_string(),
                 });
             }
-        };
+        }
 
         newly_created = true;
+    } else {
+        print_repo_action(
+            &repo.name,
+            "Repository does not have remotes configured, initializing new",
+        );
+        match repo::RepoHandle::init(&repo_path, repo.worktree_setup) {
+            Ok(_repo_handle) => {
+                print_repo_success(&repo.name, "Repository created");
+            }
+            Err(e) => {
+                return Err(Error::InitFailed {
+                    message: e.to_string(),
+                });
+            }
+        }
     }
 
     let repo_handle = match repo::RepoHandle::open(&repo_path, repo.worktree_setup) {
@@ -256,47 +258,44 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
             ),
         }
     }
-    if let Some(remotes) = &repo.remotes {
-        let current_remotes: Vec<String> = repo_handle.remotes()?;
 
-        for remote in remotes {
-            let current_remote = repo_handle.find_remote(&remote.name)?;
+    let current_remotes: Vec<String> = repo_handle.remotes()?;
 
-            match current_remote {
-                Some(current_remote) => {
-                    let current_url = current_remote.url();
+    for remote in &repo.remotes {
+        let current_remote = repo_handle.find_remote(&remote.name)?;
 
-                    if remote.url != current_url {
-                        print_repo_action(
-                            &repo.name,
-                            &format!("Updating remote {} to \"{}\"", &remote.name, &remote.url),
-                        );
-                        repo_handle.remote_set_url(&remote.name, &remote.url)?;
-                    }
-                }
-                None => {
-                    print_repo_action(
-                        &repo.name,
-                        &format!(
-                            "Setting up new remote \"{}\" to \"{}\"",
-                            &remote.name, &remote.url
-                        ),
-                    );
-                    repo_handle.new_remote(&remote.name, &remote.url)?;
-                }
-            }
-        }
+        if let Some(current_remote) = current_remote {
+            let current_url = current_remote.url()?;
 
-        for current_remote in &current_remotes {
-            if !remotes.iter().any(|r| &r.name == current_remote) {
+            if remote.url != current_url {
                 print_repo_action(
                     &repo.name,
-                    &format!("Deleting remote \"{}\"", &current_remote),
+                    &format!("Updating remote {} to \"{}\"", &remote.name, &remote.url),
                 );
-                repo_handle.remote_delete(current_remote)?;
+                repo_handle.remote_set_url(&remote.name, &remote.url)?;
             }
+        } else {
+            print_repo_action(
+                &repo.name,
+                &format!(
+                    "Setting up new remote \"{}\" to \"{}\"",
+                    &remote.name, &remote.url
+                ),
+            );
+            repo_handle.new_remote(&remote.name, &remote.url)?;
         }
     }
+
+    for current_remote in &current_remotes {
+        if !repo.remotes.iter().any(|r| &r.name == current_remote) {
+            print_repo_action(
+                &repo.name,
+                &format!("Deleting remote \"{}\"", &current_remote),
+            );
+            repo_handle.remote_delete(current_remote)?;
+        }
+    }
+
     Ok(())
 }
 

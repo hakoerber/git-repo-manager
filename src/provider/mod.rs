@@ -3,15 +3,13 @@ use serde::{Deserialize, Serialize};
 pub mod github;
 pub mod gitlab;
 
-pub use github::Github;
-pub use gitlab::Gitlab;
-
-use super::auth;
-use super::repo;
-
 use std::collections::HashMap;
 
+pub use github::Github;
+pub use gitlab::Gitlab;
 use thiserror::Error;
+
+use super::{auth, repo};
 
 const DEFAULT_REMOTE_NAME: &str = "origin";
 
@@ -49,7 +47,7 @@ pub trait Project {
             name: self.name(),
             namespace: self.namespace(),
             worktree_setup,
-            remotes: Some(vec![repo::Remote {
+            remotes: vec![repo::Remote {
                 name: String::from(provider_name),
                 url: if force_ssh || self.private() {
                     self.ssh_url()
@@ -61,7 +59,7 @@ pub trait Project {
                 } else {
                     repo::RemoteType::Https
                 },
-            }]),
+            }],
         }
     }
 
@@ -108,8 +106,8 @@ impl<T> From<String> for ApiError<T>
 where
     T: JsonError,
 {
-    fn from(s: String) -> ApiError<T> {
-        ApiError::String(s)
+    fn from(s: String) -> Self {
+        Self::String(s)
     }
 }
 
@@ -117,8 +115,8 @@ impl<T> From<ureq::http::header::ToStrError> for ApiError<T>
 where
     T: JsonError,
 {
-    fn from(s: ureq::http::header::ToStrError) -> ApiError<T> {
-        ApiError::String(s.to_string())
+    fn from(s: ureq::http::header::ToStrError) -> Self {
+        Self::String(s.to_string())
     }
 }
 
@@ -155,8 +153,8 @@ pub trait Provider {
     fn get_current_user(&self) -> Result<String, ApiError<Self::Error>>;
 
     ///
-    /// Calls the API at specific uri and expects a successful response of `Vec<T>` back, or an error
-    /// response U
+    /// Calls the API at specific uri and expects a successful response of
+    /// `Vec<T>` back, or an error response U
     ///
     /// Handles paging with "link" HTTP headers properly and reads all pages to
     /// the end.
@@ -182,8 +180,8 @@ pub trait Provider {
             )
             .call()
         {
-            Err(ureq::Error::Http(error)) => return Err(format!("http error: {}", error))?,
-            Err(e) => return Err(format!("unknown error: {e}"))?,
+            Err(ureq::Error::Http(error)) => return Err(format!("http error: {error}").into()),
+            Err(e) => return Err(format!("unknown error: {e}").into()),
             Ok(mut response) => {
                 if !response.status().is_success() {
                     let result: Self::Error = response
@@ -309,7 +307,7 @@ pub trait Provider {
 
         let mut ret: HashMap<Option<String>, Vec<repo::Repo>> = HashMap::new();
 
-        let remote_name = remote_name.unwrap_or_else(|| DEFAULT_REMOTE_NAME.to_string());
+        let remote_name = remote_name.unwrap_or_else(|| DEFAULT_REMOTE_NAME.to_owned());
 
         for repo in repos {
             let namespace = repo.namespace();
@@ -345,8 +343,8 @@ where
         )
         .call()
     {
-        Err(ureq::Error::Http(error)) => return Err(format!("http error: {}", error))?,
-        Err(e) => return Err(format!("unknown error: {e}"))?,
+        Err(ureq::Error::Http(error)) => return Err(format!("http error: {error}").into()),
+        Err(e) => return Err(format!("unknown error: {e}").into()),
         Ok(mut response) => {
             if !response.status().is_success() {
                 let result: U = response

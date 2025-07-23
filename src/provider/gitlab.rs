@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use super::{auth, escape, ApiError, Error, Filter, JsonError, Project, Provider};
+use super::{ApiError, Error, Filter, JsonError, Project, Provider, auth, escape};
 
 const ACCEPT_HEADER_JSON: &str = "application/json";
 const GITLAB_API_BASEURL: &str = match option_env!("GITLAB_API_BASEURL") {
@@ -38,7 +38,7 @@ impl Project for GitlabProject {
 
     fn namespace(&self) -> Option<String> {
         if let Some((namespace, _name)) = self.path_with_namespace.rsplit_once('/') {
-            Some(namespace.to_string())
+            Some(namespace.to_owned())
         } else {
             None
         }
@@ -77,16 +77,17 @@ pub struct Gitlab {
 
 impl Gitlab {
     fn api_url(&self) -> String {
-        match self.api_url_override {
-            Some(ref s) => s.trim_end_matches('/').to_string(),
-            None => GITLAB_API_BASEURL.to_string(),
-        }
+        self.api_url_override
+            .as_deref()
+            .unwrap_or(GITLAB_API_BASEURL)
+            .trim_end_matches('/')
+            .to_owned()
     }
 }
 
 impl Provider for Gitlab {
-    type Project = GitlabProject;
     type Error = GitlabApiErrorResponse;
+    type Project = GitlabProject;
 
     fn new(
         filter: Filter,
