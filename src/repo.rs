@@ -7,7 +7,7 @@ use git2::Repository;
 use thiserror::Error;
 
 use super::{
-    BranchName, RemoteName, RemoteUrl, config,
+    BranchName, RemoteName, RemoteUrl, SubmoduleName, config,
     output::{print_action, print_success},
     path,
     worktree::{self, WorktreeName},
@@ -321,7 +321,7 @@ pub struct RepoStatus {
 
     pub worktrees: usize,
 
-    pub submodules: Option<Vec<(String, SubmoduleStatus)>>,
+    pub submodules: Option<Vec<(SubmoduleName, SubmoduleStatus)>>,
 
     pub branches: Vec<(BranchName, Option<(BranchName, RemoteTrackingStatus)>)>,
 }
@@ -1012,15 +1012,17 @@ impl RepoHandle {
         } else {
             let mut submodules = Vec::new();
             for submodule in self.0.submodules()? {
-                let submodule_name = submodule
-                    .name()
-                    .ok_or(Error::SubmoduleNameNotUtf8)?
-                    .to_owned();
+                let submodule_name = SubmoduleName::new(
+                    submodule
+                        .name()
+                        .ok_or(Error::SubmoduleNameNotUtf8)?
+                        .to_owned(),
+                );
 
                 let submodule_status;
                 let status = self
                     .0
-                    .submodule_status(&submodule_name, git2::SubmoduleIgnore::None)?;
+                    .submodule_status(submodule_name.as_str(), git2::SubmoduleIgnore::None)?;
 
                 if status.intersects(
                     git2::SubmoduleStatus::WD_INDEX_MODIFIED
