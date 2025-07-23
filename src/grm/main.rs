@@ -27,7 +27,7 @@ fn main() {
                     let config = match config::read_config(&args.config) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&error);
+                            print_error(&error.to_string());
                             process::exit(1);
                         }
                     };
@@ -133,7 +133,7 @@ fn main() {
                     let config = match config::read_config(config_path) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&error);
+                            print_error(&error.to_string());
                             process::exit(1);
                         }
                     };
@@ -203,7 +203,7 @@ fn main() {
                     {
                         Ok((repos, warnings)) => (repos, warnings),
                         Err(error) => {
-                            print_error(&error);
+                            print_error(&error.to_string());
                             process::exit(1);
                         }
                     };
@@ -256,7 +256,7 @@ fn main() {
                     let config: config::ConfigProvider = match config::read_config(&args.config) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&error);
+                            print_error(&error.to_string());
                             process::exit(1);
                         }
                     };
@@ -544,9 +544,7 @@ fn main() {
                     let worktree_config = match repo::read_worktree_root_config(&cwd) {
                         Ok(config) => config,
                         Err(error) => {
-                            print_error(&format!(
-                                "Error getting worktree configuration: {error}"
-                            ));
+                            print_error(&format!("Error getting worktree configuration: {error}"));
                             process::exit(1);
                         }
                     };
@@ -566,17 +564,23 @@ fn main() {
                         Ok(()) => print_success(&format!("Worktree {} deleted", &action_args.name)),
                         Err(error) => {
                             match error {
-                                repo::WorktreeRemoveFailureReason::Error(msg) => {
-                                    print_error(&msg);
+                                repo::Error::WorktreeRemovalFailure(reason) => match reason {
+                                    repo::WorktreeRemoveFailureReason::Error(msg) => {
+                                        print_error(&msg);
+                                        process::exit(1);
+                                    }
+                                    repo::WorktreeRemoveFailureReason::Changes(changes) => {
+                                        print_warning(&format!(
+                                            "Changes in worktree: {changes}. Refusing to delete"
+                                        ));
+                                    }
+                                    repo::WorktreeRemoveFailureReason::NotMerged(message) => {
+                                        print_warning(&message);
+                                    }
+                                },
+                                e => {
+                                    print_error(&e.to_string());
                                     process::exit(1);
-                                }
-                                repo::WorktreeRemoveFailureReason::Changes(changes) => {
-                                    print_warning(&format!(
-                                        "Changes in worktree: {changes}. Refusing to delete"
-                                    ));
-                                }
-                                repo::WorktreeRemoveFailureReason::NotMerged(message) => {
-                                    print_warning(&message);
                                 }
                             }
                             process::exit(1);
@@ -610,7 +614,7 @@ fn main() {
                     // * Set `core.bare` to `true`
 
                     let repo = repo::RepoHandle::open(&cwd, false).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -619,26 +623,32 @@ fn main() {
                     });
 
                     match repo.convert_to_worktree(&cwd) {
-                        Ok(()) => print_success("Conversion done"),
-                        Err(reason) => {
-                            match reason {
-                                repo::WorktreeConversionFailureReason::Changes => {
-                                    print_error("Changes found in repository, refusing to convert");
-                                }
-                                repo::WorktreeConversionFailureReason::Ignored => {
-                                    print_error("Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.");
-                                }
-                                repo::WorktreeConversionFailureReason::Error(error) => {
-                                    print_error(&format!("Error during conversion: {error}"));
-                                }
+                        Ok(_) => print_success("Conversion done"),
+                        Err(error) => {
+                            match error {
+                                repo::Error::WorktreeConversionFailure(reason) => match reason {
+                                    repo::WorktreeConversionFailureReason::Changes => {
+                                        print_error(
+                                            "Changes found in repository, refusing to convert",
+                                        );
+                                    }
+                                    repo::WorktreeConversionFailureReason::Ignored => {
+                                        print_error("Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.");
+                                    }
+                                    repo::WorktreeConversionFailureReason::Error(error) => {
+                                        print_error(&format!("Error during conversion: {error}"));
+                                    }
+                                },
+                                e => print_error(&e.to_string()),
                             }
+
                             process::exit(1);
                         }
                     }
                 }
                 cmd::WorktreeAction::Clean(_args) => {
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -672,7 +682,7 @@ fn main() {
                 }
                 cmd::WorktreeAction::Fetch(_args) => {
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -688,7 +698,7 @@ fn main() {
                 }
                 cmd::WorktreeAction::Pull(args) => {
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));
@@ -729,7 +739,7 @@ fn main() {
                         process::exit(1);
                     }
                     let repo = repo::RepoHandle::open(&cwd, true).unwrap_or_else(|error| {
-                        if error.kind == repo::RepoErrorKind::NotFound {
+                        if matches!(error, repo::Error::NotFound) {
                             print_error("Directory does not contain a git repository");
                         } else {
                             print_error(&format!("Opening repository failed: {error}"));

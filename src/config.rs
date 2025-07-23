@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::process;
+use std::{path::Path, process};
 
-use std::path::Path;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use super::auth;
 use super::output::*;
@@ -156,18 +156,30 @@ impl ConfigTrees {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum SerializationError {
+    #[error(transparent)]
+    Toml(#[from] toml::ser::Error),
+    #[error(transparent)]
+    Yaml(#[from] serde_yaml::Error),
+}
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Auth(#[from] auth::Error),
+    #[error(transparent)]
+    Provider(#[from] provider::Error),
+    #[error(transparent)]
+    Serialization(#[from] SerializationError),
+}
+
 impl Config {
-    pub fn trees(self) -> Result<Vec<ConfigTree>, String> {
+    pub fn get_trees(self) -> Result<Vec<ConfigTree>, Error> {
         match self {
-            Self::ConfigTrees(config) => Ok(config.trees),
-            Self::ConfigProvider(config) => {
-                let token = match auth::get_token_from_command(&config.token_command) {
-                    Ok(token) => token,
-                    Err(error) => {
-                        print_error(&format!("Getting token from command failed: {error}"));
-                        process::exit(1);
-                    }
-                };
+            Config::ConfigTrees(config) => Ok(config.trees),
+            Config::ConfigProvider(config) => {
+                let token = auth::get_token_from_command(&config.token_command)?;
 
                 let filters = config.filters.unwrap_or(ConfigProviderFilter {
                     access: Some(false),
@@ -267,15 +279,12 @@ impl Config {
         }
     }
 
-    pub fn as_toml(&self) -> Result<String, String> {
-        match toml::to_string(self) {
-            Ok(toml) => Ok(toml),
-            Err(error) => Err(error.to_string()),
-        }
+    pub fn as_toml(&self) -> Result<String, SerializationError> {
+        Ok(toml::to_string(self)?)
     }
 
-    pub fn as_yaml(&self) -> Result<String, String> {
-        serde_yaml::to_string(self).map_err(|e| e.to_string())
+    pub fn as_yaml(&self) -> Result<String, SerializationError> {
+        Ok(serde_yaml::to_string(self)?)
     }
 }
 
@@ -302,20 +311,32 @@ impl ConfigTree {
     }
 }
 
-pub fn read_config<'a, T>(path: &str) -> Result<T, String>
+#[derive(Debug, Error)]
+pub enum ReadConfigError {
+    #[error("Configuration file not found at {}", .path)]
+    NotFound { path: String },
+    #[error("Error reading configuration file at `{}`: {}", .path, .message)]
+    Generic { path: String, message: String },
+    #[error("Error parsing configuration file at `{}`: {}", .path, .message)]
+    Parse { path: String, message: String },
+}
+
+pub fn read_config<'a, T>(path: &str) -> Result<T, ReadConfigError>
 where
     T: for<'de> serde::Deserialize<'de>,
 {
     let content = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => {
-            return Err(format!(
-                "Error reading configuration file \"{path}\": {}",
-                match e.kind() {
-                    std::io::ErrorKind::NotFound => String::from("not found"),
-                    _ => e.to_string(),
-                }
-            ));
+            return Err(match e.kind() {
+                std::io::ErrorKind::NotFound => ReadConfigError::NotFound {
+                    path: path.to_owned(),
+                },
+                _ => ReadConfigError::Generic {
+                    path: path.to_owned(),
+                    message: e.to_string(),
+                },
+            });
         }
     };
 
@@ -324,9 +345,10 @@ where
         Err(_) => match serde_yaml::from_str(&content) {
             Ok(c) => c,
             Err(e) => {
-                return Err(format!(
-                    "Error parsing configuration file \"{path}\": {e}"
-                ))
+                return Err(ReadConfigError::Parse {
+                    path: path.to_owned(),
+                    message: e.to_string(),
+                })
             }
         },
     };

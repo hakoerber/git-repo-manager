@@ -3,9 +3,20 @@ use super::path;
 use super::repo;
 
 use comfy_table::{Cell, Table};
+use thiserror::Error;
 
 use std::fmt::Write;
 use std::path::Path;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Config(#[from] config::Error),
+    #[error("repo error: {0}")]
+    Repo(#[from] repo::Error),
+    #[error("Directory is not a git directory")]
+    NotAGitDirectory,
+}
 
 fn add_table_header(table: &mut Table) {
     table
@@ -26,8 +37,8 @@ fn add_repo_status(
     repo_name: &str,
     repo_handle: &repo::RepoHandle,
     is_worktree: bool,
-) -> Result<(), String> {
-    let repo_status = repo_handle.status(is_worktree)?;
+) -> Result<(), Error> {
+    let repo_status = repo_handle.status(is_worktree).map_err(Error::Repo)?;
 
     table.add_row([
         repo_name,
@@ -107,8 +118,8 @@ fn add_repo_status(
 pub fn get_worktree_status_table(
     repo: &repo::RepoHandle,
     directory: &Path,
-) -> Result<(impl std::fmt::Display, Vec<String>), String> {
-    let worktrees = repo.get_worktrees()?;
+) -> Result<(impl std::fmt::Display, Vec<String>), Error> {
+    let worktrees = repo.get_worktrees().map_err(Error::Repo)?;
     let mut table = Table::new();
 
     let mut errors = Vec::new();
@@ -129,7 +140,7 @@ pub fn get_worktree_status_table(
                 }
             };
             if let Err(error) = add_worktree_status(&mut table, worktree, &repo) {
-                errors.push(error);
+                errors.push(error.to_string());
             }
         } else {
             errors.push(format!(
@@ -138,7 +149,9 @@ pub fn get_worktree_status_table(
             ));
         }
     }
-    for worktree in repo::RepoHandle::find_unmanaged_worktrees(repo, directory)? {
+    for worktree in
+        repo::RepoHandle::find_unmanaged_worktrees(repo, directory).map_err(Error::Repo)?
+    {
         errors.push(format!(
             "Found {}, which is not a valid worktree directory!",
             &worktree
@@ -147,10 +160,10 @@ pub fn get_worktree_status_table(
     Ok((table, errors))
 }
 
-pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<String>), String> {
+pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<String>), Error> {
     let mut errors = Vec::new();
     let mut tables = Vec::new();
-    for tree in config.trees()? {
+    for tree in config.get_trees()? {
         let repos = tree.repos.unwrap_or_default();
 
         let root_path = path::expand_path(Path::new(&tree.root));
@@ -174,7 +187,7 @@ pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<Strin
             let repo_handle = match repo_handle {
                 Ok(repo) => repo,
                 Err(error) => {
-                    if error.kind == repo::RepoErrorKind::NotFound {
+                    if matches!(error, repo::Error::NotFound) {
                         errors.push(format!(
                             "{}: No git repository found. Run sync?",
                             &repo.name
@@ -218,22 +231,18 @@ fn add_worktree_status(
     table: &mut Table,
     worktree: &repo::Worktree,
     repo: &repo::RepoHandle,
-) -> Result<(), String> {
-    let repo_status = repo.status(false)?;
+) -> Result<(), Error> {
+    let repo_status = repo.status(false).map_err(Error::Repo)?;
 
-    let local_branch = repo
-        .head_branch()
-        .map_err(|error| format!("Failed getting head branch: {error}"))?;
+    let local_branch = repo.head_branch().map_err(Error::Repo)?;
 
     let upstream_output = match local_branch.upstream() {
         Ok(remote_branch) => {
-            let remote_branch_name = remote_branch
-                .name()
-                .map_err(|error| format!("Failed getting name of remote branch: {error}"))?;
+            let remote_branch_name = remote_branch.name().map_err(Error::Repo)?;
 
             let (ahead, behind) = repo
                 .graph_ahead_behind(&local_branch, &remote_branch)
-                .map_err(|error| format!("Failed computing branch deviation: {error}"))?;
+                .map_err(Error::Repo)?;
 
             format!(
                 "{}{}\n",
@@ -267,9 +276,7 @@ fn add_worktree_status(
             }
             None => String::from("\u{2714}"),
         },
-        &local_branch
-            .name()
-            .map_err(|error| format!("Failed getting name of branch: {error}"))?,
+        &local_branch.name().map_err(Error::Repo)?,
         &upstream_output,
     ]);
 
@@ -278,7 +285,7 @@ fn add_worktree_status(
 
 pub fn show_single_repo_status(
     path: &Path,
-) -> Result<(impl std::fmt::Display, Vec<String>), String> {
+) -> Result<(impl std::fmt::Display, Vec<String>), Error> {
     let mut table = Table::new();
     let mut warnings = Vec::new();
 
@@ -288,10 +295,10 @@ pub fn show_single_repo_status(
     let repo_handle = repo::RepoHandle::open(path, is_worktree);
 
     if let Err(error) = repo_handle {
-        return if error.kind == repo::RepoErrorKind::NotFound {
-            Err(String::from("Directory is not a git directory"))
+        if matches!(error, repo::Error::NotFound) {
+            return Err(Error::NotAGitDirectory);
         } else {
-            return Err(format!("Opening repository failed: {error}"));
+            return Err(error.into());
         }
     };
 

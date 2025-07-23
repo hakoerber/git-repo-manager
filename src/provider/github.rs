@@ -3,6 +3,7 @@ use serde::Deserialize;
 use super::auth;
 use super::escape;
 use super::ApiErrorResponse;
+use super::Error;
 use super::Filter;
 use super::JsonError;
 use super::Project;
@@ -79,9 +80,11 @@ impl Provider for Github {
         filter: Filter,
         secret_token: auth::AuthToken,
         api_url_override: Option<String>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, Error> {
         if api_url_override.is_some() {
-            return Err("API URL overriding is not supported for Github".to_string());
+            return Err(Error::Provider(
+                "API URL overriding is not supported for Github".to_string(),
+            ));
         }
         Ok(Self {
             filter,

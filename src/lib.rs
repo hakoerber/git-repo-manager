@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use thiserror::Error;
+
 pub mod auth;
 pub mod config;
 pub mod output;
@@ -12,6 +14,18 @@ pub mod table;
 pub mod tree;
 pub mod worktree;
 
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Repo(#[from] repo::Error),
+    #[error(transparent)]
+    Tree(#[from] tree::Error),
+    #[error("invalid regex: {}", .message)]
+    InvalidRegex { message: String },
+    #[error("Cannot detect root directory. Are you working in /?")]
+    CannotDetectRootDirectory,
+}
+
 /// Find all git repositories under root, recursively
 ///
 /// The bool in the return value specifies whether there is a repository
@@ -20,13 +34,15 @@ pub mod worktree;
 fn find_repos(
     root: &Path,
     exclusion_pattern: Option<&str>,
-) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)>, String> {
+) -> Result<Option<(Vec<repo::Repo>, Vec<String>, bool)>, Error> {
     let mut repos: Vec<repo::Repo> = Vec::new();
     let mut repo_in_root = false;
     let mut warnings = Vec::new();
 
     let exlusion_regex: regex::Regex = regex::Regex::new(exclusion_pattern.unwrap_or(r"^$"))
-        .map_err(|e| format!("invalid regex: {e}"))?;
+        .map_err(|e| Error::InvalidRegex {
+            message: e.to_string(),
+        })?;
     for path in tree::find_repo_paths(root)? {
         if exclusion_pattern.is_some() && exlusion_regex.is_match(&path::path_as_string(&path)) {
             warnings.push(format!("[skipped] {}", &path::path_as_string(&path)));
@@ -139,7 +155,7 @@ fn find_repos(
 pub fn find_in_tree(
     path: &Path,
     exclusion_pattern: Option<&str>,
-) -> Result<(tree::Tree, Vec<String>), String> {
+) -> Result<(tree::Tree, Vec<String>), Error> {
     let mut warnings = Vec::new();
 
     let (repos, repo_in_root): (Vec<repo::Repo>, bool) = match find_repos(path, exclusion_pattern)?
@@ -156,9 +172,7 @@ pub fn find_in_tree(
         root = match root.parent() {
             Some(root) => root.to_path_buf(),
             None => {
-                return Err(String::from(
-                    "Cannot detect root directory. Are you working in /?",
-                ));
+                return Err(Error::CannotDetectRootDirectory);
             }
         }
     }

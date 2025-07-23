@@ -11,7 +11,17 @@ use super::repo;
 
 use std::collections::HashMap;
 
+use thiserror::Error;
+
 const DEFAULT_REMOTE_NAME: &str = "origin";
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("response error: {0}")]
+    Response(String),
+    #[error("provider error: {0}")]
+    Provider(String),
+}
 
 #[derive(Debug, Deserialize, Serialize, clap::ValueEnum, Clone)]
 pub enum RemoteProvider {
@@ -114,7 +124,7 @@ pub trait Provider {
         filter: Filter,
         secret_token: auth::AuthToken,
         api_url_override: Option<String>,
-    ) -> Result<Self, String>
+    ) -> Result<Self, Error>
     where
         Self: Sized;
 
@@ -201,23 +211,25 @@ pub trait Provider {
         worktree_setup: bool,
         force_ssh: bool,
         remote_name: Option<String>,
-    ) -> Result<HashMap<Option<String>, Vec<repo::Repo>>, String> {
+    ) -> Result<HashMap<Option<String>, Vec<repo::Repo>>, Error> {
         let mut repos = vec![];
 
         if self.filter().owner {
-            repos.extend(self.get_own_projects().map_err(|error| match error {
-                ApiErrorResponse::Json(x) => x.to_string(),
-                ApiErrorResponse::String(s) => s,
+            repos.extend(self.get_own_projects().map_err(|error| {
+                Error::Response(match error {
+                    ApiErrorResponse::Json(x) => x.to_string(),
+                    ApiErrorResponse::String(s) => s,
+                })
             })?);
         }
 
         if self.filter().access {
-            let accessible_projects =
-                self.get_accessible_projects()
-                    .map_err(|error| match error {
-                        ApiErrorResponse::Json(x) => x.to_string(),
-                        ApiErrorResponse::String(s) => s,
-                    })?;
+            let accessible_projects = self.get_accessible_projects().map_err(|error| {
+                Error::Response(match error {
+                    ApiErrorResponse::Json(x) => x.to_string(),
+                    ApiErrorResponse::String(s) => s,
+                })
+            })?;
 
             for accessible_project in accessible_projects {
                 let mut already_present = false;
@@ -235,9 +247,11 @@ pub trait Provider {
         }
 
         for user in &self.filter().users {
-            let user_projects = self.get_user_projects(user).map_err(|error| match error {
-                ApiErrorResponse::Json(x) => x.to_string(),
-                ApiErrorResponse::String(s) => s,
+            let user_projects = self.get_user_projects(user).map_err(|error| {
+                Error::Response(match error {
+                    ApiErrorResponse::Json(x) => x.to_string(),
+                    ApiErrorResponse::String(s) => s,
+                })
             })?;
 
             for user_project in user_projects {
@@ -257,14 +271,14 @@ pub trait Provider {
 
         for group in &self.filter().groups {
             let group_projects = self.get_group_projects(group).map_err(|error| {
-                format!(
+                Error::Response(format!(
                     "group \"{}\": {}",
                     group,
                     match error {
                         ApiErrorResponse::Json(x) => x.to_string(),
                         ApiErrorResponse::String(s) => s,
                     }
-                )
+                ))
             })?;
             for group_project in group_projects {
                 let mut already_present = false;

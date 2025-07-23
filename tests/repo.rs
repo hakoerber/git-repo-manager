@@ -9,15 +9,11 @@ fn open_empty_repo() {
     let tmpdir = init_tmpdir();
     assert!(matches!(
         RepoHandle::open(tmpdir.path(), true),
-        Err(RepoError {
-            kind: RepoErrorKind::NotFound
-        })
+        Err(Error::NotFound)
     ));
     assert!(matches!(
         RepoHandle::open(tmpdir.path(), false),
-        Err(RepoError {
-            kind: RepoErrorKind::NotFound
-        })
+        Err(Error::NotFound)
     ));
     cleanup_tmpdir(tmpdir);
 }

@@ -42,6 +42,10 @@ path = "src/lib.rs"
 name = "grm"
 path = "src/grm/main.rs"
 
+[dependencies.thiserror]
+version = "=2.0"
+features = ["std"]
+
 [dependencies.toml]
 version = "=0.8.19"
 

@@ -209,6 +209,9 @@
 use std::cell::RefCell;
 use std::path::Path;
 
+use thiserror::Error;
+
+// use super::output::*;
 use super::repo;
 
 pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
@@ -341,7 +344,7 @@ impl<'a> Worktree<'a, WithLocalTargetSelected<'a>> {
 }
 
 impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
-    fn create(self, directory: &Path) -> Result<Option<Vec<String>>, String> {
+    fn create(self, directory: &Path) -> Result<Option<Vec<String>>, Error> {
         let mut warnings: Vec<String> = vec![];
 
         let mut branch = if let Some(branch) = self.extra.local_branch {
@@ -387,14 +390,13 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                     branch.set_upstream(&remote_name, &remote_branch.basename()?)?;
                 }
                 None => {
-                    let Some(mut remote) = self.repo.find_remote(&remote_name)? else {
-                        return Err(format!("Remote \"{remote_name}\" not found"));
+                    let mut remote = match self.repo.find_remote(&remote_name)? {
+                        Some(remote) => remote,
+                        None => return Err(Error::RemoteNotFound { name: remote_name }),
                     };
 
                     if !remote.is_pushable()? {
-                        return Err(format!(
-                            "Cannot push to non-pushable remote \"{remote_name}\""
-                        ));
+                        return Err(Error::RemoteNotPushable { name: remote_name });
                     }
 
                     if let Some(prefix) = self.extra.prefix {
@@ -488,9 +490,8 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
                         .join(GIT_MAIN_WORKTREE_DIRECTORY)
                         .join("worktrees")
                         .join(base),
-                )
-                .map_err(|error| error.to_string())?;
-                std::fs::create_dir_all(base).map_err(|error| error.to_string())?;
+                )?;
+                std::fs::create_dir_all(base)?;
             }
         }
 
@@ -510,26 +511,47 @@ impl<'a> Worktree<'a, WithRemoteTrackingBranch<'a>> {
 
 /// A branch name must never start or end with a slash, and it cannot have two
 /// consecutive slashes
-fn validate_worktree_name(name: &str) -> Result<(), String> {
+fn validate_worktree_name(name: &str) -> Result<(), Error> {
     if name.starts_with('/') || name.ends_with('/') {
-        return Err(format!(
-            "Invalid worktree name: {name}. It cannot start or end with a slash"
-        ));
+        return Err(Error::InvalidWorktreeName {
+            name: name.to_owned(),
+            message: "cannot start or end with a slash",
+        });
     }
 
     if name.contains("//") {
-        return Err(format!(
-            "Invalid worktree name: {name}. It cannot contain two consecutive slashes"
-        ));
+        return Err(Error::InvalidWorktreeName {
+            name: name.to_owned(),
+            message: "cannot contain two consecutive slashes",
+        });
     }
 
     if name.contains(char::is_whitespace) {
-        return Err(format!(
-            "Invalid worktree name: {name}. It cannot contain whitespace"
-        ));
+        return Err(Error::InvalidWorktreeName {
+            name: name.to_owned(),
+            message: "cannot contain whitespace",
+        });
     }
 
     Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    Repo(#[from] repo::Error),
+    #[error("Invalid worktree name: {name}, {message}", name = .name, message = .message)]
+    InvalidWorktreeName { name: String, message: &'static str },
+    #[error("Remote \"{name}\" not found", name = .name)]
+    RemoteNotFound { name: String },
+    #[error("Cannot push to non-pushable remote \"{name}\"", name = .name)]
+    RemoteNotPushable { name: String },
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("Current directory does not contain a worktree setup")]
+    NotAWorktreeSetup,
+    #[error("Worktree {} already exists", .name)]
+    WorktreeAlreadyExists { name: String },
 }
 
 // TECHDEBT
@@ -541,16 +563,14 @@ pub fn add_worktree(
     name: &str,
     track: Option<(&str, &str)>,
     no_track: bool,
-) -> Result<Option<Vec<String>>, String> {
+) -> Result<Option<Vec<String>>, Error> {
     let mut warnings: Vec<String> = vec![];
 
     validate_worktree_name(name)?;
 
-    let repo = repo::RepoHandle::open(directory, true).map_err(|error| match error.kind {
-        repo::RepoErrorKind::NotFound => {
-            String::from("Current directory does not contain a worktree setup")
-        }
-        _ => format!("Error opening repo: {error}"),
+    let repo = repo::RepoHandle::open(directory, true).map_err(|error| match error {
+        repo::Error::NotFound => Error::NotAWorktreeSetup,
+        _ => error.into(),
     })?;
 
     let remotes = &repo.remotes()?;
@@ -558,7 +578,9 @@ pub fn add_worktree(
     let config = repo::read_worktree_root_config(directory)?;
 
     if repo.find_worktree(name).is_ok() {
-        return Err(format!("Worktree {name} already exists"));
+        return Err(Error::WorktreeAlreadyExists {
+            name: name.to_owned(),
+        });
     }
 
     let track_config = config.and_then(|config| config.track);
@@ -584,15 +606,14 @@ pub fn add_worktree(
 
     let worktree = Worktree::<Init>::new(&repo).set_local_branch_name(name);
 
-    let get_remote_head = |remote_name: &str,
-                           remote_branch_name: &str|
-     -> Result<Option<Box<repo::Commit>>, String> {
-        if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
-            Ok(Some(Box::new(remote_branch.commit_owned()?)))
-        } else {
-            Ok(None)
-        }
-    };
+    let get_remote_head =
+        |remote_name: &str, remote_branch_name: &str| -> Result<Option<Box<repo::Commit>>, Error> {
+            if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
+                Ok(Some(Box::new(remote_branch.commit_owned()?)))
+            } else {
+                Ok(None)
+            }
+        };
 
     let worktree = if worktree.local_branch_already_exists() {
         worktree.select_commit(None)

@@ -3,6 +3,7 @@ use serde::Deserialize;
 use super::auth;
 use super::escape;
 use super::ApiErrorResponse;
+use super::Error;
 use super::Filter;
 use super::JsonError;
 use super::Project;
@@ -98,7 +99,7 @@ impl Provider for Gitlab {
         filter: Filter,
         secret_token: auth::AuthToken,
         api_url_override: Option<String>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, Error> {
         Ok(Self {
             filter,
             secret_token,
