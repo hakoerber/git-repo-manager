@@ -47,18 +47,21 @@ pub struct Tree {
     pub repos: Vec<repo::Repo>,
 }
 
+#[derive(PartialEq, Eq)]
+pub struct RepoPath(PathBuf);
+
 pub fn find_unmanaged_repos(
     root_path: &Path,
     managed_repos: &[repo::Repo],
-) -> Result<Vec<PathBuf>, Error> {
+) -> Result<Vec<RepoPath>, Error> {
     let mut unmanaged_repos = Vec::new();
 
-    for repo_path in find_repo_paths(root_path)? {
+    for path in find_repo_paths(root_path)? {
         if !managed_repos
             .iter()
-            .any(|r| Path::new(root_path).join(r.fullname()) == repo_path)
+            .any(|r| Path::new(root_path).join(r.fullname()) == path)
         {
-            unmanaged_repos.push(repo_path);
+            unmanaged_repos.push(RepoPath(path));
         }
     }
     Ok(unmanaged_repos)
@@ -83,7 +86,7 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
         let root_path = path::expand_path(Path::new(&tree.root))?;
 
         for repo in &repos {
-            managed_repos_absolute_paths.push(root_path.join(repo.fullname()));
+            managed_repos_absolute_paths.push(RepoPath(root_path.join(repo.fullname())));
             match sync_repo(&root_path, repo, init_worktree) {
                 Ok(()) => print_repo_success(&repo.name, "OK"),
                 Err(error) => {
@@ -119,7 +122,7 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
         }
         print_warning(format!(
             "Found unmanaged repository: \"{}\"",
-            path::path_as_string(unmanaged_repo_absolute_path)?
+            path::path_as_string(&unmanaged_repo_absolute_path.0)?
         ));
     }
 
