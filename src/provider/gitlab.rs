@@ -115,23 +115,27 @@ impl Provider for Gitlab {
 
     fn get_user_projects(
         &self,
-        user: &str,
+        user: &super::User,
     ) -> Result<Vec<GitlabProject>, ApiError<GitlabApiErrorResponse>> {
         self.call_list(
-            &format!("{}/api/v4/users/{}/projects", self.api_url(), escape(user)),
+            &format!(
+                "{}/api/v4/users/{}/projects",
+                self.api_url(),
+                escape(&user.0)
+            ),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
     fn get_group_projects(
         &self,
-        group: &str,
+        group: &super::Group,
     ) -> Result<Vec<GitlabProject>, ApiError<GitlabApiErrorResponse>> {
         self.call_list(
             &format!(
                 "{}/api/v4/groups/{}/projects?include_subgroups=true&archived=false",
                 self.api_url(),
-                escape(group),
+                escape(&group.0),
             ),
             Some(ACCEPT_HEADER_JSON),
         )
@@ -146,13 +150,15 @@ impl Provider for Gitlab {
         )
     }
 
-    fn get_current_user(&self) -> Result<String, ApiError<GitlabApiErrorResponse>> {
-        Ok(super::call::<GitlabUser, GitlabApiErrorResponse>(
-            &format!("{}/api/v4/user", self.api_url()),
-            Self::auth_header_key(),
-            self.secret_token(),
-            Some(ACCEPT_HEADER_JSON),
-        )?
-        .username)
+    fn get_current_user(&self) -> Result<super::User, ApiError<GitlabApiErrorResponse>> {
+        Ok(super::User(
+            super::call::<GitlabUser, GitlabApiErrorResponse>(
+                &format!("{}/api/v4/user", self.api_url()),
+                Self::auth_header_key(),
+                self.secret_token(),
+                Some(ACCEPT_HEADER_JSON),
+            )?
+            .username,
+        ))
     }
 }

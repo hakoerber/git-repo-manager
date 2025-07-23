@@ -51,8 +51,18 @@ fn main() {
                         }
                     };
 
-                    let filter =
-                        provider::Filter::new(args.users, args.groups, args.owner, args.access);
+                    let filter = provider::Filter::new(
+                        args.users
+                            .into_iter()
+                            .map(|user| provider::User::new(user))
+                            .collect(),
+                        args.groups
+                            .into_iter()
+                            .map(|group| provider::Group::new(group))
+                            .collect(),
+                        args.owner,
+                        args.access,
+                    );
 
                     if filter.empty() {
                         print_warning("You did not specify any filters, so no repos will match");
@@ -293,8 +303,18 @@ fn main() {
                     });
 
                     let filter = provider::Filter::new(
-                        filters.users.unwrap_or_default(),
-                        filters.groups.unwrap_or_default(),
+                        filters
+                            .users
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(Into::into)
+                            .collect(),
+                        filters
+                            .groups
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(Into::into)
+                            .collect(),
                         filters.owner.unwrap_or(false),
                         filters.access.unwrap_or(false),
                     );
@@ -406,8 +426,18 @@ fn main() {
                         }
                     };
 
-                    let filter =
-                        provider::Filter::new(args.users, args.groups, args.owner, args.access);
+                    let filter = provider::Filter::new(
+                        args.users
+                            .into_iter()
+                            .map(|user| provider::User::new(user))
+                            .collect(),
+                        args.groups
+                            .into_iter()
+                            .map(|group| provider::Group::new(group))
+                            .collect(),
+                        args.owner,
+                        args.access,
+                    );
 
                     if filter.empty() {
                         print_warning("You did not specify any filters, so no repos will match");

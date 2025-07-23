@@ -3,13 +3,55 @@ use serde::{Deserialize, Serialize};
 pub mod github;
 pub mod gitlab;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 pub use github::Github;
 pub use gitlab::Gitlab;
 use thiserror::Error;
 
 use super::{auth, repo};
+
+#[derive(Clone)]
+pub struct User(String);
+
+impl User {
+    pub fn new(name: String) -> Self {
+        Self(name)
+    }
+}
+
+impl From<super::config::User> for User {
+    fn from(value: super::config::User) -> Self {
+        Self(value.into_username())
+    }
+}
+
+impl fmt::Display for User {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Clone)]
+pub struct Group(String);
+
+impl Group {
+    pub fn new(name: String) -> Self {
+        Self(name)
+    }
+}
+
+impl From<super::config::Group> for Group {
+    fn from(value: super::config::Group) -> Self {
+        Self(value.into_groupname())
+    }
+}
+
+impl fmt::Display for Group {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 const DEFAULT_REMOTE_NAME: &str = "origin";
 
@@ -72,14 +114,14 @@ pub trait Project {
 
 #[derive(Clone)]
 pub struct Filter {
-    users: Vec<String>,
-    groups: Vec<String>,
+    users: Vec<User>,
+    groups: Vec<Group>,
     owner: bool,
     access: bool,
 }
 
 impl Filter {
-    pub fn new(users: Vec<String>, groups: Vec<String>, owner: bool, access: bool) -> Self {
+    pub fn new(users: Vec<User>, groups: Vec<Group>, owner: bool, access: bool) -> Self {
         Self {
             users,
             groups,
@@ -140,9 +182,12 @@ pub trait Provider {
     fn secret_token(&self) -> &auth::AuthToken;
     fn auth_header_key() -> &'static str;
 
-    fn get_user_projects(&self, user: &str) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
+    fn get_user_projects(&self, user: &User) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
 
-    fn get_group_projects(&self, group: &str) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
+    fn get_group_projects(
+        &self,
+        group: &Group,
+    ) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
 
     fn get_own_projects(&self) -> Result<Vec<Self::Project>, ApiError<Self::Error>> {
         self.get_user_projects(&self.get_current_user()?)
@@ -150,7 +195,7 @@ pub trait Provider {
 
     fn get_accessible_projects(&self) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
 
-    fn get_current_user(&self) -> Result<String, ApiError<Self::Error>>;
+    fn get_current_user(&self) -> Result<User, ApiError<Self::Error>>;
 
     ///
     /// Calls the API at specific uri and expects a successful response of

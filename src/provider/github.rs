@@ -99,20 +99,23 @@ impl Provider for Github {
 
     fn get_user_projects(
         &self,
-        user: &str,
+        user: &super::User,
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/users/{}/repos", escape(user)),
+            &format!("{GITHUB_API_BASEURL}/users/{}/repos", escape(&user.0)),
             Some(ACCEPT_HEADER_JSON),
         )
     }
 
     fn get_group_projects(
         &self,
-        group: &str,
+        group: &super::Group,
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &format!("{GITHUB_API_BASEURL}/orgs/{}/repos?type=all", escape(group)),
+            &format!(
+                "{GITHUB_API_BASEURL}/orgs/{}/repos?type=all",
+                escape(&group.0)
+            ),
             Some(ACCEPT_HEADER_JSON),
         )
     }
@@ -126,13 +129,15 @@ impl Provider for Github {
         )
     }
 
-    fn get_current_user(&self) -> Result<String, ApiError<GithubApiErrorResponse>> {
-        Ok(super::call::<GithubUser, GithubApiErrorResponse>(
-            &format!("{GITHUB_API_BASEURL}/user"),
-            Self::auth_header_key(),
-            self.secret_token(),
-            Some(ACCEPT_HEADER_JSON),
-        )?
-        .username)
+    fn get_current_user(&self) -> Result<super::User, ApiError<GithubApiErrorResponse>> {
+        Ok(super::User(
+            super::call::<GithubUser, GithubApiErrorResponse>(
+                &format!("{GITHUB_API_BASEURL}/user"),
+                Self::auth_header_key(),
+                self.secret_token(),
+                Some(ACCEPT_HEADER_JSON),
+            )?
+            .username,
+        ))
     }
 }

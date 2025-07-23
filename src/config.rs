@@ -34,13 +34,31 @@ pub struct ConfigTrees {
     pub trees: Vec<ConfigTree>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct User(String);
+
+impl User {
+    pub fn into_username(self) -> String {
+        self.0
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Group(String);
+
+impl Group {
+    pub fn into_groupname(self) -> String {
+        self.0
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigProviderFilter {
     pub access: Option<bool>,
     pub owner: Option<bool>,
-    pub users: Option<Vec<String>>,
-    pub groups: Option<Vec<String>>,
+    pub users: Option<Vec<User>>,
+    pub groups: Option<Vec<Group>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -194,8 +212,18 @@ impl Config {
                 });
 
                 let filter = Filter::new(
-                    filters.users.unwrap_or_default(),
-                    filters.groups.unwrap_or_default(),
+                    filters
+                        .users
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                    filters
+                        .groups
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
                     filters.owner.unwrap_or(false),
                     filters.access.unwrap_or(false),
                 );
