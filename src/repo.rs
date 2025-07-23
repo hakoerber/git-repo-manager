@@ -1,5 +1,5 @@
 use std::{
-    iter,
+    fmt, iter,
     path::{Path, PathBuf},
 };
 
@@ -68,6 +68,15 @@ pub enum GitPushDefaultSetting {
     Upstream,
 }
 
+#[derive(Debug)]
+pub struct GitConfigKey(String);
+
+impl fmt::Display for GitConfigKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Error reading configuration file \"{:?}\": {}", .path, .message)]
@@ -97,7 +106,7 @@ pub enum Error {
     #[error("No branch checked out")]
     NoBranchCheckedOut,
     #[error("Could not set {key}: {error}", key = .key, error = .error)]
-    GitConfigSetError { key: String, error: String },
+    GitConfigSetError { key: GitConfigKey, error: String },
     #[error(transparent)]
     WorktreeConversionFailure(WorktreeConversionFailureReason),
     #[error(transparent)]
@@ -787,7 +796,7 @@ impl RepoHandle {
         config
             .set_bool(GIT_CONFIG_BARE_KEY, value)
             .map_err(|error| Error::GitConfigSetError {
-                key: GIT_CONFIG_BARE_KEY.to_owned(),
+                key: GitConfigKey(GIT_CONFIG_BARE_KEY.to_owned()),
                 error: error.to_string(),
             })
     }
@@ -904,7 +913,7 @@ impl RepoHandle {
                 },
             )
             .map_err(|error| Error::GitConfigSetError {
-                key: GIT_CONFIG_BARE_KEY.to_owned(),
+                key: GitConfigKey(GIT_CONFIG_BARE_KEY.to_owned()),
                 error: error.to_string(),
             })
     }
