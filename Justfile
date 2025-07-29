@@ -48,6 +48,9 @@ pushall:
 release-patch:
     ./release.sh patch
 
+release-minor:
+    ./release.sh minor
+
 test-binary:
     env \
         GITHUB_API_BASEURL=http://rest:5000/github \
