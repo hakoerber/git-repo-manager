@@ -66,6 +66,20 @@ impl JsonError for GithubApiErrorResponse {
 pub struct Github {
     filter: Filter,
     secret_token: auth::AuthToken,
+    api_url_override: Option<Url>,
+}
+
+impl Github {
+    fn api_url(&self) -> Url {
+        Url::new(
+            self.api_url_override
+                .as_ref()
+                .map(Url::as_str)
+                .unwrap_or(GITHUB_API_BASEURL.as_str())
+                .trim_end_matches('/')
+                .to_owned(),
+        )
+    }
 }
 
 impl Provider for Github {
@@ -77,14 +91,10 @@ impl Provider for Github {
         secret_token: auth::AuthToken,
         api_url_override: Option<Url>,
     ) -> Result<Self, Error> {
-        if api_url_override.is_some() {
-            return Err(Error::Provider(
-                "API URL overriding is not supported for Github".to_owned(),
-            ));
-        }
         Ok(Self {
             filter,
             secret_token,
+            api_url_override,
         })
     }
 
@@ -107,7 +117,7 @@ impl Provider for Github {
         self.call_list(
             &Url::new(format!(
                 "{}/users/{}/repos",
-                GITHUB_API_BASEURL.as_str(),
+                self.api_url().as_str(),
                 escape(&user.0)
             )),
             Some(ACCEPT_HEADER_JSON),
@@ -121,7 +131,7 @@ impl Provider for Github {
         self.call_list(
             &Url::new(format!(
                 "{}/orgs/{}/repos?type=all",
-                GITHUB_API_BASEURL.as_str(),
+                self.api_url().as_str(),
                 escape(&group.0)
             )),
             Some(ACCEPT_HEADER_JSON),
@@ -132,7 +142,7 @@ impl Provider for Github {
         &self,
     ) -> Result<Vec<GithubProject>, ApiError<GithubApiErrorResponse>> {
         self.call_list(
-            &Url::new(format!("{}/user/repos", GITHUB_API_BASEURL.as_str())),
+            &Url::new(format!("{}/user/repos", self.api_url().as_str())),
             Some(ACCEPT_HEADER_JSON),
         )
     }
@@ -140,7 +150,7 @@ impl Provider for Github {
     fn get_current_user(&self) -> Result<super::User, ApiError<GithubApiErrorResponse>> {
         Ok(super::User(
             super::call::<GithubUser, GithubApiErrorResponse>(
-                &format!("{}/user", GITHUB_API_BASEURL.as_str()),
+                &format!("{}/user", self.api_url().as_str()),
                 Self::auth_header_key(),
                 self.secret_token(),
                 Some(ACCEPT_HEADER_JSON),

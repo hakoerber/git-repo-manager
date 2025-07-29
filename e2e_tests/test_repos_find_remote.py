@@ -326,11 +326,6 @@ def test_repos_find_remote_user(
             args += ["--format", configtype]
         cmd = grm(args)
 
-    if use_alternate_endpoint and provider == "github":
-        assert cmd.returncode != 0
-        assert "overriding is not supported for github" in cmd.stderr.lower()
-        return
-
     assert cmd.returncode == 0
     assert len(cmd.stderr) == 0
 
@@ -426,10 +421,6 @@ def test_repos_find_remote_group_empty(
             args += ["--format", configtype]
         cmd = grm(args)
 
-    if use_alternate_endpoint and provider == "github":
-        assert cmd.returncode != 0
-        assert "overriding is not supported for github" in cmd.stderr.lower()
-        return
     assert cmd.returncode == 0
     assert len(cmd.stderr) == 0
 
@@ -514,10 +505,6 @@ def test_repos_find_remote_group(
         if not configtype_default:
             args += ["--format", configtype]
         cmd = grm(args)
-    if use_alternate_endpoint and provider == "github":
-        assert cmd.returncode != 0
-        assert "overriding is not supported for github" in cmd.stderr.lower()
-        return
     assert cmd.returncode == 0
     assert len(cmd.stderr) == 0
 
@@ -639,10 +626,6 @@ def test_repos_find_remote_user_and_group(
         if not configtype_default:
             args += ["--format", configtype]
         cmd = grm(args)
-    if use_alternate_endpoint and provider == "github":
-        assert cmd.returncode != 0
-        assert "overriding is not supported for github" in cmd.stderr.lower()
-        return
     assert cmd.returncode == 0
     assert len(cmd.stderr) == 0
 
@@ -790,10 +773,6 @@ def test_repos_find_remote_owner(
         if not configtype_default:
             args += ["--format", configtype]
         cmd = grm(args)
-    if use_alternate_endpoint and provider == "github":
-        assert cmd.returncode != 0
-        assert "overriding is not supported for github" in cmd.stderr.lower()
-        return
     assert cmd.returncode == 0
     assert len(cmd.stderr) == 0
 
