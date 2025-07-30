@@ -32,24 +32,17 @@
       pname = "grm"; # otherwise `nix run` looks for git-repo-manager
 
       src = craneLib.cleanCargoSource (craneLib.path ./.);
-      buildInputs = with pkgs;
-        [
-          # tools
-          pkg-config
-          rustToolchain
-          # deps
-          git
-          openssl
-          openssl.dev
-          zlib
-          zlib.dev
-        ]
-        ++ lib.optional stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
-          CoreFoundation
-          CoreServices
-          Security
-          SystemConfiguration
-        ]);
+      buildInputs = with pkgs; [
+        # tools
+        pkg-config
+        rustToolchain
+        # deps
+        git
+        openssl
+        openssl.dev
+        zlib
+        zlib.dev
+      ];
 
       meta.mainProgram = "grm";
     };
