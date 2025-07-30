@@ -3,7 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
 
     crane = {
       url = "github:ipetkov/crane";
@@ -17,7 +16,6 @@
   outputs = {
     self,
     nixpkgs,
-    flake-utils,
     crane,
     rust-overlay,
   }: let
@@ -32,6 +30,7 @@
       craneLib = mkCraneLib pkgs;
     in {
       pname = "grm"; # otherwise `nix run` looks for git-repo-manager
+
       src = craneLib.cleanCargoSource (craneLib.path ./.);
       buildInputs = with pkgs;
         [
@@ -51,6 +50,8 @@
           Security
           SystemConfiguration
         ]);
+
+      meta.mainProgram = "grm";
     };
 
     forAllSystems = function:
@@ -80,8 +81,9 @@
     apps = forAllSystems (pkgs: _: _: {
       default = self.apps.${pkgs.system}.git-repo-manager;
 
-      git-repo-manager = flake-utils.lib.mkApp {
-        drv = self.packages.${pkgs.system}.git-repo-manager;
+      git-repo-manager = {
+        type = "app";
+        program = lib.getExe self.packages.${pkgs.system}.git-repo-manager;
       };
     });
 
