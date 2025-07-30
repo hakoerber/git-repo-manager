@@ -20,91 +20,102 @@
     flake-utils,
     crane,
     rust-overlay,
-  }:
-    {
-      overlays = {
-        git-repo-manager = final: prev: {
-          git-repo-manager = self.packages.${prev.stdenv.system}.default;
-        };
-      };
-    }
-    // flake-utils.lib.eachDefaultSystem (
-      system: let
-        pkgs =
-          import nixpkgs
-          {
+  }: let
+    inherit (nixpkgs) lib;
+
+    mkCraneLib = pkgs:
+      (crane.mkLib pkgs).overrideToolchain
+      pkgs.rust-bin.stable.latest.default;
+
+    mkEnvironment = pkgs: let
+      rustToolchain = pkgs.rust-bin.stable.latest.default;
+      craneLib = mkCraneLib pkgs;
+    in {
+      pname = "grm"; # otherwise `nix run` looks for git-repo-manager
+      src = craneLib.cleanCargoSource (craneLib.path ./.);
+      buildInputs = with pkgs;
+        [
+          # tools
+          pkg-config
+          rustToolchain
+          # deps
+          git
+          openssl
+          openssl.dev
+          zlib
+          zlib.dev
+        ]
+        ++ lib.optional stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
+          CoreFoundation
+          CoreServices
+          Security
+          SystemConfiguration
+        ]);
+    };
+
+    forAllSystems = function:
+      lib.genAttrs
+      ["x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin"]
+      (
+        system: let
+          pkgs = import nixpkgs {
             inherit system;
             overlays = [
               rust-overlay.overlays.default
             ];
           };
+        in
+          function
+          pkgs
+          (mkEnvironment pkgs)
+          (mkCraneLib pkgs)
+      );
+  in {
+    overlays = {
+      git-repo-manager = final: prev: {
+        git-repo-manager = self.packages.${prev.stdenv.system}.default;
+      };
+    };
 
-        rustToolchain = pkgs.rust-bin.stable.latest.default;
-        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+    apps = forAllSystems (pkgs: _: _: {
+      default = self.apps.${pkgs.system}.git-repo-manager;
 
-        environment = with pkgs; {
-          pname = "grm"; # otherwise `nix run` looks for git-repo-manager
-          src = craneLib.cleanCargoSource (craneLib.path ./.);
+      git-repo-manager = flake-utils.lib.mkApp {
+        drv = self.packages.${pkgs.system}.git-repo-manager;
+      };
+    });
+
+    checks = forAllSystems (pkgs: _: _: {
+      pkg = self.packages.${pkgs.system}.default;
+      shl = self.devShells.${pkgs.system}.default;
+    });
+
+    devShells = forAllSystems (pkgs: environment: _: {
+      default = pkgs.mkShell (environment
+        // {
           buildInputs =
-            [
-              # tools
-              pkg-config
-              rustToolchain
-              # deps
-              git
-              openssl
-              openssl.dev
-              zlib
-              zlib.dev
-            ]
-            ++ lib.optional stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
-              CoreFoundation
-              CoreServices
-              Security
-              SystemConfiguration
+            environment.buildInputs
+            ++ (with pkgs; [
+              alejandra # nix formatting
+              black
+              isort
+              just
+              mdbook
+              python3
+              ruff
+              shellcheck
+              shfmt
             ]);
-        };
-      in {
-        apps = {
-          default = self.apps.${system}.git-repo-manager;
+        });
+    });
 
-          git-repo-manager = flake-utils.lib.mkApp {
-            drv = self.packages.${system}.git-repo-manager;
-          };
-        };
+    packages = forAllSystems (pkgs: environment: craneLib: {
+      default = self.packages.${pkgs.system}.git-repo-manager;
 
-        checks = {
-          pkg = self.packages.${system}.default;
-          shl = self.devShells.${system}.default;
-        };
-
-        devShells = {
-          default = pkgs.mkShell (environment
-            // {
-              buildInputs =
-                environment.buildInputs
-                ++ (with pkgs; [
-                  alejandra # nix formatting
-                  black
-                  isort
-                  just
-                  mdbook
-                  python3
-                  ruff
-                  shellcheck
-                  shfmt
-                ]);
-            });
-        };
-
-        packages = {
-          default = self.packages.${system}.git-repo-manager;
-
-          git-repo-manager = craneLib.buildPackage (environment
-            // {
-              cargoArtifacts = craneLib.buildDepsOnly environment;
-            });
-        };
-      }
-    );
+      git-repo-manager = craneLib.buildPackage (environment
+        // {
+          cargoArtifacts = craneLib.buildDepsOnly environment;
+        });
+    });
+  };
 }
