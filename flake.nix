@@ -79,9 +79,6 @@
 
         nativeBuildInputs = [pkgs.pkg-config];
         buildInputs = with pkgs; [
-          # tools
-          pkg-config
-          # deps
           git
           openssl
           openssl.dev
