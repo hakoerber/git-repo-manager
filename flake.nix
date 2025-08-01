@@ -2,109 +2,103 @@
   description = "git-repo-manager";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-    flake-utils.url = "github:numtide/flake-utils";
-
-    crane = {
-      url = "github:ipetkov/crane";
-    };
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs = {
     self,
     nixpkgs,
-    flake-utils,
-    crane,
-    rust-overlay,
-  }:
-    {
-      overlays = {
-        git-repo-manager = final: prev: {
-          git-repo-manager = self.packages.${prev.stdenv.system}.default;
-        };
+  }: let
+    inherit (nixpkgs) lib;
+
+    forAllSystems = function:
+      lib.genAttrs
+      ["x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin"]
+      (system: function nixpkgs.legacyPackages.${system});
+  in {
+    overlays = {
+      git-repo-manager = final: prev: {
+        git-repo-manager = self.packages.${prev.stdenv.system}.default;
       };
-    }
-    // flake-utils.lib.eachDefaultSystem (
-      system: let
-        pkgs =
-          import nixpkgs
-          {
-            inherit system;
-            overlays = [
-              rust-overlay.overlays.default
+    };
+
+    apps = forAllSystems (pkgs: {
+      default = self.apps.${pkgs.system}.git-repo-manager;
+
+      git-repo-manager = {
+        type = "app";
+        program = lib.getExe self.packages.${pkgs.system}.git-repo-manager;
+      };
+    });
+
+    checks = forAllSystems (pkgs: {
+      pkg = self.packages.${pkgs.system}.default;
+      shl = self.devShells.${pkgs.system}.default;
+    });
+
+    devShells = forAllSystems (pkgs: {
+      default = pkgs.mkShell {
+        buildInputs =
+          [self.packages.${pkgs.system}.default]
+          ++ (with pkgs; [
+            alejandra # nix formatting
+            black
+            isort
+            just
+            mdbook
+            python3
+            ruff
+            shellcheck
+            shfmt
+          ]);
+      };
+    });
+
+    packages = forAllSystems (pkgs: {
+      default = self.packages.${pkgs.system}.git-repo-manager;
+
+      git-repo-manager = pkgs.rustPlatform.buildRustPackage {
+        name = "grm"; # otherwise `nix run` looks for git-repo-manager
+
+        src = lib.cleanSourceWith {
+          src = lib.cleanSource ./.;
+
+          # Core logic from https://github.com/ipetkov/crane/blob/master/lib/filterCargoSources.nix
+          filter = orig: type: let
+            filename = baseNameOf (toString orig);
+            parentDir = baseNameOf (dirOf (toString orig));
+
+            validFiletype = lib.any (suffix: lib.hasSuffix suffix filename) [
+              # Keep rust sources
+              ".rs"
+              # Keep all toml files as they are commonly used to configure other
+              # cargo-based tools
+              ".toml"
             ];
-          };
-
-        rustToolchain = pkgs.rust-bin.stable.latest.default;
-        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-
-        environment = with pkgs; {
-          pname = "grm"; # otherwise `nix run` looks for git-repo-manager
-          src = craneLib.cleanCargoSource (craneLib.path ./.);
-          buildInputs =
-            [
-              # tools
-              pkg-config
-              rustToolchain
-              # deps
-              git
-              openssl
-              openssl.dev
-              zlib
-              zlib.dev
-            ]
-            ++ lib.optional stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
-              CoreFoundation
-              CoreServices
-              Security
-              SystemConfiguration
-            ]);
-        };
-      in {
-        apps = {
-          default = self.apps.${system}.git-repo-manager;
-
-          git-repo-manager = flake-utils.lib.mkApp {
-            drv = self.packages.${system}.git-repo-manager;
-          };
+          in
+            validFiletype
+            # Cargo.toml already captured above
+            || filename == "Cargo.lock"
+            # .cargo/config.toml already captured above
+            || parentDir == ".cargo" && filename == "config"
+            || type == "directory";
         };
 
-        checks = {
-          pkg = self.packages.${system}.default;
-          shl = self.devShells.${system}.default;
+        cargoLock = {
+          lockFile = ./Cargo.lock;
         };
 
-        devShells = {
-          default = pkgs.mkShell (environment
-            // {
-              buildInputs =
-                environment.buildInputs
-                ++ (with pkgs; [
-                  alejandra # nix formatting
-                  black
-                  isort
-                  just
-                  mdbook
-                  python3
-                  ruff
-                  shellcheck
-                  shfmt
-                ]);
-            });
-        };
+        nativeBuildInputs = [pkgs.pkg-config];
+        buildInputs = with pkgs; [
+          git
+          openssl
+          openssl.dev
+          zlib
+          zlib.dev
+        ];
 
-        packages = {
-          default = self.packages.${system}.git-repo-manager;
-
-          git-repo-manager = craneLib.buildPackage (environment
-            // {
-              cargoArtifacts = craneLib.buildDepsOnly environment;
-            });
-        };
-      }
-    );
+        meta.mainProgram = "grm";
+      };
+    });
+  };
 }
