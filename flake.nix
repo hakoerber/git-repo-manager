@@ -2,7 +2,7 @@
   description = "git-repo-manager";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     flake-utils.url = "github:numtide/flake-utils";
 
     crane = {
@@ -56,13 +56,7 @@
               openssl.dev
               zlib
               zlib.dev
-            ]
-            ++ lib.optional stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
-              CoreFoundation
-              CoreServices
-              Security
-              SystemConfiguration
-            ]);
+            ];
         };
       in {
         apps = {
