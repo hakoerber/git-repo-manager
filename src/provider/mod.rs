@@ -120,13 +120,13 @@ impl ProjectName {
     }
 }
 
-impl From<repo::ProjectName> for ProjectName {
-    fn from(other: repo::ProjectName) -> Self {
+impl From<repo::RepoName> for ProjectName {
+    fn from(other: repo::RepoName) -> Self {
         Self(other.into_string())
     }
 }
 
-impl From<ProjectName> for repo::ProjectName {
+impl From<ProjectName> for repo::RepoName {
     fn from(other: ProjectName) -> Self {
         Self::new(other.into_string())
     }
@@ -149,13 +149,13 @@ impl ProjectNamespace {
     }
 }
 
-impl From<repo::ProjectNamespace> for ProjectNamespace {
-    fn from(other: repo::ProjectNamespace) -> Self {
+impl From<repo::RepoNamespace> for ProjectNamespace {
+    fn from(other: repo::RepoNamespace) -> Self {
         Self(other.into_string())
     }
 }
 
-impl From<ProjectNamespace> for repo::ProjectNamespace {
+impl From<ProjectNamespace> for repo::RepoNamespace {
     fn from(other: ProjectNamespace) -> Self {
         Self::new(other.into_string())
     }

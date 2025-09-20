@@ -210,10 +210,10 @@ fn sync_trees(
                 match message {
                     SyncTreesMessage::SyncTreeMessage(message) => match message {
                         Ok(message) => match message {
-                            tree::SyncTreeMessage::Cloning((project_name, url)) => {
+                            tree::SyncTreeMessage::Cloning((repo_name, url)) => {
                                 print_action(&format!(
                                     "Cloning into \"{}\" from \"{}\"",
-                                    &project_name.display(),
+                                    &repo_name.display(),
                                     &url
                                 ));
                             }
@@ -232,22 +232,22 @@ fn sync_trees(
                             tree::SyncTreeMessage::Created(repo_name) => {
                                 print_repo_success(repo_name.as_str(), "Repository created");
                             }
-                            tree::SyncTreeMessage::SyncDone(project_name) => {
-                                print_repo_success(project_name.as_str(), "OK");
+                            tree::SyncTreeMessage::SyncDone(repo_name) => {
+                                print_repo_success(repo_name.as_str(), "OK");
                             }
-                            tree::SyncTreeMessage::SkippingWorktreeInit(project_name) => {
+                            tree::SyncTreeMessage::SkippingWorktreeInit(repo_name) => {
                                 print_repo_error(
-                                    project_name.as_str(),
+                                    repo_name.as_str(),
                                     "Could not determine default branch, skipping worktree initializtion",
                                 );
                             }
                             tree::SyncTreeMessage::UpdatingRemote((
-                                project_name,
+                                repo_name,
                                 remote_name,
                                 remote_url,
                             )) => {
                                 print_repo_action(
-                                    project_name.as_str(),
+                                    repo_name.as_str(),
                                     &format!(
                                         "Updating remote {} to \"{}\"",
                                         &remote_name, &remote_url
@@ -255,21 +255,21 @@ fn sync_trees(
                                 );
                             }
                             tree::SyncTreeMessage::CreateRemote((
-                                project_name,
+                                repo_name,
                                 remote_name,
                                 remote_url,
                             )) => {
                                 print_repo_action(
-                                    project_name.as_str(),
+                                    repo_name.as_str(),
                                     &format!(
                                         "Setting up new remote \"{}\" to \"{}\"",
                                         &remote_name, &remote_url
                                     ),
                                 );
                             }
-                            tree::SyncTreeMessage::DeleteRemote((project_name, remote_name)) => {
+                            tree::SyncTreeMessage::DeleteRemote((repo_name, remote_name)) => {
                                 print_repo_action(
-                                    project_name.as_str(),
+                                    repo_name.as_str(),
                                     &format!("Deleting remote \"{}\"", &remote_name),
                                 );
                             }

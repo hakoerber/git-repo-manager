@@ -12,7 +12,7 @@ use super::{
         self,
         worktree::{WorktreeName, WorktreeSetup},
     },
-    repo::{ProjectName, RepoHandle},
+    repo::{RepoHandle, RepoName},
     tree,
 };
 
@@ -35,13 +35,13 @@ pub enum Error {
     #[error("Found {path}, which is not a valid worktree directory!")]
     InvalidWorktreeDirectory { path: PathBuf },
     #[error("Repository \"{name}\" does not exist. Run sync?")]
-    RepoDoesNotExist { name: ProjectName },
+    RepoDoesNotExist { name: RepoName },
     #[error("No git repository for \"{name}\" found. Run sync?")]
-    RepoNotGit { name: ProjectName },
+    RepoNotGit { name: RepoName },
     #[error("Opening repository \"{name}\" failed: {message}")]
-    RepoOpenFailed { name: ProjectName, message: String },
+    RepoOpenFailed { name: RepoName, message: String },
     #[error("Couldn't add repo status for \"{name}\": {message}")]
-    RepoStatusFailed { name: ProjectName, message: String },
+    RepoStatusFailed { name: RepoName, message: String },
 }
 
 fn add_table_header(table: &mut Table) {
@@ -60,7 +60,7 @@ fn add_table_header(table: &mut Table) {
 
 fn add_repo_status(
     table: &mut Table,
-    repo_name: Option<&ProjectName>,
+    repo_name: Option<&RepoName>,
     repo_handle: &RepoHandle,
     worktree_setup: WorktreeSetup,
 ) -> Result<(), Error> {
@@ -349,7 +349,7 @@ pub fn show_single_repo_status(
                 ));
                 None
             }
-            Some(name) => Some(ProjectName::new(name.to_owned())),
+            Some(name) => Some(RepoName::new(name.to_owned())),
         },
     };
 

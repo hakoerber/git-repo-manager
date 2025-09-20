@@ -12,7 +12,7 @@ use thiserror::Error;
 use super::{
     RemoteName, RemoteUrl, SyncTreesMessage, config, path,
     repo::{
-        self, ProjectName,
+        self, RepoName,
         worktree::{self, WorktreeName, WorktreeSetup},
     },
     send_msg,
@@ -141,14 +141,14 @@ impl OperationResult {
 
 pub enum SyncTreeMessage {
     Cloning((PathBuf, RemoteUrl)),
-    Cloned(ProjectName),
-    Init(ProjectName),
-    Created(ProjectName),
-    SyncDone(ProjectName),
-    SkippingWorktreeInit(ProjectName),
-    UpdatingRemote((ProjectName, RemoteName, RemoteUrl)),
-    CreateRemote((ProjectName, RemoteName, RemoteUrl)),
-    DeleteRemote((ProjectName, RemoteName)),
+    Cloned(RepoName),
+    Init(RepoName),
+    Created(RepoName),
+    SyncDone(RepoName),
+    SkippingWorktreeInit(RepoName),
+    UpdatingRemote((RepoName, RemoteName, RemoteUrl)),
+    CreateRemote((RepoName, RemoteName, RemoteUrl)),
+    DeleteRemote((RepoName, RemoteName)),
 }
 
 pub fn sync_trees(

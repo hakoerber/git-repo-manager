@@ -318,8 +318,8 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                 };
 
                 repos.push(repo::Repo {
-                    name: repo::ProjectName::new(name),
-                    namespace: namespace.map(repo::ProjectNamespace::new),
+                    name: repo::RepoName::new(name),
+                    namespace: namespace.map(repo::RepoNamespace::new),
                     remotes,
                     worktree_setup,
                 });
@@ -373,7 +373,7 @@ pub fn find_in_tree(
 }
 
 pub enum SyncTreesMessage {
-    SyncTreeMessage(Result<tree::SyncTreeMessage, (repo::ProjectName, Error)>),
+    SyncTreeMessage(Result<tree::SyncTreeMessage, (repo::RepoName, Error)>),
     GetTreeWarning(Warning),
 }
 
