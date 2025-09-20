@@ -692,6 +692,15 @@ pub enum Error {
     WorktreeAlreadyExists { name: WorktreeName },
 }
 
+pub enum TrackingSelection {
+    Explicit {
+        remote_name: RemoteName,
+        remote_branch_name: BranchName,
+    },
+    Automatic,
+    Disabled,
+}
+
 // TECHDEBT
 //
 // Instead of opening the repo & reading configuration inside the function, it
@@ -699,8 +708,7 @@ pub enum Error {
 pub fn add_worktree(
     directory: &Path,
     name: &WorktreeName,
-    track: Option<(RemoteName, BranchName)>,
-    no_track: bool,
+    tracking_selection: &TrackingSelection,
 ) -> Result<Option<Vec<Warning>>, Error> {
     let mut warnings: Vec<Warning> = vec![];
 
@@ -765,8 +773,10 @@ pub fn add_worktree(
             clippy::pattern_type_mismatch,
             reason = "i cannot get this to work properly, but it's fine as it is"
         )]
-        if let Some((remote_name, remote_branch_name)) =
-            if no_track { None } else { track.as_ref() }
+        if let TrackingSelection::Explicit {
+            remote_name,
+            remote_branch_name,
+        } = tracking_selection
         {
             if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
                 worktree.select_commit(Some(Box::new(remote_branch.commit_owned()?)))
@@ -895,11 +905,15 @@ pub fn add_worktree(
         }
     };
 
-    let worktree = if no_track {
+    let worktree = if matches!(*tracking_selection, TrackingSelection::Disabled) {
         worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
-    } else if let Some((remote_name, remote_branch_name)) = track {
+    } else if let TrackingSelection::Explicit {
+        ref remote_name,
+        ref remote_branch_name,
+    } = *tracking_selection
+    {
         worktree.set_remote_tracking_branch(
-            Some((&remote_name, &remote_branch_name)),
+            Some((remote_name, remote_branch_name)),
             None, // Always disable prefixing when explicitly given --track
         )
     } else if !enable_tracking {
@@ -947,8 +961,7 @@ mod tests {
             add_worktree(
                 Path::new("/tmp/"),
                 &WorktreeName::new("/leadingslash".to_owned()),
-                None,
-                false
+                &TrackingSelection::Automatic
             )
             .is_err()
         );
@@ -956,8 +969,7 @@ mod tests {
             add_worktree(
                 Path::new("/tmp/"),
                 &WorktreeName::new("trailingslash/".to_owned()),
-                None,
-                false
+                &TrackingSelection::Automatic
             )
             .is_err()
         );
@@ -965,8 +977,7 @@ mod tests {
             add_worktree(
                 Path::new("/tmp/"),
                 &WorktreeName::new("//".to_owned()),
-                None,
-                false
+                &TrackingSelection::Automatic
             )
             .is_err()
         );
@@ -974,8 +985,7 @@ mod tests {
             add_worktree(
                 Path::new("/tmp/"),
                 &WorktreeName::new("test//test".to_owned()),
-                None,
-                false
+                &TrackingSelection::Automatic
             )
             .is_err()
         );
@@ -983,8 +993,7 @@ mod tests {
             add_worktree(
                 Path::new("/tmp/"),
                 &WorktreeName::new("test test".to_owned()),
-                None,
-                false
+                &TrackingSelection::Automatic
             )
             .is_err()
         );
@@ -992,8 +1001,7 @@ mod tests {
             add_worktree(
                 Path::new("/tmp/"),
                 &WorktreeName::new("test\ttest".to_owned()),
-                None,
-                false
+                &TrackingSelection::Automatic
             )
             .is_err()
         );

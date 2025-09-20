@@ -323,8 +323,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                 worktree::add_worktree(
                     &repo_path,
                     &WorktreeName::new(branch.name()?.into_string()),
-                    None,
-                    false,
+                    &worktree::TrackingSelection::Automatic,
                 )?;
             }
             Err(_error) => print_repo_error(

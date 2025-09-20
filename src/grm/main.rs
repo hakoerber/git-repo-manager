@@ -529,11 +529,21 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
         })
         .transpose()?;
 
+    let tracking_config = if args.no_track {
+        worktree::TrackingSelection::Disabled
+    } else if let Some((remote_name, remote_branch_name)) = track {
+        worktree::TrackingSelection::Explicit {
+            remote_name,
+            remote_branch_name,
+        }
+    } else {
+        worktree::TrackingSelection::Automatic
+    };
+
     let warnings = worktree::add_worktree(
         &cwd,
         &WorktreeName::new(args.name.clone()),
-        track,
-        args.no_track,
+        &tracking_config,
     )
     .map_err(|e| MainError::CreateWorktree(e))?;
 
