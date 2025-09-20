@@ -25,7 +25,7 @@ use grm::{
     auth::{self, AuthToken},
     config, exec_with_result_channel, find_in_tree, get_trees, path,
     provider::{self, Filter, ProjectNamespace, ProtocolConfig, Provider, RemoteProvider},
-    repo::{self, RepoChanges, WorktreeError, WorktreeName},
+    repo::{self, RepoChanges, WorktreeError, WorktreeName, WorktreeRepoHandle},
     table, tree,
 };
 
@@ -674,8 +674,10 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
         repo::TrackingSelection::Automatic
     };
 
+    let repo = WorktreeRepoHandle::open(&cwd).map_err(|e| MainError::OpenRepo(e))?;
+
     let warnings = repo::add_worktree(
-        &cwd,
+        &repo,
         &WorktreeName::new(args.name.clone()).map_err(MainError::InvalidWorktreeName)?,
         &tracking_config,
     )

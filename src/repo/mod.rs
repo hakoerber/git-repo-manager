@@ -421,6 +421,10 @@ impl RepoHandle {
         Ok(path::from_std_path(self.0.path())?)
     }
 
+    pub fn commondir(&self) -> Result<&Path, Error> {
+        Ok(path::from_std_path(self.0.commondir())?)
+    }
+
     pub fn stash(&self) -> Result<(), Error> {
         let head_branch = self.head_branch()?;
         let head = head_branch.commit()?;

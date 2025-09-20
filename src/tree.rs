@@ -8,7 +8,7 @@ use thiserror::Error;
 
 use super::{
     RemoteName, RemoteUrl, SyncTreesMessage, config, path,
-    repo::{self, RepoName, TrackingSelection, WorktreeName, WorktreeSetup},
+    repo::{self, RepoName, TrackingSelection, WorktreeName, WorktreeRepoHandle, WorktreeSetup},
     send_msg,
 };
 
@@ -356,11 +356,13 @@ fn sync_repo(
             }
         };
 
-    if newly_created && repo.worktree_setup.is_worktree() && init_worktree {
+    let repo_handle = if newly_created && repo.worktree_setup.is_worktree() && init_worktree {
+        let repo_handle = WorktreeRepoHandle::from_handle_unchecked(repo_handle);
+
         match repo_handle.default_branch() {
             Ok(branch) => {
                 repo::add_worktree(
-                    &repo_path,
+                    &repo_handle,
                     &WorktreeName::new(branch.name()?.into_string())?,
                     &TrackingSelection::Automatic,
                 )?;
@@ -372,7 +374,11 @@ fn sync_repo(
                 ))),
             ),
         }
-    }
+
+        repo_handle.into_handle()
+    } else {
+        repo_handle
+    };
 
     let current_remotes = repo_handle.remotes()?;
 

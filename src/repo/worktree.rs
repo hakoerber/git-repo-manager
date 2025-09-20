@@ -899,6 +899,8 @@ pub enum Error {
     WorktreeNameNotUtf8,
     #[error(transparent)]
     Path(#[from] path::Error),
+    #[error("Could not determine base directory from \"{git_dir}\"")]
+    InvalidBaseDirectory { git_dir: PathBuf },
 }
 
 pub enum TrackingSelection {
@@ -910,26 +912,19 @@ pub enum TrackingSelection {
     Disabled,
 }
 
-// TECHDEBT
-//
-// Instead of opening the repo & reading configuration inside the function, it
-// should be done by the caller and given as a parameter
 pub fn add_worktree(
-    directory: &Path,
+    repo: &WorktreeRepoHandle,
     name: &WorktreeName,
     tracking_selection: &TrackingSelection,
 ) -> Result<Option<Vec<Warning>>, Error> {
     let mut warnings: Vec<Warning> = vec![];
 
-    let repo = repo::WorktreeRepoHandle::open(directory).map_err(|error| match error {
-        repo::Error::RepoNotFound => Error::NotAWorktreeSetup,
-        _ => error.into(),
-    })?;
+    let repo_directory = repo.base_directory()?;
 
     let remotes = repo.as_repo().remotes()?;
 
     let config: Option<WorktreeRootConfig> =
-        config::read_worktree_root_config(directory)?.map(Into::into);
+        config::read_worktree_root_config(repo_directory)?.map(Into::into);
 
     if repo.find_worktree(name).is_ok() {
         return Err(Error::WorktreeAlreadyExists { name: name.clone() });
@@ -957,7 +952,7 @@ pub fn add_worktree(
     // first while still being borrowed by `Worktree`.
     let default_branch_head = repo.as_repo().default_branch()?.commit_owned()?;
 
-    let worktree = NewWorktree::<Init>::new(&repo)
+    let worktree = NewWorktree::<Init>::new(repo)
         .set_local_branch_name(&BranchName::new(name.as_str().to_owned()))?;
 
     let get_remote_head = |remote_name: &RemoteName,
@@ -1128,7 +1123,7 @@ pub fn add_worktree(
         }
     };
 
-    worktree.create(directory)?;
+    worktree.create(repo_directory)?;
 
     Ok(if warnings.is_empty() {
         None
@@ -1221,6 +1216,23 @@ impl WorktreeRepoHandle {
 
     pub fn as_repo(&self) -> &super::RepoHandle {
         &self.0
+    }
+
+    pub fn base_directory(&self) -> Result<&Path, Error> {
+        let commondir = self.0.commondir()?;
+        commondir
+            .parent()
+            .ok_or_else(|| Error::InvalidBaseDirectory {
+                git_dir: commondir.to_owned(),
+            })
+    }
+
+    pub fn from_handle_unchecked(handle: super::RepoHandle) -> Self {
+        Self(handle)
+    }
+
+    pub fn into_handle(self) -> super::RepoHandle {
+        self.0
     }
 
     pub fn find_worktree(&self, name: &WorktreeName) -> Result<(), Error> {
