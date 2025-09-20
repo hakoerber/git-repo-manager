@@ -982,14 +982,14 @@ pub fn add_worktree(
             remote_branch_name,
         } = tracking_selection
         {
-            if let Some(remote_branch) = repo
-                .as_repo()
-                .find_remote_branch(remote_name, remote_branch_name)?
-            {
-                worktree.select_commit(Some(remote_branch.commit_owned()?))
-            } else {
-                worktree.select_commit(Some(default_branch_head))
-            }
+            worktree.select_commit(Some(
+                repo.as_repo()
+                    .find_remote_branch(remote_name, remote_branch_name)?
+                    .map_or_else(
+                        || Ok(default_branch_head),
+                        |remote_branch| remote_branch.commit_owned(),
+                    )?,
+            ))
         } else {
             match remotes.len() {
                 0 => worktree.select_commit(Some(default_branch_head)),
@@ -1334,8 +1334,8 @@ impl WorktreeRepoHandle {
 
         let mut unmanaged_worktrees = Vec::new();
         for entry in directory.read_dir_utf8()? {
-            #[expect(clippy::missing_panics_doc, reason = "see expect() message")]
             let entry = entry?;
+            #[expect(clippy::missing_panics_doc, reason = "see expect() message")]
             let dirname = entry
                 .path()
                 .strip_prefix(directory)

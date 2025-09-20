@@ -653,10 +653,6 @@ impl RepoHandle {
         {
             match entry {
                 Ok(entry) => {
-                    #[expect(
-                        clippy::missing_panics_doc,
-                        reason = "the path will ALWAYS have a file component"
-                    )]
                     if entry.file_name() == worktree::GIT_MAIN_WORKTREE_DIRECTORY {
                         continue;
                     }
@@ -667,7 +663,7 @@ impl RepoHandle {
                                 error,
                             });
                         }
-                    } else if let Err(error) = std::fs::remove_dir_all(&entry.path()) {
+                    } else if let Err(error) = std::fs::remove_dir_all(entry.path()) {
                         return Err(WorktreeConversionError::RemoveError {
                             path: entry.into_path(),
                             error,

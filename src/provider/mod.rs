@@ -309,17 +309,11 @@ pub trait Provider {
             )
             .call()
         {
-            Err(ureq::Error::Http(error)) => return Err(format!("http error: {error}").into()),
-            Err(e) => return Err(format!("unknown error: {e}").into()),
+            Err(ureq::Error::Http(error)) => Err(format!("http error: {error}").into()),
+            Err(e) => Err(format!("unknown error: {e}").into()),
             Ok(mut response) => {
-                if !response.status().is_success() {
-                    let result: Self::Error = response
-                        .body_mut()
-                        .read_json()
-                        .map_err(|error| format!("Failed deserializing error response: {error}"))?;
-                    Err(ApiError::Json(result))
-                } else {
-                    let mut projcets = vec![];
+                if response.status().is_success() {
+                    let mut projects = vec![];
 
                     if let Some(link_header) = response.headers().get("link") {
                         let link_header = parse_link_header::parse(link_header.to_str()?)
@@ -330,7 +324,7 @@ pub trait Provider {
                         if let Some(page) = next_page {
                             let following_repos =
                                 self.call_list(&Url::new(page.raw_uri.clone()), accept_header)?;
-                            projcets.extend(following_repos);
+                            projects.extend(following_repos);
                         }
                     }
 
@@ -339,8 +333,12 @@ pub trait Provider {
                         .read_json()
                         .map_err(|error| format!("Failed deserializing response: {error}"))?;
 
-                    projcets.extend(result);
-                    Ok(projcets)
+                    projects.extend(result);
+                    Ok(projects)
+                } else {
+                    Err(ApiError::Json(response.body_mut().read_json().map_err(
+                        |error| format!("Failed deserializing error response: {error}"),
+                    )?))
                 }
             }
         }
@@ -475,7 +473,7 @@ where
         .call()
     {
         Err(ureq::Error::Http(error)) => Err(format!("http error: {error}").into()),
-        Err(e) => return Err(format!("unknown error: {e}").into()),
+        Err(e) => Err(format!("unknown error: {e}").into()),
         Ok(mut response) => {
             if response.status().is_success() {
                 Ok(response
