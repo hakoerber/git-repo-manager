@@ -103,6 +103,7 @@ pub struct FindConfigArgs {
 
 #[derive(Parser)]
 #[clap()]
+#[expect(clippy::struct_excessive_bools, reason = "fine for an args struct")]
 pub struct FindRemoteArgs {
     #[clap(short, long, help = "Path to the configuration file")]
     pub config: Option<String>,
@@ -156,12 +157,12 @@ pub struct FindRemoteArgs {
     #[clap(
         long,
         help = "Use worktree setup for repositories",
-        value_parser = ["true", "false"],
         default_value = "false",
         default_missing_value = "true",
         num_args = 0..=1,
+        value_parser = str::parse::<bool>,
     )]
-    pub worktree: String,
+    pub worktree: bool,
 
     #[clap(long, help = "Base URL for the API")]
     pub api_url: Option<String>,
@@ -180,19 +181,20 @@ pub struct Config {
 
     #[clap(
         long,
-        value_parser = ["true", "false"],
         help = "Check out the default worktree after clone",
         default_value = "true",
         default_missing_value = "true",
         num_args = 0..=1,
+        value_parser = str::parse::<bool>,
     )]
-    pub init_worktree: String,
+    pub init_worktree: bool,
 }
 
 pub type RemoteProvider = super::provider::RemoteProvider;
 
 #[derive(Parser)]
 #[clap()]
+#[expect(clippy::struct_excessive_bools, reason = "fine for clap structs")]
 pub struct SyncRemoteArgs {
     #[clap(value_enum, short, long, help = "Remote provider to use")]
     pub provider: RemoteProvider,
@@ -239,7 +241,7 @@ pub struct SyncRemoteArgs {
         default_missing_value = "true",
         num_args = 0..=1,
     )]
-    pub worktree: String,
+    pub worktree: bool,
 
     #[clap(long, help = "Base URL for the API")]
     pub api_url: Option<String>,
@@ -252,7 +254,7 @@ pub struct SyncRemoteArgs {
         default_missing_value = "true",
         num_args = 0..=1,
     )]
-    pub init_worktree: String,
+    pub init_worktree: bool,
 }
 
 #[derive(Parser)]

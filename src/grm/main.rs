@@ -79,8 +79,11 @@ fn handle_repos_sync_config(args: cmd::Config) -> HandlerResult {
     let config = config::read_config(Path::new(&args.config))
         .map_err(|e| MainError::with_context(e, "Config error", None))?;
 
-    tree::sync_trees(config, args.init_worktree == "true")
-        .map_err(|e| MainError::with_context(e, "Sync error", None))?
+    tree::sync_trees(config, args.init_worktree)
+        .map_err(|e| MainError {
+            exit_code: None,
+            message: format!("Sync error: {e}"),
+        })?
         .is_success()
         .then_some(InformationalExitCode::Success)
         .ok_or_else(|| MainError {
@@ -106,8 +109,6 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
         print_warning("You did not specify any filters, so no repos will match");
     }
 
-    let worktree = (args.worktree == "true").into();
-
     let repos = match args.provider {
         cmd::RemoteProvider::Github => {
             provider::Github::new(filter, token, args.api_url.map(provider::Url::new))
@@ -116,7 +117,7 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
                     message: format!("Sync error: {e}"),
                 })?
                 .get_repos(
-                    worktree,
+                    args.worktree.into(),
                     if args.force_ssh {
                         ProtocolConfig::ForceSsh
                     } else {
@@ -132,7 +133,7 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
                     message: format!("Sync error: {e}"),
                 })?
                 .get_repos(
-                    worktree,
+                    args.worktree.into(),
                     if args.force_ssh {
                         ProtocolConfig::ForceSsh
                     } else {
@@ -163,7 +164,7 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
 
     let config = config::Config::from_trees(trees);
 
-    tree::sync_trees(config, args.init_worktree == "true")
+    tree::sync_trees(config, args.init_worktree)
         .map_err(|e| MainError {
             exit_code: None,
             message: format!("Sync error: {e}"),
@@ -448,8 +449,6 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
         print_warning("You did not specify any filters, so no repos will match");
     }
 
-    let worktree = (args.worktree == "true").into();
-
     let repos = match args.provider {
         cmd::RemoteProvider::Github => {
             provider::Github::new(filter, token, args.api_url.map(provider::Url::new))
@@ -458,7 +457,7 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
                     message: format!("Error: {e}"),
                 })?
                 .get_repos(
-                    worktree,
+                    args.worktree.into(),
                     if args.force_ssh {
                         ProtocolConfig::ForceSsh
                     } else {
@@ -474,7 +473,7 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
                     message: format!("Error: {e}"),
                 })?
                 .get_repos(
-                    worktree,
+                    args.worktree.into(),
                     if args.force_ssh {
                         ProtocolConfig::ForceSsh
                     } else {
