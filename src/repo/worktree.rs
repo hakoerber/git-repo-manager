@@ -934,7 +934,9 @@ pub fn add_worktree(
     let prefix = track_config
         .as_ref()
         .and_then(|track| track.default_remote_prefix.as_ref());
-    let enable_tracking = track_config.as_ref().is_some_and(|track| track.default);
+    let enable_tracking = track_config
+        .as_ref()
+        .is_some_and(|track| track.default.track());
     let default_remote = track_config
         .as_ref()
         .map(|track| track.default_remote.clone());
@@ -1152,8 +1154,20 @@ pub struct WorktreeRootConfig {
     pub track: Option<TrackingConfig>,
 }
 
+#[derive(Clone, Copy)]
+pub enum TrackingDefault {
+    Track,
+    NoTrack,
+}
+
+impl TrackingDefault {
+    fn track(self) -> bool {
+        matches!(self, Self::Track)
+    }
+}
+
 pub struct TrackingConfig {
-    pub default: bool,
+    pub default: TrackingDefault,
     pub default_remote: RemoteName,
     pub default_remote_prefix: Option<String>,
 }
@@ -1161,7 +1175,11 @@ pub struct TrackingConfig {
 impl From<config::TrackingConfig> for TrackingConfig {
     fn from(other: config::TrackingConfig) -> Self {
         Self {
-            default: other.default,
+            default: if other.default {
+                TrackingDefault::Track
+            } else {
+                TrackingDefault::NoTrack
+            },
             default_remote: RemoteName::new(other.default_remote),
             default_remote_prefix: other.default_remote_prefix,
         }
