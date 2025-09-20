@@ -1795,7 +1795,7 @@ pub fn clone_repo(
     remote: &Remote,
     path: &Path,
     worktree_setup: WorktreeSetup,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Error> {
     let clone_target = if worktree_setup.is_worktree() {
         path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
     } else {
