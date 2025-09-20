@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt, iter,
     path::{Path, PathBuf},
     sync::mpsc,
@@ -6,7 +7,7 @@ use std::{
 
 use thiserror::Error;
 
-use super::{BranchName, RemoteName, RemoteUrl, SubmoduleName, Warning, config, path};
+use super::{Warning, config, path};
 
 pub mod worktree;
 
@@ -14,6 +15,105 @@ use worktree::{WorktreeConversionError, WorktreeName, WorktreeRemoveError, Workt
 
 const GIT_CONFIG_BARE_KEY: GitConfigKey = GitConfigKey("core.bare");
 const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BranchName(String);
+
+impl fmt::Display for BranchName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl BranchName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteName(Cow<'static, str>);
+
+impl fmt::Display for RemoteName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl RemoteName {
+    pub fn new(from: String) -> Self {
+        Self(Cow::Owned(from))
+    }
+
+    pub const fn new_static(from: &'static str) -> Self {
+        Self(Cow::Borrowed(from))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        match self.0 {
+            Cow::Borrowed(s) => s.to_owned(),
+            Cow::Owned(s) => s,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteUrl(String);
+
+impl fmt::Display for RemoteUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl RemoteUrl {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubmoduleName(String);
+
+impl fmt::Display for SubmoduleName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl SubmoduleName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RemoteType {
