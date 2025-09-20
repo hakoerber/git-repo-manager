@@ -473,12 +473,17 @@ struct WithLocalTargetSelected<'a> {
     target_commit: Option<repo::Commit<'a>>,
 }
 
+struct RemoteTrackingBranch {
+    remote_name: RemoteName,
+    remote_branch_name: BranchName,
+    prefix: Option<String>,
+}
+
 struct WithRemoteTrackingBranch<'a> {
     local_branch_name: BranchName,
     local_branch: Option<repo::Branch<'a>>,
     target_commit: Option<repo::Commit<'a>>,
-    remote_tracking_branch: Option<(RemoteName, BranchName)>,
-    prefix: Option<String>,
+    remote_tracking_branch: Option<RemoteTrackingBranch>,
 }
 
 struct NewWorktree<'a, S: WorktreeState> {
@@ -561,8 +566,7 @@ where
 impl<'a> NewWorktree<'a, WithLocalTargetSelected<'a>> {
     fn set_remote_tracking_branch(
         self,
-        branch: Option<(&RemoteName, &BranchName)>,
-        prefix: Option<&str>,
+        branch: Option<RemoteTrackingBranch>,
     ) -> NewWorktree<'a, WithRemoteTrackingBranch<'a>> {
         NewWorktree::<WithRemoteTrackingBranch> {
             repo: self.repo,
@@ -570,8 +574,7 @@ impl<'a> NewWorktree<'a, WithLocalTargetSelected<'a>> {
                 local_branch_name: self.extra.local_branch_name,
                 local_branch: self.extra.local_branch,
                 target_commit: self.extra.target_commit,
-                remote_tracking_branch: branch.map(|(s1, s2)| (s1.clone(), s2.clone())),
-                prefix: prefix.map(ToOwned::to_owned),
+                remote_tracking_branch: branch,
             },
         }
     }
@@ -596,22 +599,25 @@ impl<'a> NewWorktree<'a, WithRemoteTrackingBranch<'a>> {
             )?
         };
 
-        if let Some((remote_name, remote_branch_name)) = self.extra.remote_tracking_branch {
-            let remote_branch_with_prefix = if let Some(ref prefix) = self.extra.prefix {
+        if let Some(remote_branch_config) = self.extra.remote_tracking_branch {
+            let remote_branch_with_prefix = if let Some(ref prefix) = remote_branch_config.prefix {
                 self.repo.as_repo().find_remote_branch(
-                    &remote_name,
-                    &BranchName::new(format!("{prefix}/{remote_branch_name}")),
+                    &remote_branch_config.remote_name,
+                    &BranchName::new(format!(
+                        "{prefix}/{}",
+                        remote_branch_config.remote_branch_name
+                    )),
                 )?
             } else {
                 None
             };
 
-            let remote_branch_without_prefix = self
-                .repo
-                .as_repo()
-                .find_remote_branch(&remote_name, &remote_branch_name)?;
+            let remote_branch_without_prefix = self.repo.as_repo().find_remote_branch(
+                &remote_branch_config.remote_name,
+                &remote_branch_config.remote_branch_name,
+            )?;
 
-            let remote_branch = if let Some(ref _prefix) = self.extra.prefix {
+            let remote_branch = if let Some(ref _prefix) = remote_branch_config.prefix {
                 remote_branch_with_prefix
             } else {
                 remote_branch_without_prefix
@@ -619,38 +625,58 @@ impl<'a> NewWorktree<'a, WithRemoteTrackingBranch<'a>> {
 
             if let Some(remote_branch) = remote_branch {
                 if branch.commit()?.id().hex_string() != remote_branch.commit()?.id().hex_string() {
-                    warnings.push(Warning(format!("The local branch \"{}\" and the remote branch \"{}/{}\" differ. Make sure to push/pull afterwards!", &self.extra.local_branch_name, &remote_name, &remote_branch_name)));
+                    warnings.push(Warning(format!("The local branch \"{}\" and the remote branch \"{}/{}\" differ. Make sure to push/pull afterwards!", &self.extra.local_branch_name, &remote_branch_config.remote_name, &remote_branch_config.remote_branch_name)));
                 }
 
-                branch.set_upstream(&remote_name, &remote_branch.basename()?)?;
+                branch.set_upstream(
+                    &remote_branch_config.remote_name,
+                    &remote_branch.basename()?,
+                )?;
             } else {
-                let Some(mut remote) = self.repo.as_repo().find_remote(&remote_name)? else {
-                    return Err(Error::RemoteNotFound { name: remote_name });
+                let Some(mut remote) = self
+                    .repo
+                    .as_repo()
+                    .find_remote(&remote_branch_config.remote_name)?
+                else {
+                    return Err(Error::RemoteNotFound {
+                        name: remote_branch_config.remote_name,
+                    });
                 };
 
                 if !remote.is_pushable()? {
-                    return Err(Error::RemoteNotPushable { name: remote_name });
+                    return Err(Error::RemoteNotPushable {
+                        name: remote_branch_config.remote_name,
+                    });
                 }
 
-                if let Some(prefix) = self.extra.prefix {
+                if let Some(prefix) = remote_branch_config.prefix {
                     remote.push(
                         &self.extra.local_branch_name,
-                        &BranchName::new(format!("{prefix}/{remote_branch_name}")),
+                        &BranchName::new(format!(
+                            "{prefix}/{}",
+                            remote_branch_config.remote_branch_name
+                        )),
                         self.repo.as_repo(),
                     )?;
 
                     branch.set_upstream(
-                        &remote_name,
-                        &BranchName::new(format!("{prefix}/{remote_branch_name}")),
+                        &remote_branch_config.remote_name,
+                        &BranchName::new(format!(
+                            "{prefix}/{}",
+                            remote_branch_config.remote_branch_name
+                        )),
                     )?;
                 } else {
                     remote.push(
                         &self.extra.local_branch_name,
-                        &remote_branch_name,
+                        &remote_branch_config.remote_branch_name,
                         self.repo.as_repo(),
                     )?;
 
-                    branch.set_upstream(&remote_name, &remote_branch_name)?;
+                    branch.set_upstream(
+                        &remote_branch_config.remote_name,
+                        &remote_branch_config.remote_branch_name,
+                    )?;
                 }
             }
         }
@@ -1211,7 +1237,7 @@ impl WorktreeRepoHandle {
     pub fn add_worktree(
         &self,
         name: &WorktreeName,
-        tracking_selection: &TrackingSelection,
+        tracking_selection: TrackingSelection,
     ) -> Result<Vec<Warning>, Error> {
         let mut warnings: Vec<Warning> = vec![];
 
@@ -1268,13 +1294,9 @@ impl WorktreeRepoHandle {
         let worktree = if worktree.local_branch_already_exists() {
             worktree.select_commit(None)
         } else {
-            #[expect(
-                clippy::pattern_type_mismatch,
-                reason = "i cannot get this to work properly, but it's fine as it is"
-            )]
             if let TrackingSelection::Explicit {
-                remote_name,
-                remote_branch_name,
+                ref remote_name,
+                ref remote_branch_name,
             } = tracking_selection
             {
                 worktree.select_commit(Some(
@@ -1386,42 +1408,45 @@ impl WorktreeRepoHandle {
             }
         };
 
-        let worktree = if matches!(*tracking_selection, TrackingSelection::Disabled) {
-            worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
-        } else if let TrackingSelection::Explicit {
-            ref remote_name,
-            ref remote_branch_name,
-        } = *tracking_selection
-        {
-            worktree.set_remote_tracking_branch(
-                Some((remote_name, remote_branch_name)),
-                None, // Always disable prefixing when explicitly given --track
-            )
-        } else if default_tracking == TrackingDefault::NoTrack {
-            worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
-        } else {
-            match remotes.len() {
-                0 => worktree.set_remote_tracking_branch(None, prefix.map(String::as_str)),
-                1 =>
-                {
-                    #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
-                    worktree.set_remote_tracking_branch(
-                        Some((&remotes[0], &BranchName::new(name.as_str().to_owned()))),
-                        prefix.map(String::as_str),
-                    )
-                }
-                _ => {
-                    if let Some(default_remote) = default_remote {
-                        worktree.set_remote_tracking_branch(
-                            Some((&default_remote, &BranchName::new(name.as_str().to_owned()))),
-                            prefix.map(String::as_str),
-                        )
-                    } else {
-                        worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
+        let worktree = worktree.set_remote_tracking_branch(match tracking_selection {
+            TrackingSelection::Disabled => None,
+            TrackingSelection::Explicit {
+                remote_name,
+                remote_branch_name,
+            } => {
+                Some(RemoteTrackingBranch {
+                    remote_name,
+                    remote_branch_name,
+                    prefix: None, // Always disable prefixing when explicitly given --track
+                })
+            }
+            TrackingSelection::Automatic => {
+                if default_tracking == TrackingDefault::NoTrack {
+                    None
+                } else {
+                    match remotes.len() {
+                        0 => None,
+                        1 =>
+                        {
+                            #[expect(
+                                clippy::indexing_slicing,
+                                reason = "checked for len() explicitly"
+                            )]
+                            Some(RemoteTrackingBranch {
+                                remote_name: remotes[0].clone(),
+                                remote_branch_name: BranchName::new(name.as_str().to_owned()),
+                                prefix: prefix.cloned(),
+                            })
+                        }
+                        _ => default_remote.map(|default_remote| RemoteTrackingBranch {
+                            remote_name: default_remote,
+                            remote_branch_name: BranchName::new(name.as_str().to_owned()),
+                            prefix: prefix.cloned(),
+                        }),
                     }
                 }
             }
-        };
+        });
 
         worktree.create(repo_directory)?;
 

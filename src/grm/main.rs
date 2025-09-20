@@ -679,7 +679,7 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
     let warnings = repo
         .add_worktree(
             &WorktreeName::new(args.name.clone()).map_err(MainError::InvalidWorktreeName)?,
-            &tracking_config,
+            tracking_config,
         )
         .map_err(|e| MainError::CreateWorktree(e))?;
 

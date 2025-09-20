@@ -363,7 +363,7 @@ fn sync_repo(
             Ok(branch) => {
                 repo_handle.add_worktree(
                     &WorktreeName::new(branch.name()?.into_string())?,
-                    &TrackingSelection::Automatic,
+                    TrackingSelection::Automatic,
                 )?;
             }
             Err(_error) => send_msg(
