@@ -496,6 +496,14 @@ impl WorktreeSetup {
     pub fn is_worktree(&self) -> bool {
         *self == Self::Worktree
     }
+
+    pub fn detect(path: &Path) -> Self {
+        if path.join(GIT_MAIN_WORKTREE_DIRECTORY).exists() {
+            Self::Worktree
+        } else {
+            Self::NoWorktree
+        }
+    }
 }
 
 impl From<bool> for WorktreeSetup {
@@ -1410,14 +1418,6 @@ impl WorktreeRepoHandle {
             }
         }
         Ok(unmanaged_worktrees)
-    }
-
-    pub fn detect_worktree(path: &Path) -> WorktreeSetup {
-        if path.join(GIT_MAIN_WORKTREE_DIRECTORY).exists() {
-            WorktreeSetup::Worktree
-        } else {
-            WorktreeSetup::NoWorktree
-        }
     }
 
     pub fn get_worktrees(&self) -> Result<Vec<Worktree>, Error> {

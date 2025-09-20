@@ -317,7 +317,7 @@ pub fn show_single_repo_status(
     let mut table = Table::new();
     let mut warnings = Vec::new();
 
-    let worktree_setup = WorktreeRepoHandle::detect_worktree(path);
+    let worktree_setup = WorktreeSetup::detect(path);
     add_table_header(&mut table);
 
     let repo_handle = RepoHandle::open_with_worktree_setup(path, worktree_setup);

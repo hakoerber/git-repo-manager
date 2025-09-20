@@ -114,7 +114,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
             continue;
         }
 
-        let worktree_setup = repo::WorktreeRepoHandle::detect_worktree(&path);
+        let worktree_setup = repo::WorktreeSetup::detect(&path);
         if path == root {
             repo_in_root = true;
         }
