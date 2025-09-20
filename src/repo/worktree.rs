@@ -926,7 +926,7 @@ pub fn add_worktree(
         _ => error.into(),
     })?;
 
-    let remotes = &repo.as_repo().remotes()?;
+    let remotes = repo.as_repo().remotes()?;
 
     let config: Option<WorktreeRootConfig> =
         config::read_worktree_root_config(directory)?.map(Into::into);
@@ -1029,7 +1029,7 @@ pub fn add_worktree(
                     None
                 }.or({
                     let mut commits = vec![];
-                    for remote_name in remotes {
+                    for remote_name in &remotes {
                         let remote_head: Option<repo::Commit> = ({
                             if let Some(prefix) = prefix {
                                 repo.as_repo().find_remote_branch(
