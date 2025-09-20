@@ -590,28 +590,27 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     let worktree_config: Option<repo::WorktreeRootConfig> = config::read_worktree_root_config(&cwd)
-        .map_err(|e| MainError::WorktreeConfiguration(e))?
+        .map_err(MainError::WorktreeConfiguration)?
         .map(Into::into);
 
-    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree)
-        .map_err(|e| MainError::OpenRepo(e))?;
-
-    repo.remove_worktree(
-        &cwd,
-        &WorktreeName::new(args.name.clone()),
-        Path::new(&args.name),
-        args.force,
-        worktree_config.as_ref(),
-    )
-    .map_err(|e| match e {
-        repo::worktree::WorktreeRemoveError::Changes(_)
-        | repo::worktree::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
-        | repo::worktree::WorktreeRemoveError::NotInSyncWithRemote { .. }
-        | repo::worktree::WorktreeRemoveError::NotMerged { .. } => {
-            MainError::WorktreeRemovalRefuse(e)
-        }
-        _ => MainError::WorktreeRemove(e),
-    })?;
+    repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree)
+        .map_err(|e| MainError::OpenRepo(e))?
+        .remove_worktree(
+            &cwd,
+            &WorktreeName::new(args.name.clone()),
+            Path::new(&args.name),
+            args.force,
+            worktree_config.as_ref(),
+        )
+        .map_err(|e| match e {
+            repo::worktree::WorktreeRemoveError::Changes(_)
+            | repo::worktree::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
+            | repo::worktree::WorktreeRemoveError::NotInSyncWithRemote { .. }
+            | repo::worktree::WorktreeRemoveError::NotMerged { .. } => {
+                MainError::WorktreeRemovalRefuse(e)
+            }
+            _ => MainError::WorktreeRemove(e),
+        })?;
 
     print_success(&format!("Worktree {} deleted", &args.name));
 
@@ -636,24 +635,18 @@ fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> HandlerResult {
 }
 
 fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
-    // Converting works like this:
-    // * Check whether there are uncommitted/unpushed changes
-    // * Move the contents of .git dir to the worktree directory
-    // * Remove all files
-    // * Set `core.bare` to `true`
-
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::NoWorktree).map_err(|e| {
-        if matches!(e, repo::Error::NotFound) {
-            MainError::DirectoryDoesNotContainRepo(cwd.clone())
-        } else {
-            MainError::OpenRepo(e)
-        }
-    })?;
-
-    if let Err(e) = repo.convert_to_worktree(&cwd) {
-        Err(match e {
+    repo::RepoHandle::open(&cwd, WorktreeSetup::NoWorktree)
+        .map_err(|e| {
+            if matches!(e, repo::Error::NotFound) {
+                MainError::DirectoryDoesNotContainRepo(cwd.clone())
+            } else {
+                MainError::OpenRepo(e)
+            }
+        })?
+        .convert_to_worktree(&cwd)
+        .map_err(|e| match e {
             repo::worktree::WorktreeConversionError::Changes(changes) => {
                 MainError::WorktreeConvertRefuseChanges(changes)
             }
@@ -661,11 +654,10 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
                 MainError::WorktreeConvertRefuseIgnored
             }
             _ => MainError::WorktreeConvert(e),
-        })
-    } else {
-        print_success("Conversion done");
-        Ok(MainExitCode::Success)
-    }
+        })?;
+
+    print_success("Conversion done");
+    Ok(MainExitCode::Success)
 }
 
 fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
@@ -713,6 +705,7 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
             unmanaged_worktree.display()
         ));
     }
+
     Ok(if warnings.is_empty() {
         MainExitCode::Success
     } else {
@@ -723,20 +716,19 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
 fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| {
-        if matches!(e, repo::Error::NotFound) {
-            MainError::DirectoryDoesNotContainRepo(cwd.clone())
-        } else {
-            MainError::OpenRepo(e)
-        }
-    })?;
+    repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree)
+        .map_err(|e| {
+            if matches!(e, repo::Error::NotFound) {
+                MainError::DirectoryDoesNotContainRepo(cwd.clone())
+            } else {
+                MainError::OpenRepo(e)
+            }
+        })?
+        .fetchall()
+        .map_err(MainError::FetchRemotes)?;
 
-    if let Err(e) = repo.fetchall() {
-        Err(MainError::FetchRemotes(e))
-    } else {
-        print_success("Fetched from all remotes");
-        Ok(MainExitCode::Success)
-    }
+    print_success("Fetched from all remotes");
+    Ok(MainExitCode::Success)
 }
 
 fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> HandlerResult {
@@ -769,6 +761,7 @@ fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> HandlerResult {
             print_success(&format!("{}: Done", worktree.name()));
         }
     }
+
     if failures {
         Ok(MainExitCode::Warnings)
     } else {

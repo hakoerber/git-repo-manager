@@ -848,6 +848,11 @@ impl RepoHandle {
             })
     }
 
+    /// Converting works like this:
+    /// * Check whether there are uncommitted/unpushed changes
+    /// * Move the contents of .git dir to the worktree directory
+    /// * Remove all files
+    /// * Set `core.bare` to `true`
     pub fn convert_to_worktree(&self, root_dir: &Path) -> Result<(), WorktreeConversionError> {
         if let Some(changes) = self
             .status(WorktreeSetup::NoWorktree)
