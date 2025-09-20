@@ -7,9 +7,8 @@ use super::{
     RemoteName, auth,
     output::print_warning,
     path, provider,
-    provider::{Filter, Provider},
-    repo::{self, WorktreeSetup},
-    tree,
+    provider::{Filter, ProtocolConfig, Provider},
+    repo, tree,
 };
 
 #[derive(Debug, Deserialize, Serialize, clap::ValueEnum, Clone)]
@@ -214,7 +213,11 @@ impl Config {
                     )?
                     .get_repos(
                         config.worktree.unwrap_or(false).into(),
-                        config.force_ssh.unwrap_or(false),
+                        if config.force_ssh.unwrap_or(false) {
+                            ProtocolConfig::ForceSsh
+                        } else {
+                            ProtocolConfig::Default
+                        },
                         config.remote_name.map(RemoteName::new),
                     )?,
                     RemoteProvider::Gitlab => provider::Gitlab::new(
@@ -224,7 +227,11 @@ impl Config {
                     )?
                     .get_repos(
                         config.worktree.unwrap_or(false).into(),
-                        config.force_ssh.unwrap_or(false),
+                        if config.force_ssh.unwrap_or(false) {
+                            ProtocolConfig::ForceSsh
+                        } else {
+                            ProtocolConfig::Default
+                        },
                         config.remote_name.map(RemoteName::new),
                     )?,
                 };

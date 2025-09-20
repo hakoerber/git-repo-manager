@@ -14,7 +14,7 @@ mod cmd;
 use grm::{
     BranchName, RemoteName, auth, config, find_in_tree,
     output::{print, print_error, print_success, print_warning, println},
-    provider::{self, Provider},
+    provider::{self, ProtocolConfig, Provider},
     repo::{self, WorktreeSetup},
     table, tree,
     worktree::{self, WorktreeName},
@@ -102,7 +102,11 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> Result<(), MainError> 
                 })?
                 .get_repos(
                     worktree,
-                    args.force_ssh,
+                    if args.force_ssh {
+                        ProtocolConfig::ForceSsh
+                    } else {
+                        ProtocolConfig::Default
+                    },
                     args.remote_name.map(RemoteName::new),
                 )
         }
@@ -114,7 +118,11 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> Result<(), MainError> 
                 })?
                 .get_repos(
                     worktree,
-                    args.force_ssh,
+                    if args.force_ssh {
+                        ProtocolConfig::ForceSsh
+                    } else {
+                        ProtocolConfig::Default
+                    },
                     args.remote_name.map(RemoteName::new),
                 )
         }
@@ -335,7 +343,11 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> Result<(), MainError> 
                 })?
                 .get_repos(
                     config.worktree.unwrap_or(false).into(),
-                    config.force_ssh.unwrap_or(false).into(),
+                    if config.force_ssh.unwrap_or(false) {
+                        ProtocolConfig::ForceSsh
+                    } else {
+                        ProtocolConfig::Default
+                    },
                     config.remote_name.map(RemoteName::new),
                 )
                 .map_err(|e| MainError {
@@ -351,7 +363,11 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> Result<(), MainError> 
                 })?
                 .get_repos(
                     config.worktree.unwrap_or(false).into(),
-                    config.force_ssh.unwrap_or(false).into(),
+                    if config.force_ssh.unwrap_or(false) {
+                        ProtocolConfig::ForceSsh
+                    } else {
+                        ProtocolConfig::Default
+                    },
                     config.remote_name.map(RemoteName::new),
                 )
                 .map_err(|e| MainError {
@@ -432,7 +448,11 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> Result<(), MainError> 
                 })?
                 .get_repos(
                     worktree,
-                    args.force_ssh,
+                    if args.force_ssh {
+                        ProtocolConfig::ForceSsh
+                    } else {
+                        ProtocolConfig::Default
+                    },
                     args.remote_name.map(RemoteName::new),
                 )
         }
@@ -444,7 +464,11 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> Result<(), MainError> 
                 })?
                 .get_repos(
                     worktree,
-                    args.force_ssh,
+                    if args.force_ssh {
+                        ProtocolConfig::ForceSsh
+                    } else {
+                        ProtocolConfig::Default
+                    },
                     args.remote_name.map(RemoteName::new),
                 )
         }

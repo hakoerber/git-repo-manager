@@ -9,6 +9,18 @@ use thiserror::Error;
 
 use super::{RemoteName, RemoteUrl, auth, config, repo};
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ProtocolConfig {
+    Default,
+    ForceSsh,
+}
+
+impl ProtocolConfig {
+    pub fn force_ssh(&self) -> bool {
+        *self == Self::ForceSsh
+    }
+}
+
 pub struct Url(Cow<'static, str>);
 
 impl Url {
@@ -154,7 +166,7 @@ pub trait Project {
         self,
         remote_name: &RemoteName,
         worktree_setup: repo::WorktreeSetup,
-        force_ssh: bool,
+        protocol_config: ProtocolConfig,
     ) -> repo::Repo
     where
         Self: Sized,
@@ -165,12 +177,12 @@ pub trait Project {
             worktree_setup,
             remotes: vec![repo::Remote {
                 name: remote_name.clone(),
-                url: if force_ssh || self.private() {
+                url: if protocol_config.force_ssh() || self.private() {
                     self.ssh_url()
                 } else {
                     self.http_url()
                 },
-                remote_type: if force_ssh || self.private() {
+                remote_type: if protocol_config.force_ssh() || self.private() {
                     repo::RemoteType::Ssh
                 } else {
                     repo::RemoteType::Https
@@ -338,7 +350,7 @@ pub trait Provider {
     fn get_repos(
         &self,
         worktree_setup: repo::WorktreeSetup,
-        force_ssh: bool,
+        protocol_config: ProtocolConfig,
         remote_name: Option<RemoteName>,
     ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, Error> {
         let mut repos = vec![];
@@ -432,7 +444,7 @@ pub trait Provider {
         for repo in repos {
             let namespace = repo.namespace();
 
-            let mut repo = repo.into_repo_config(&remote_name, worktree_setup, force_ssh);
+            let mut repo = repo.into_repo_config(&remote_name, worktree_setup, protocol_config);
 
             // Namespace is already part of the hashmap key. I'm not too happy
             // about the data exchange format here.
