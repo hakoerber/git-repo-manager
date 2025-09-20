@@ -105,6 +105,8 @@ enum MainError {
     RebaseWorktreeBranch(repo::Error),
     #[error("There is no point in using --rebase without --pull")]
     CmdRebaseWithoutPull,
+    #[error("Command line: --track and --no-track cannot be used at the same time")]
+    TrackAndNoTrackInCli,
 }
 
 impl MainError {
@@ -502,10 +504,9 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     if args.track.is_some() && args.no_track {
-        print_warning(
-            "You are using --track and --no-track at the same time. --track will be ignored",
-        );
+        return Err(MainError::TrackAndNoTrackInCli);
     }
+
     let track = args
         .track
         .map(|branch| {

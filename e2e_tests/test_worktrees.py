@@ -264,14 +264,19 @@ def test_worktree_add(
         if explicit_notrack:
             args.extend(["--no-track"])
         cmd = grm(args, cwd=base_dir)
+
         if explicit_track and not explicit_notrack and not has_remotes:
             assert cmd.returncode != 0
             assert f'remote "{default_remote}" not found' in cmd.stderr.lower()
             return
-        assert cmd.returncode == 0
 
-        assert len(cmd.stdout.strip().split("\n")) == 1
-        assert f"worktree {worktree_name} created" in cmd.stdout.lower()
+        if explicit_track and explicit_notrack:
+            assert "--track" in cmd.stderr.lower()
+            assert "--no-track" in cmd.stderr.lower()
+            assert cmd.returncode != 0
+            return
+
+        assert cmd.returncode == 0
 
         def check_deviation_error(base):
             if (
@@ -299,11 +304,10 @@ def test_worktree_add(
                 else:
                     assert len(cmd.stderr.strip().split("\n")) == base
 
-        if explicit_track and explicit_notrack:
-            assert "--track will be ignored" in cmd.stderr.lower()
-            check_deviation_error(1)
-        else:
-            check_deviation_error(0)
+        check_deviation_error(0)
+
+        assert len(cmd.stdout.strip().split("\n")) == 1
+        assert f"worktree {worktree_name} created" in cmd.stdout.lower()
 
         files = os.listdir(base_dir)
         if config_enabled is True:
