@@ -676,12 +676,12 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
 
     let repo = WorktreeRepoHandle::open(&cwd).map_err(|e| MainError::OpenRepo(e))?;
 
-    let warnings = repo::add_worktree(
-        &repo,
-        &WorktreeName::new(args.name.clone()).map_err(MainError::InvalidWorktreeName)?,
-        &tracking_config,
-    )
-    .map_err(|e| MainError::CreateWorktree(e))?;
+    let warnings = repo
+        .add_worktree(
+            &WorktreeName::new(args.name.clone()).map_err(MainError::InvalidWorktreeName)?,
+            &tracking_config,
+        )
+        .map_err(|e| MainError::CreateWorktree(e))?;
 
     if let Some(warnings) = warnings {
         for warning in warnings {

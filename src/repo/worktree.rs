@@ -912,228 +912,6 @@ pub enum TrackingSelection {
     Disabled,
 }
 
-pub fn add_worktree(
-    repo: &WorktreeRepoHandle,
-    name: &WorktreeName,
-    tracking_selection: &TrackingSelection,
-) -> Result<Option<Vec<Warning>>, Error> {
-    let mut warnings: Vec<Warning> = vec![];
-
-    let repo_directory = repo.base_directory()?;
-
-    let remotes = repo.as_repo().remotes()?;
-
-    let config: Option<WorktreeRootConfig> =
-        config::read_worktree_root_config(repo_directory)?.map(Into::into);
-
-    if repo.find_worktree(name).is_ok() {
-        return Err(Error::WorktreeAlreadyExists { name: name.clone() });
-    }
-
-    let track_config = config.and_then(|config| config.track);
-    let prefix = track_config
-        .as_ref()
-        .and_then(|track| track.default_remote_prefix.as_ref());
-    let enable_tracking = track_config
-        .as_ref()
-        .is_some_and(|track| track.default.track());
-    let default_remote = track_config
-        .as_ref()
-        .map(|track| track.default_remote.clone());
-
-    // Note that we have to define all variables that borrow from `repo`
-    // *first*, otherwise we'll receive "borrowed value does not live long
-    // enough" errors. This is due to the `repo` reference inside `Worktree` that is
-    // passed through each state type.
-    //
-    // The `commit` variable will be dropped at the end of the scope, together with
-    // all worktree variables. It will be done in the opposite direction of
-    // delcaration (FILO).
-    //
-    // So if we define `commit` *after* the respective worktrees, it will be dropped
-    // first while still being borrowed by `Worktree`.
-    let default_branch_head = repo.as_repo().default_branch()?.commit_owned()?;
-
-    let worktree = NewWorktree::<Init>::new(repo)
-        .set_local_branch_name(&BranchName::new(name.as_str().to_owned()))?;
-
-    let get_remote_head = |remote_name: &RemoteName,
-                           remote_branch_name: &BranchName|
-     -> Result<Option<repo::Commit>, Error> {
-        Ok(repo
-            .as_repo()
-            .find_remote_branch(remote_name, remote_branch_name)?
-            .map(|branch| branch.commit_owned())
-            .transpose()?)
-    };
-
-    let worktree = if worktree.local_branch_already_exists() {
-        worktree.select_commit(None)
-    } else {
-        #[expect(
-            clippy::pattern_type_mismatch,
-            reason = "i cannot get this to work properly, but it's fine as it is"
-        )]
-        if let TrackingSelection::Explicit {
-            remote_name,
-            remote_branch_name,
-        } = tracking_selection
-        {
-            worktree.select_commit(Some(
-                repo.as_repo()
-                    .find_remote_branch(remote_name, remote_branch_name)?
-                    .map_or_else(
-                        || Ok(default_branch_head),
-                        |remote_branch| remote_branch.commit_owned(),
-                    )?,
-            ))
-        } else {
-            match remotes.len() {
-                0 => worktree.select_commit(Some(default_branch_head)),
-                1 => {
-                    #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
-                    let remote_name = &remotes[0];
-                    let commit: Option<repo::Commit> = ({
-                        if let Some(prefix) = prefix {
-                            get_remote_head(
-                                remote_name,
-                                &BranchName::new(format!("{prefix}/{name}")),
-                            )?
-                        } else {
-                            None
-                        }
-                    })
-                    .or(get_remote_head(
-                        remote_name,
-                        &BranchName::new(name.as_str().to_owned()),
-                    )?)
-                    .or_else(|| Some(default_branch_head));
-
-                    worktree.select_commit(commit)
-                }
-                _ => {
-                    let commit = if let Some(ref default_remote) = default_remote {
-                    if let Some(prefix) = prefix {
-                        repo.as_repo()
-                            .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
-                    } else {
-                        None
-                    }
-                    .or({
-                        repo.as_repo().find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned() ).transpose()?
-                    })
-                } else {
-                    None
-                }.or({
-                    let mut commits = vec![];
-                    for remote_name in &remotes {
-                        let remote_head: Option<repo::Commit> = ({
-                            if let Some(prefix) = prefix {
-                                repo.as_repo().find_remote_branch(
-                                    remote_name,
-                                    &BranchName::new(format!("{prefix}/{name}")),
-                                )?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
-                            } else {
-                                None
-                            }
-                        })
-                        .or({
-                            repo.as_repo().find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned()).transpose()?
-                        })
-                        .or(None);
-                        commits.push(remote_head);
-                    }
-
-                    let mut commits = commits
-                        .into_iter()
-                        .flatten()
-                        // have to collect first because the `flatten()` return
-                        // typedoes not implement `windows()`
-                        .collect::<Vec<repo::Commit>>();
-                    // `flatten()` takes care of `None` values here. If all
-                    // remotes return None for the branch, we do *not* abort, we
-                    // continue!
-                    if commits.is_empty() {
-                        Some(default_branch_head)
-                    } else if commits.len() == 1 {
-                        Some(commits.swap_remove(0))
-                    } else if commits.windows(2).any(
-                        #[expect(
-                            clippy::missing_asserts_for_indexing,
-                            clippy::indexing_slicing,
-                            reason = "windows function always returns two elements"
-                        )]
-                        |window| {
-                            let c1 = &window[0];
-                            let c2 = &window[1];
-                            (*c1).id().hex_string() != (*c2).id().hex_string()
-                        }) {
-                        warnings.push(
-                            // TODO this should also include the branch
-                            // name. BUT: the branch name may be different
-                            // between the remotes. Let's just leave it
-                            // until I get around to fix that inconsistency
-                            // (see module-level doc about), which might be
-                            // never, as it's such a rare edge case.
-                            Warning("Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned())
-                        );
-                        Some(default_branch_head)
-                    } else {
-                        Some(commits.swap_remove(0))
-                    }
-                });
-                    worktree.select_commit(commit)
-                }
-            }
-        }
-    };
-
-    let worktree = if matches!(*tracking_selection, TrackingSelection::Disabled) {
-        worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
-    } else if let TrackingSelection::Explicit {
-        ref remote_name,
-        ref remote_branch_name,
-    } = *tracking_selection
-    {
-        worktree.set_remote_tracking_branch(
-            Some((remote_name, remote_branch_name)),
-            None, // Always disable prefixing when explicitly given --track
-        )
-    } else if !enable_tracking {
-        worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
-    } else {
-        match remotes.len() {
-            0 => worktree.set_remote_tracking_branch(None, prefix.map(String::as_str)),
-            1 =>
-            {
-                #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
-                worktree.set_remote_tracking_branch(
-                    Some((&remotes[0], &BranchName::new(name.as_str().to_owned()))),
-                    prefix.map(String::as_str),
-                )
-            }
-            _ => {
-                if let Some(default_remote) = default_remote {
-                    worktree.set_remote_tracking_branch(
-                        Some((&default_remote, &BranchName::new(name.as_str().to_owned()))),
-                        prefix.map(String::as_str),
-                    )
-                } else {
-                    worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
-                }
-            }
-        }
-    };
-
-    worktree.create(repo_directory)?;
-
-    Ok(if warnings.is_empty() {
-        None
-    } else {
-        Some(warnings)
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1579,5 +1357,227 @@ impl WorktreeRepoHandle {
             Some(git2::WorktreeAddOptions::new().reference(Some(target_branch.as_reference()))),
         )?;
         Ok(())
+    }
+
+    pub fn add_worktree(
+        &self,
+        name: &WorktreeName,
+        tracking_selection: &TrackingSelection,
+    ) -> Result<Option<Vec<Warning>>, Error> {
+        let mut warnings: Vec<Warning> = vec![];
+
+        let repo_directory = self.base_directory()?;
+
+        let remotes = self.as_repo().remotes()?;
+
+        let config: Option<WorktreeRootConfig> =
+            config::read_worktree_root_config(repo_directory)?.map(Into::into);
+
+        if self.find_worktree(name).is_ok() {
+            return Err(Error::WorktreeAlreadyExists { name: name.clone() });
+        }
+
+        let track_config = config.and_then(|config| config.track);
+        let prefix = track_config
+            .as_ref()
+            .and_then(|track| track.default_remote_prefix.as_ref());
+        let enable_tracking = track_config
+            .as_ref()
+            .is_some_and(|track| track.default.track());
+        let default_remote = track_config
+            .as_ref()
+            .map(|track| track.default_remote.clone());
+
+        // Note that we have to define all variables that borrow from `repo`
+        // *first*, otherwise we'll receive "borrowed value does not live long
+        // enough" errors. This is due to the `repo` reference inside `Worktree` that is
+        // passed through each state type.
+        //
+        // The `commit` variable will be dropped at the end of the scope, together with
+        // all worktree variables. It will be done in the opposite direction of
+        // delcaration (FILO).
+        //
+        // So if we define `commit` *after* the respective worktrees, it will be dropped
+        // first while still being borrowed by `Worktree`.
+        let default_branch_head = self.as_repo().default_branch()?.commit_owned()?;
+
+        let worktree = NewWorktree::<Init>::new(self)
+            .set_local_branch_name(&BranchName::new(name.as_str().to_owned()))?;
+
+        let get_remote_head = |remote_name: &RemoteName,
+                               remote_branch_name: &BranchName|
+         -> Result<Option<repo::Commit>, Error> {
+            Ok(self
+                .as_repo()
+                .find_remote_branch(remote_name, remote_branch_name)?
+                .map(|branch| branch.commit_owned())
+                .transpose()?)
+        };
+
+        let worktree = if worktree.local_branch_already_exists() {
+            worktree.select_commit(None)
+        } else {
+            #[expect(
+                clippy::pattern_type_mismatch,
+                reason = "i cannot get this to work properly, but it's fine as it is"
+            )]
+            if let TrackingSelection::Explicit {
+                remote_name,
+                remote_branch_name,
+            } = tracking_selection
+            {
+                worktree.select_commit(Some(
+                    self.as_repo()
+                        .find_remote_branch(remote_name, remote_branch_name)?
+                        .map_or_else(
+                            || Ok(default_branch_head),
+                            |remote_branch| remote_branch.commit_owned(),
+                        )?,
+                ))
+            } else {
+                match remotes.len() {
+                    0 => worktree.select_commit(Some(default_branch_head)),
+                    1 => {
+                        #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
+                        let remote_name = &remotes[0];
+                        let commit: Option<repo::Commit> = ({
+                            if let Some(prefix) = prefix {
+                                get_remote_head(
+                                    remote_name,
+                                    &BranchName::new(format!("{prefix}/{name}")),
+                                )?
+                            } else {
+                                None
+                            }
+                        })
+                        .or(get_remote_head(
+                            remote_name,
+                            &BranchName::new(name.as_str().to_owned()),
+                        )?)
+                        .or_else(|| Some(default_branch_head));
+
+                        worktree.select_commit(commit)
+                    }
+                    _ => {
+                        let commit = if let Some(ref default_remote) = default_remote {
+                    if let Some(prefix) = prefix {
+                        self.as_repo()
+                            .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
+                    } else {
+                        None
+                    }
+                    .or({
+                        self.as_repo().find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned() ).transpose()?
+                    })
+                } else {
+                    None
+                }.or({
+                    let mut commits = vec![];
+                    for remote_name in &remotes {
+                        let remote_head: Option<repo::Commit> = ({
+                            if let Some(prefix) = prefix {
+                                self.as_repo().find_remote_branch(
+                                    remote_name,
+                                    &BranchName::new(format!("{prefix}/{name}")),
+                                )?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
+                            } else {
+                                None
+                            }
+                        })
+                        .or({
+                            self.as_repo().find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned()).transpose()?
+                        })
+                        .or(None);
+                        commits.push(remote_head);
+                    }
+
+                    let mut commits = commits
+                        .into_iter()
+                        .flatten()
+                        // have to collect first because the `flatten()` return
+                        // typedoes not implement `windows()`
+                        .collect::<Vec<repo::Commit>>();
+                    // `flatten()` takes care of `None` values here. If all
+                    // remotes return None for the branch, we do *not* abort, we
+                    // continue!
+                    if commits.is_empty() {
+                        Some(default_branch_head)
+                    } else if commits.len() == 1 {
+                        Some(commits.swap_remove(0))
+                    } else if commits.windows(2).any(
+                        #[expect(
+                            clippy::missing_asserts_for_indexing,
+                            clippy::indexing_slicing,
+                            reason = "windows function always returns two elements"
+                        )]
+                        |window| {
+                            let c1 = &window[0];
+                            let c2 = &window[1];
+                            (*c1).id().hex_string() != (*c2).id().hex_string()
+                        }) {
+                        warnings.push(
+                            // TODO this should also include the branch
+                            // name. BUT: the branch name may be different
+                            // between the remotes. Let's just leave it
+                            // until I get around to fix that inconsistency
+                            // (see module-level doc about), which might be
+                            // never, as it's such a rare edge case.
+                            Warning("Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned())
+                        );
+                        Some(default_branch_head)
+                    } else {
+                        Some(commits.swap_remove(0))
+                    }
+                });
+                        worktree.select_commit(commit)
+                    }
+                }
+            }
+        };
+
+        let worktree = if matches!(*tracking_selection, TrackingSelection::Disabled) {
+            worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
+        } else if let TrackingSelection::Explicit {
+            ref remote_name,
+            ref remote_branch_name,
+        } = *tracking_selection
+        {
+            worktree.set_remote_tracking_branch(
+                Some((remote_name, remote_branch_name)),
+                None, // Always disable prefixing when explicitly given --track
+            )
+        } else if !enable_tracking {
+            worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
+        } else {
+            match remotes.len() {
+                0 => worktree.set_remote_tracking_branch(None, prefix.map(String::as_str)),
+                1 =>
+                {
+                    #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
+                    worktree.set_remote_tracking_branch(
+                        Some((&remotes[0], &BranchName::new(name.as_str().to_owned()))),
+                        prefix.map(String::as_str),
+                    )
+                }
+                _ => {
+                    if let Some(default_remote) = default_remote {
+                        worktree.set_remote_tracking_branch(
+                            Some((&default_remote, &BranchName::new(name.as_str().to_owned()))),
+                            prefix.map(String::as_str),
+                        )
+                    } else {
+                        worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
+                    }
+                }
+            }
+        };
+
+        worktree.create(repo_directory)?;
+
+        Ok(if warnings.is_empty() {
+            None
+        } else {
+            Some(warnings)
+        })
     }
 }

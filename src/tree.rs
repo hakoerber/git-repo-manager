@@ -361,8 +361,7 @@ fn sync_repo(
 
         match repo_handle.default_branch() {
             Ok(branch) => {
-                repo::add_worktree(
-                    &repo_handle,
+                repo_handle.add_worktree(
                     &WorktreeName::new(branch.name()?.into_string())?,
                     &TrackingSelection::Automatic,
                 )?;
