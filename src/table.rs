@@ -20,25 +20,25 @@ use super::{
 pub enum Error {
     #[error(transparent)]
     Config(#[from] config::Error),
-    #[error("repo error: {0}")]
+    #[error("Repo error: {0}")]
     Repo(#[from] repo::Error),
     #[error("Directory is not a git directory")]
     NotAGitDirectory,
-    #[error("Worktree {:?} does not have a directory", .worktree)]
+    #[error("Worktree {worktree:?} does not have a directory")]
     WorktreeWithoutDirectory { worktree: WorktreeName },
     #[error(transparent)]
     Path(#[from] path::Error),
     #[error(transparent)]
     Fmt(#[from] fmt::Error),
-    #[error("Found {:?}, which is not a valid worktree directory!", .path)]
+    #[error("Found {path}, which is not a valid worktree directory!")]
     InvalidWorktreeDirectory { path: PathBuf },
-    #[error("{}: Repository does not exist. Run sync?", .name)]
+    #[error("Repository \"{name}\" does not exist. Run sync?")]
     RepoDoesNotExist { name: ProjectName },
-    #[error("{}: No git repository found. Run sync?", .name)]
+    #[error("No git repository for \"{name}\" found. Run sync?")]
     RepoNotGit { name: ProjectName },
-    #[error("{}: Opening repository failed: {}", .name, .message)]
+    #[error("Opening repository \"{name}\" failed: {message}")]
     RepoOpenFailed { name: ProjectName, message: String },
-    #[error("{}: Couldn't add repo status: {}", .name, .message)]
+    #[error("Couldn't add repo status for \"{name}\": {message}")]
     RepoStatusFailed { name: ProjectName, message: String },
 }
 

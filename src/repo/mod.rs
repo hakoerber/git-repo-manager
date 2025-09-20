@@ -75,9 +75,9 @@ pub enum CleanupWorktreeError {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Error reading configuration file \"{:?}\": {}", .path, .message)]
+    #[error("Error reading configuration file \"{path}\": {message}")]
     ReadConfig { message: String, path: PathBuf },
-    #[error("Error parsing configuration file \"{:?}\": {}", .path, .message)]
+    #[error("Error parsing configuration file \"{path}\": {message}")]
     ParseConfig { message: String, path: PathBuf },
     #[error(transparent)]
     Libgit(#[from] git2::Error),
@@ -89,7 +89,7 @@ pub enum Error {
     NotFound,
     #[error("Could not determine default branch")]
     NoDefaultBranch,
-    #[error("Failed getting default branch name: {}", .message)]
+    #[error("Failed getting default branch name: {message}")]
     ErrorDefaultBranch { message: String },
     #[error("Remotes using HTTP protocol are not supported")]
     UnsupportedHttpRemote,
@@ -101,19 +101,13 @@ pub enum Error {
     RefspecRenameFailed,
     #[error("No branch checked out")]
     NoBranchCheckedOut,
-    #[error("Could not set {key}: {error}", key = .key, error = .error)]
+    #[error("Could not set {key}: {error}")]
     GitConfigSetError { key: GitConfigKey, error: String },
     #[error("Cannot get changes as this is a bare worktree repository")]
     GettingChangesFromBareWorktree,
     #[error("Trying to push to a non-pushable remote")]
     NonPushableRemote,
-    #[error(
-        "Pushing {} to {} ({}) failed: {}",
-        .local_branch,
-        .remote_name,
-        .remote_url,
-        .message
-    )]
+    #[error("Pushing \"{local_branch}\" to \"{remote_name}\" ({remote_url}) failed: {message}")]
     PushFailed {
         local_branch: BranchName,
         remote_name: RemoteName,
@@ -137,7 +131,7 @@ pub enum Error {
         #[source]
         inner: git2::Error,
     },
-    #[error("Remote HEAD ({}) pointer is invalid", .name)]
+    #[error("Remote HEAD ({name}) pointer is invalid")]
     InvalidRemoteHeadPointer { name: String },
     #[error("Remote HEAD does not point to a symbolic target")]
     RemoteHeadNoSymbolicTarget,

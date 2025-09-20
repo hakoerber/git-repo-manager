@@ -16,14 +16,14 @@ impl fmt::Display for EnvVariableName {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("found non-utf8 path: {:?}", .path)]
+    #[error("Found non-utf8 path: {:?}", .path)]
     NonUtf8 { path: PathBuf },
-    #[error("failed getting env variable `{}`: {}", .variable, .error)]
+    #[error("Failed getting env variable `{}`: {}", .variable, .error)]
     Env {
         variable: EnvVariableName,
         error: String,
     },
-    #[error("failed expanding path: {}", .error)]
+    #[error("Failed expanding path: {}", .error)]
     Expand { error: String },
 }
 

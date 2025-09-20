@@ -26,24 +26,24 @@ pub enum Error {
     Repo(#[from] repo::Error),
     #[error(transparent)]
     Worktree(#[from] worktree::Error),
-    #[error("Failed to open \"{:?}\": Not found", .path)]
+    #[error("Failed to open \"{path}\": Not found")]
     NotFound { path: PathBuf },
-    #[error("Failed to open \"{:?}\": {}", .path, .kind)]
+    #[error("Failed to open \"{path}\": {kind}")]
     Open {
         path: PathBuf,
         kind: std::io::ErrorKind,
     },
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("Error accessing directory: {}", .message)]
+    #[error("Error accessing directory: {message}")]
     DirectoryAccess { message: String },
     #[error("Repo already exists, but is not using a worktree setup")]
     WorktreeExpected,
     #[error("Repo already exists, but is using a worktree setup")]
     WorktreeNotExpected,
-    #[error("Repository failed during init: {}", .message)]
+    #[error("Repository failed during init: {message}")]
     InitFailed { message: String },
-    #[error("Repository failed during clone: {}", .message)]
+    #[error("Repository failed during clone: {message}")]
     CloneFailed { message: String },
     #[error(transparent)]
     Path(#[from] path::Error),

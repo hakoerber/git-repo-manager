@@ -628,11 +628,11 @@ impl WorktreeName {
 
 #[derive(Debug, Error)]
 enum WorktreeValidationErrorReason {
-    #[error("cannot start or end with a slash")]
+    #[error("Cannot start or end with a slash")]
     SlashAtStartOrEnd,
-    #[error("cannot contain two consecutive slashes")]
+    #[error("Cannot contain two consecutive slashes")]
     ConsecutiveSlashes,
-    #[error("cannot contain whitespace")]
+    #[error("Cannot contain whitespace")]
     ContainsWhitespace,
 }
 
@@ -680,15 +680,15 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     InvalidWorktreeName(#[from] WorktreeValidationError),
-    #[error("Remote \"{name}\" not found", name = .name)]
+    #[error("Remote \"{name}\" not found")]
     RemoteNotFound { name: RemoteName },
-    #[error("Cannot push to non-pushable remote \"{name}\"", name = .name)]
+    #[error("Cannot push to non-pushable remote \"{name}\"")]
     RemoteNotPushable { name: RemoteName },
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Current directory does not contain a worktree setup")]
     NotAWorktreeSetup,
-    #[error("Worktree {} already exists", .name)]
+    #[error("Worktree {name} already exists")]
     WorktreeAlreadyExists { name: WorktreeName },
 }
 

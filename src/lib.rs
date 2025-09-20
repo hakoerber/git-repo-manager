@@ -23,7 +23,7 @@ pub enum Error {
     Repo(#[from] repo::Error),
     #[error(transparent)]
     Tree(#[from] tree::Error),
-    #[error("invalid regex: {}", .message)]
+    #[error("Invalid regex: {message}")]
     InvalidRegex { message: String },
     #[error("Cannot detect root directory. Are you working in /?")]
     CannotDetectRootDirectory,

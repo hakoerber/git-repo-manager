@@ -82,9 +82,9 @@ const DEFAULT_REMOTE_NAME: RemoteName = RemoteName::new_static("origin");
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("response error: {0}")]
+    #[error("Response error: {0}")]
     Response(String),
-    #[error("provider error: {0}")]
+    #[error("Provider error: {0}")]
     Provider(String),
 }
 

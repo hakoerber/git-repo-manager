@@ -156,11 +156,11 @@ pub enum Error {
     Serialization(#[from] SerializationError),
     #[error(transparent)]
     Path(#[from] path::Error),
-    #[error("Error reading configuration file \"{:?}\": {}", .path, .message)]
+    #[error("Error reading configuration file \"{path}\": {message}")]
     ReadConfig { message: String, path: PathBuf },
-    #[error("Error parsing configuration file \"{:?}\": {}", .path, .message)]
+    #[error("Error parsing configuration file \"{path}\": {message}")]
     ParseConfig { message: String, path: PathBuf },
-    #[error("cannot strip prefix \"{:?}\" from \"{:?}\": {}", .prefix, .path, message)]
+    #[error("cannot strip prefix \"{prefix}\" from \"{path}\": {message}")]
     StripPrefix {
         path: PathBuf,
         prefix: PathBuf,
@@ -361,11 +361,11 @@ impl Tree {
 
 #[derive(Debug, Error)]
 pub enum ReadConfigError {
-    #[error("Configuration file not found at `{:?}`", .path)]
+    #[error("Configuration file not found at `{path}`")]
     NotFound { path: PathBuf },
-    #[error("Error reading configuration file at `{:?}`: {}", .path, .message)]
+    #[error("Error reading configuration file at \"{path}\": {message}")]
     Generic { path: PathBuf, message: String },
-    #[error("Error parsing configuration file at `{:?}`: {}", .path, .message)]
+    #[error("Error parsing configuration file at \"{path}\": {message}")]
     Parse { path: PathBuf, message: String },
 }
 
