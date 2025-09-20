@@ -3,14 +3,22 @@
 use std::{
     borrow::Cow,
     fmt::{self, Display},
-    path::Path,
+    panic,
+    path::{Path, PathBuf},
+    sync::mpsc,
+    thread,
 };
 
 use thiserror::Error;
 
+use crate::{
+    config::{Config, ConfigProviderFilter, RemoteProvider, Root},
+    provider::{Filter, ProtocolConfig, Provider as _},
+    tree::Tree,
+};
+
 pub mod auth;
 pub mod config;
-pub mod output;
 pub mod path;
 pub mod provider;
 pub mod repo;
@@ -22,7 +30,11 @@ pub enum Error {
     #[error(transparent)]
     Repo(#[from] repo::Error),
     #[error(transparent)]
+    Provider(#[from] provider::Error),
+    #[error(transparent)]
     Tree(#[from] tree::Error),
+    #[error(transparent)]
+    Auth(#[from] auth::Error),
     #[error("Invalid regex: {message}")]
     InvalidRegex { message: String },
     #[error("Cannot detect root directory. Are you working in /?")]
@@ -146,6 +158,46 @@ impl SubmoduleName {
     pub fn into_string(self) -> String {
         self.0
     }
+}
+
+pub fn exec_with_result_channel<'scope, Args, Func, ReportFunc, R, Ret>(
+    f: Func,
+    r: ReportFunc,
+    args: Args,
+) -> Ret
+where
+    Func: for<'a> FnOnce(Args, &'a mpsc::SyncSender<R>) -> Ret + Send + 'scope,
+    ReportFunc: for<'a> FnOnce(&'a mpsc::Receiver<R>) + Send + 'scope,
+    Ret: Send,
+    R: Send,
+    Args: Send,
+{
+    let (tx, rx) = mpsc::sync_channel::<R>(0);
+
+    thread::scope(|s| {
+        let task = s.spawn(move || f(args, &tx));
+
+        let reporter = s.spawn(move || r(&rx));
+
+        if let Err(e) = reporter.join() {
+            panic::resume_unwind(e);
+        }
+
+        match task.join() {
+            Ok(ret) => ret,
+            Err(e) => panic::resume_unwind(e),
+        }
+    })
+}
+
+pub fn send_msg<R>(sender: &mpsc::SyncSender<R>, message: R) {
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "this is a clear bug, cannot be recovered anyway"
+    )]
+    sender
+        .send(message)
+        .expect("receiving channel must be open until we are done");
 }
 
 /// Find all git repositories under root, recursively
@@ -318,4 +370,99 @@ pub fn find_in_tree(
         },
         warnings,
     ))
+}
+
+pub enum SyncTreesMessage {
+    SyncTreeMessage(Result<tree::SyncTreeMessage, (repo::ProjectName, Error)>),
+    GetTreeWarning(Warning),
+}
+
+pub fn get_trees(
+    config: Config,
+    result_channel: &mpsc::SyncSender<SyncTreesMessage>,
+) -> Result<Vec<Tree>, Error> {
+    match config {
+        Config::ConfigTrees(config) => Ok(config.trees.into_iter().map(Into::into).collect()),
+        Config::ConfigProvider(config) => {
+            let token = auth::get_token_from_command(&config.token_command)?;
+
+            let filters = config.filters.unwrap_or(ConfigProviderFilter {
+                access: Some(false),
+                owner: Some(false),
+                users: Some(vec![]),
+                groups: Some(vec![]),
+            });
+
+            let filter = Filter::new(
+                filters
+                    .users
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                filters
+                    .groups
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                filters.owner.unwrap_or(false),
+                filters.access.unwrap_or(false),
+            );
+
+            if filter.empty() {
+                send_msg(
+                    result_channel,
+                    SyncTreesMessage::GetTreeWarning(Warning(
+                        "The configuration does not contain any filters, so no repos will match"
+                            .to_owned(),
+                    )),
+                );
+            }
+
+            let repos = match config.provider {
+                RemoteProvider::Github => {
+                    provider::Github::new(filter, token, config.api_url.map(provider::Url::new))?
+                        .get_repos(
+                            config.worktree.unwrap_or(false).into(),
+                            if config.force_ssh.unwrap_or(false) {
+                                ProtocolConfig::ForceSsh
+                            } else {
+                                ProtocolConfig::Default
+                            },
+                            config.remote_name.map(RemoteName::new),
+                        )?
+                }
+                RemoteProvider::Gitlab => {
+                    provider::Gitlab::new(filter, token, config.api_url.map(provider::Url::new))?
+                        .get_repos(
+                            config.worktree.unwrap_or(false).into(),
+                            if config.force_ssh.unwrap_or(false) {
+                                ProtocolConfig::ForceSsh
+                            } else {
+                                ProtocolConfig::Default
+                            },
+                            config.remote_name.map(RemoteName::new),
+                        )?
+                }
+            };
+
+            let mut trees = vec![];
+
+            #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
+            for (namespace, repos) in repos {
+                let tree = Tree {
+                    root: Root::from_path_buf(if let Some(namespace) = namespace {
+                        PathBuf::from(&config.root).join(namespace.as_str())
+                    } else {
+                        PathBuf::from(&config.root)
+                    })
+                    .into(),
+                    repos,
+                };
+                trees.push(tree);
+            }
+            Ok(trees)
+        }
+    }
 }

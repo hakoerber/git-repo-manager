@@ -1,15 +1,12 @@
 use std::{
     fmt, iter,
     path::{Path, PathBuf},
+    sync::mpsc,
 };
 
 use thiserror::Error;
 
-use super::{
-    BranchName, RemoteName, RemoteUrl, SubmoduleName, Warning, config,
-    output::{print_action, print_success},
-    path,
-};
+use super::{BranchName, RemoteName, RemoteUrl, SubmoduleName, Warning, config, path};
 
 pub mod worktree;
 
@@ -391,6 +388,10 @@ impl Worktree {
 
     pub fn name(&self) -> &WorktreeName {
         &self.name
+    }
+
+    pub fn into_name(self) -> WorktreeName {
+        self.name
     }
 
     pub fn forward_branch(&self, rebase: bool, stash: bool) -> Result<Option<Warning>, Error> {
@@ -1380,6 +1381,7 @@ impl RepoHandle {
     pub fn cleanup_worktrees(
         &self,
         directory: &Path,
+        deletion_notify_channel: &mpsc::SyncSender<WorktreeName>,
     ) -> Result<Vec<CleanupWorktreeWarning>, CleanupWorktreeError> {
         let mut warnings = Vec::new();
 
@@ -1406,7 +1408,7 @@ impl RepoHandle {
         };
 
         for worktree in worktrees
-            .iter()
+            .into_iter()
             .filter(|worktree| worktree.name().as_str() != default_branch_name.as_str())
             .filter(|worktree| match config {
                 None => true,
@@ -1427,7 +1429,15 @@ impl RepoHandle {
                     false,
                     config.as_ref(),
                 ) {
-                    Ok(()) => print_success(&format!("Worktree {} deleted", &worktree.name())),
+                    Ok(()) => {
+                        #[expect(
+                            clippy::missing_panics_doc,
+                            reason = "this is a clear bug, cannot be recovered anyway"
+                        )]
+                        deletion_notify_channel
+                            .send(worktree.into_name())
+                            .expect("receiving channel must be open until we are done");
+                    }
                     Err(error) => match error {
                         WorktreeRemoveError::Changes(ref changes) => {
                             warnings.push(CleanupWorktreeWarning {
@@ -1714,11 +1724,6 @@ pub fn clone_repo(
         path.to_path_buf()
     };
 
-    print_action(&format!(
-        "Cloning into \"{}\" from \"{}\"",
-        &clone_target.display(),
-        &remote.url
-    ));
     match remote.remote_type {
         RemoteType::Https | RemoteType::File => {
             let mut builder = git2::build::RepoBuilder::new();

@@ -19,6 +19,8 @@ use super::{
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
+    Lib(#[from] crate::Error),
+    #[error(transparent)]
     Config(#[from] config::Error),
     #[error("Repo error: {0}")]
     Repo(#[from] repo::Error),
@@ -182,11 +184,9 @@ pub fn get_worktree_status_table(
     Ok((table, errors))
 }
 
-pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<Error>), Error> {
+pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error>), Error> {
     let mut errors = Vec::new();
     let mut tables = Vec::new();
-
-    let trees: Vec<tree::Tree> = config.get_trees()?.into_iter().map(Into::into).collect();
 
     for tree in trees {
         let repos = tree.repos;

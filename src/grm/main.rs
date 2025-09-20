@@ -13,12 +13,17 @@ use std::{
 use thiserror::Error;
 
 mod cmd;
+mod output;
+
+use output::{
+    print, print_action, print_error, print_repo_action, print_repo_error, print_repo_success,
+    print_success, print_warning, println,
+};
 
 use grm::{
-    BranchName, RemoteName,
+    BranchName, RemoteName, SyncTreesMessage,
     auth::{self, AuthToken},
-    config, find_in_tree,
-    output::{print, print_error, print_success, print_warning, println},
+    config, exec_with_result_channel, find_in_tree, get_trees, path,
     provider::{self, Filter, ProjectNamespace, ProtocolConfig, Provider, RemoteProvider},
     repo::{
         self, RepoChanges,
@@ -107,6 +112,10 @@ enum MainError {
     CmdRebaseWithoutPull,
     #[error("Command line: --track and --no-track cannot be used at the same time")]
     TrackAndNoTrackInCli,
+    #[error("Failed getting tree: {0}")]
+    GetTree(grm::Error),
+    #[error("Failed converting path to string: {0}")]
+    PathConversion(path::Error),
 }
 
 impl MainError {
@@ -183,12 +192,114 @@ read_config_fn!(
     [read_provider_config, config::ConfigProvider],
 );
 
+fn sync_trees(
+    config: config::Config,
+    init_worktree: bool,
+) -> Result<tree::OperationResult, MainError> {
+    let (result, unmanaged_repos) = exec_with_result_channel(
+        |(config, init_worktree), tx| -> Result<_, MainError> {
+            let trees: Vec<tree::Tree> =
+                get_trees(config, tx).map_err(|e| MainError::GetTree(e))?;
+
+            let (ret, unmanaged_repos) =
+                tree::sync_trees(trees, init_worktree, tx).map_err(|e| MainError::SyncTrees(e))?;
+            Ok((ret, unmanaged_repos))
+        },
+        |rx| {
+            for message in rx {
+                match message {
+                    SyncTreesMessage::SyncTreeMessage(message) => match message {
+                        Ok(message) => match message {
+                            tree::SyncTreeMessage::Cloning((project_name, url)) => {
+                                print_action(&format!(
+                                    "Cloning into \"{}\" from \"{}\"",
+                                    &project_name.display(),
+                                    &url
+                                ));
+                            }
+                            tree::SyncTreeMessage::Cloned(repo_name) => {
+                                print_repo_success(
+                                    repo_name.as_str(),
+                                    "Repository successfully cloned",
+                                );
+                            }
+                            tree::SyncTreeMessage::Init(repo_name) => {
+                                print_repo_action(
+                                    repo_name.as_str(),
+                                    "Repository does not have remotes configured, initializing new",
+                                );
+                            }
+                            tree::SyncTreeMessage::Created(repo_name) => {
+                                print_repo_success(repo_name.as_str(), "Repository created");
+                            }
+                            tree::SyncTreeMessage::SyncDone(project_name) => {
+                                print_repo_success(project_name.as_str(), "OK");
+                            }
+                            tree::SyncTreeMessage::SkippingWorktreeInit(project_name) => {
+                                print_repo_error(
+                                    project_name.as_str(),
+                                    "Could not determine default branch, skipping worktree initializtion",
+                                );
+                            }
+                            tree::SyncTreeMessage::UpdatingRemote((
+                                project_name,
+                                remote_name,
+                                remote_url,
+                            )) => {
+                                print_repo_action(
+                                    project_name.as_str(),
+                                    &format!(
+                                        "Updating remote {} to \"{}\"",
+                                        &remote_name, &remote_url
+                                    ),
+                                );
+                            }
+                            tree::SyncTreeMessage::CreateRemote((
+                                project_name,
+                                remote_name,
+                                remote_url,
+                            )) => {
+                                print_repo_action(
+                                    project_name.as_str(),
+                                    &format!(
+                                        "Setting up new remote \"{}\" to \"{}\"",
+                                        &remote_name, &remote_url
+                                    ),
+                                );
+                            }
+                            tree::SyncTreeMessage::DeleteRemote((project_name, remote_name)) => {
+                                print_repo_action(
+                                    project_name.as_str(),
+                                    &format!("Deleting remote \"{}\"", &remote_name),
+                                );
+                            }
+                        },
+                        Err((repo_name, e)) => print_repo_error(repo_name.as_str(), &e.to_string()),
+                    },
+                    SyncTreesMessage::GetTreeWarning(warning) => print_warning(warning),
+                }
+            }
+        },
+        (config, init_worktree),
+    )?;
+
+    for repo_path in unmanaged_repos {
+        print_warning(format!(
+            "Found unmanaged repository: \"{}\"",
+            path::path_as_string(repo_path.as_path()).map_err(MainError::PathConversion)?
+        ));
+    }
+
+    Ok(result)
+}
+
 fn handle_repos_sync_config(args: cmd::Config) -> HandlerResult {
-    tree::sync_trees(read_config(&args.config)?, args.init_worktree)
-        .map_err(|e| MainError::SyncTrees(e))?
+    sync_trees(read_config(&args.config)?, args.init_worktree)?
         .is_success()
         .then_some(MainExitCode::Success)
-        .ok_or(MainError::SyncTreeHasFailures)
+        .ok_or(MainError::SyncTreeHasFailures)?;
+
+    Ok(MainExitCode::Success)
 }
 
 fn get_repos_from_provider(
@@ -272,11 +383,12 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
 
     let config = config::Config::from_trees(trees);
 
-    tree::sync_trees(config, args.init_worktree)
-        .map_err(|e| MainError::SyncTrees(e))?
+    sync_trees(config, args.init_worktree)?
         .is_success()
         .then_some(MainExitCode::Success)
-        .ok_or(MainError::SyncTreeHasFailures)
+        .ok_or(MainError::SyncTreeHasFailures)?;
+
+    Ok(MainExitCode::Success)
 }
 
 fn handle_repos_sync(sync: cmd::SyncAction) -> HandlerResult {
@@ -288,15 +400,35 @@ fn handle_repos_sync(sync: cmd::SyncAction) -> HandlerResult {
 
 fn handle_repos_status(args: cmd::OptionalConfig) -> HandlerResult {
     if let Some(config_path) = args.config {
-        let (tables, errors) = table::get_status_table(read_config(&config_path)?)
-            .map_err(|e| MainError::RepoStatus(e))?;
+        exec_with_result_channel(
+            |config_path, tx| -> Result<(), MainError> {
+                let config = read_config(&config_path)?;
 
-        for table in tables {
-            println(&format!("{table}"));
-        }
-        for error in errors {
-            print_error(&format!("Error: {error}"));
-        }
+                let trees: Vec<tree::Tree> =
+                    get_trees(config, tx).map_err(|e| MainError::GetTree(e))?;
+
+                let (tables, errors) =
+                    table::get_status_table(trees).map_err(|e| MainError::RepoStatus(e))?;
+
+                for table in tables {
+                    println(&format!("{table}"));
+                }
+                for error in errors {
+                    print_error(&format!("Error: {error}"));
+                }
+
+                Ok(())
+            },
+            |rx| {
+                for message in rx {
+                    match message {
+                        SyncTreesMessage::SyncTreeMessage(_) => unreachable!(),
+                        SyncTreesMessage::GetTreeWarning(warning) => print_warning(warning),
+                    }
+                }
+            },
+            config_path,
+        )?;
     } else {
         let dir = std::env::current_dir().map_err(|e| MainError::CurrentDirectory(e))?;
 
@@ -643,9 +775,25 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
         }
     })?;
 
-    let warnings = repo
-        .cleanup_worktrees(&cwd)
-        .map_err(|e| MainError::WorktreeCleanup(e))?;
+    let (warnings, unmanaged_worktrees) = exec_with_result_channel(
+        move |cwd, tx| {
+            let warnings = repo
+                .cleanup_worktrees(cwd, tx)
+                .map_err(|e| MainError::WorktreeCleanup(e))?;
+
+            let unmanaged_worktrees = repo
+                .find_unmanaged_worktrees(cwd)
+                .map_err(|e| MainError::FindUnmanagedWorktrees(e))?;
+
+            Ok((warnings, unmanaged_worktrees))
+        },
+        move |rx| {
+            for worktree_name in rx {
+                print_success(&format!("Worktree {worktree_name} deleted"));
+            }
+        },
+        &cwd,
+    )?;
 
     for warning in &warnings {
         print_warning(format!(
@@ -668,10 +816,7 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
         ));
     }
 
-    for unmanaged_worktree in repo
-        .find_unmanaged_worktrees(&cwd)
-        .map_err(|e| MainError::FindUnmanagedWorktrees(e))?
-    {
+    for unmanaged_worktree in unmanaged_worktrees {
         print_warning(format!(
             "Found {}, which is not a valid worktree directory!",
             unmanaged_worktree.display()

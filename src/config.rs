@@ -3,13 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::{
-    RemoteName, auth,
-    output::print_warning,
-    path, provider,
-    provider::{Filter, ProtocolConfig, Provider},
-    repo, tree,
-};
+use super::{auth, path, provider, repo, tree};
 
 #[derive(Debug, Deserialize, Serialize, clap::ValueEnum, Clone)]
 pub enum RemoteProvider {
@@ -169,93 +163,6 @@ pub enum Error {
 }
 
 impl Config {
-    pub fn get_trees(self) -> Result<Vec<Tree>, Error> {
-        match self {
-            Self::ConfigTrees(config) => Ok(config.trees),
-            Self::ConfigProvider(config) => {
-                let token = auth::get_token_from_command(&config.token_command)?;
-
-                let filters = config.filters.unwrap_or(ConfigProviderFilter {
-                    access: Some(false),
-                    owner: Some(false),
-                    users: Some(vec![]),
-                    groups: Some(vec![]),
-                });
-
-                let filter = Filter::new(
-                    filters
-                        .users
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(Into::into)
-                        .collect(),
-                    filters
-                        .groups
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(Into::into)
-                        .collect(),
-                    filters.owner.unwrap_or(false),
-                    filters.access.unwrap_or(false),
-                );
-
-                if filter.empty() {
-                    print_warning(
-                        "The configuration does not contain any filters, so no repos will match",
-                    );
-                }
-
-                let repos = match config.provider {
-                    RemoteProvider::Github => provider::Github::new(
-                        filter,
-                        token,
-                        config.api_url.map(provider::Url::new),
-                    )?
-                    .get_repos(
-                        config.worktree.unwrap_or(false).into(),
-                        if config.force_ssh.unwrap_or(false) {
-                            ProtocolConfig::ForceSsh
-                        } else {
-                            ProtocolConfig::Default
-                        },
-                        config.remote_name.map(RemoteName::new),
-                    )?,
-                    RemoteProvider::Gitlab => provider::Gitlab::new(
-                        filter,
-                        token,
-                        config.api_url.map(provider::Url::new),
-                    )?
-                    .get_repos(
-                        config.worktree.unwrap_or(false).into(),
-                        if config.force_ssh.unwrap_or(false) {
-                            ProtocolConfig::ForceSsh
-                        } else {
-                            ProtocolConfig::Default
-                        },
-                        config.remote_name.map(RemoteName::new),
-                    )?,
-                };
-
-                let mut trees = vec![];
-
-                #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
-                for (namespace, namespace_repos) in repos {
-                    let repos = namespace_repos.into_iter().map(Into::into).collect();
-                    let tree = Tree {
-                        root: Root(if let Some(namespace) = namespace {
-                            PathBuf::from(&config.root).join(namespace.as_str())
-                        } else {
-                            PathBuf::from(&config.root)
-                        }),
-                        repos: Some(repos),
-                    };
-                    trees.push(tree);
-                }
-                Ok(trees)
-            }
-        }
-    }
-
     pub fn from_trees(trees: Vec<Tree>) -> Self {
         Self::ConfigTrees(ConfigTrees { trees })
     }
@@ -333,6 +240,10 @@ impl Root {
 
     pub fn into_path_buf(self) -> PathBuf {
         self.0
+    }
+
+    pub fn from_path_buf(p: PathBuf) -> Self {
+        Self(p)
     }
 }
 

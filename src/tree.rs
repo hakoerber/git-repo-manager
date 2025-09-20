@@ -4,18 +4,18 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::mpsc,
 };
 
 use thiserror::Error;
 
 use super::{
-    config,
-    output::{print_error, print_repo_action, print_repo_error, print_repo_success, print_warning},
-    path,
+    RemoteName, RemoteUrl, SyncTreesMessage, config, path,
     repo::{
-        self,
+        self, ProjectName,
         worktree::{self, WorktreeName, WorktreeSetup},
     },
+    send_msg,
 };
 
 #[derive(Debug, Error)]
@@ -45,6 +45,8 @@ pub enum Error {
     InitFailed { message: String },
     #[error("Repository failed during clone: {message}")]
     CloneFailed { message: String },
+    #[error("Could not get trees from config: {message}")]
+    TreesFromConfig { message: String },
     #[error(transparent)]
     Path(#[from] path::Error),
 }
@@ -95,8 +97,14 @@ impl From<config::Tree> for Tree {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct RepoPath(PathBuf);
+
+impl RepoPath {
+    pub fn as_path(&self) -> &Path {
+        self.0.as_path()
+    }
+}
 
 pub fn find_unmanaged_repos(
     root_path: &Path,
@@ -131,63 +139,72 @@ impl OperationResult {
     }
 }
 
-pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<OperationResult, Error> {
+pub enum SyncTreeMessage {
+    Cloning((PathBuf, RemoteUrl)),
+    Cloned(ProjectName),
+    Init(ProjectName),
+    Created(ProjectName),
+    SyncDone(ProjectName),
+    SkippingWorktreeInit(ProjectName),
+    UpdatingRemote((ProjectName, RemoteName, RemoteUrl)),
+    CreateRemote((ProjectName, RemoteName, RemoteUrl)),
+    DeleteRemote((ProjectName, RemoteName)),
+}
+
+pub fn sync_trees(
+    trees: Vec<Tree>,
+    init_worktree: bool,
+    result_channel: &mpsc::SyncSender<SyncTreesMessage>,
+) -> Result<(OperationResult, Vec<RepoPath>), Error> {
     let mut failures = false;
 
-    let mut unmanaged_repos_absolute_paths = vec![];
-    let mut managed_repos_absolute_paths = vec![];
-
-    let trees: Vec<Tree> = config.get_trees()?.into_iter().map(Into::into).collect();
+    let mut unmanaged_repos = vec![];
+    let mut managed_repos = vec![];
 
     for tree in trees {
         let root_path = path::expand_path(Path::new(&tree.root.0))?;
 
         for repo in &tree.repos {
-            managed_repos_absolute_paths.push(RepoPath(root_path.join(repo.fullname().as_str())));
-            match sync_repo(&root_path, repo, init_worktree) {
-                Ok(()) => print_repo_success(repo.name.as_str(), "OK"),
+            managed_repos.push(RepoPath(root_path.join(repo.fullname().as_str())));
+            match sync_repo(&root_path, repo, init_worktree, result_channel) {
+                Ok(()) => {
+                    send_msg(
+                        result_channel,
+                        SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::SyncDone(
+                            repo.name.clone(),
+                        ))),
+                    );
+                }
                 Err(error) => {
-                    print_repo_error(repo.name.as_str(), &error.to_string());
+                    send_msg(
+                        result_channel,
+                        SyncTreesMessage::SyncTreeMessage(Err((repo.name.clone(), error.into()))),
+                    );
                     failures = true;
                 }
             }
         }
 
-        match find_unmanaged_repos(&root_path, &tree.repos) {
-            Ok(repos) => {
-                for path in repos {
-                    if !unmanaged_repos_absolute_paths.contains(&path) {
-                        unmanaged_repos_absolute_paths.push(path);
-                    }
-                }
-            }
-            Err(error) => {
-                print_error(&format!("Error getting unmanaged repos: {error}"));
-                failures = true;
-            }
-        }
+        unmanaged_repos.extend(find_unmanaged_repos(&root_path, &tree.repos)?);
     }
 
-    for unmanaged_repo_absolute_path in &unmanaged_repos_absolute_paths {
-        if managed_repos_absolute_paths
+    // It's possible that trees are nested or share a root, which means that a
+    // repo that is managed by one tree is detected as unmanaged in another tree.
+    // So we need to remove all unmanaged trees that are part of *any* tree.
+    unmanaged_repos.retain(|unmanaged_path| {
+        !managed_repos
             .iter()
-            .any(|managed_repo_absolute_path| {
-                managed_repo_absolute_path == unmanaged_repo_absolute_path
-            })
-        {
-            continue;
-        }
-        print_warning(format!(
-            "Found unmanaged repository: \"{}\"",
-            path::path_as_string(&unmanaged_repo_absolute_path.0)?
-        ));
-    }
+            .any(|managed_path| unmanaged_path == managed_path)
+    });
 
-    Ok(if failures {
-        OperationResult::Failure
-    } else {
-        OperationResult::Success
-    })
+    Ok((
+        if failures {
+            OperationResult::Failure
+        } else {
+            OperationResult::Success
+        },
+        unmanaged_repos,
+    ))
 }
 
 /// Finds repositories recursively, returning their path
@@ -241,7 +258,12 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
     Ok(repos)
 }
 
-fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result<(), Error> {
+fn sync_repo(
+    root_path: &Path,
+    repo: &repo::Repo,
+    init_worktree: bool,
+    result_channel: &mpsc::SyncSender<SyncTreesMessage>,
+) -> Result<(), Error> {
     let repo_path = root_path.join(repo.fullname().as_str());
     let actual_git_directory = get_actual_git_directory(&repo_path, repo.worktree_setup);
 
@@ -275,10 +297,19 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
             return Err(Error::WorktreeExpected);
         }
     } else if let Some(first) = repo.remotes.first() {
+        send_msg(
+            result_channel,
+            SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::Cloning((
+                repo_path.clone(),
+                first.url.clone(),
+            )))),
+        );
+
         match repo::clone_repo(first, &repo_path, repo.worktree_setup) {
-            Ok(()) => {
-                print_repo_success(repo.name.as_str(), "Repository successfully cloned");
-            }
+            Ok(()) => send_msg(
+                result_channel,
+                SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::Cloned(repo.name.clone()))),
+            ),
             Err(e) => {
                 return Err(Error::CloneFailed {
                     message: e.to_string(),
@@ -288,13 +319,18 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
 
         newly_created = true;
     } else {
-        print_repo_action(
-            repo.name.as_str(),
-            "Repository does not have remotes configured, initializing new",
+        send_msg(
+            result_channel,
+            SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::Init(repo.name.clone()))),
         );
         match repo::RepoHandle::init(&repo_path, repo.worktree_setup) {
             Ok(_repo_handle) => {
-                print_repo_success(repo.name.as_str(), "Repository created");
+                send_msg(
+                    result_channel,
+                    SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::Created(
+                        repo.name.clone(),
+                    ))),
+                );
             }
             Err(e) => {
                 return Err(Error::InitFailed {
@@ -326,9 +362,11 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
                     &worktree::TrackingSelection::Automatic,
                 )?;
             }
-            Err(_error) => print_repo_error(
-                repo.name.as_str(),
-                "Could not determine default branch, skipping worktree initializtion",
+            Err(_error) => send_msg(
+                result_channel,
+                SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::SkippingWorktreeInit(
+                    repo.name.clone(),
+                ))),
             ),
         }
     }
@@ -342,19 +380,24 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
             let current_url = current_remote.url()?;
 
             if remote.url != current_url {
-                print_repo_action(
-                    repo.name.as_str(),
-                    &format!("Updating remote {} to \"{}\"", &remote.name, &remote.url),
+                send_msg(
+                    result_channel,
+                    SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::UpdatingRemote((
+                        repo.name.clone(),
+                        remote.name.clone(),
+                        remote.url.clone(),
+                    )))),
                 );
                 repo_handle.remote_set_url(&remote.name, &remote.url)?;
             }
         } else {
-            print_repo_action(
-                repo.name.as_str(),
-                &format!(
-                    "Setting up new remote \"{}\" to \"{}\"",
-                    &remote.name, &remote.url
-                ),
+            send_msg(
+                result_channel,
+                SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::CreateRemote((
+                    repo.name.clone(),
+                    remote.name.clone(),
+                    remote.url.clone(),
+                )))),
             );
             repo_handle.new_remote(&remote.name, &remote.url)?;
         }
@@ -362,9 +405,12 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
 
     for current_remote in &current_remotes {
         if !repo.remotes.iter().any(|r| &r.name == current_remote) {
-            print_repo_action(
-                repo.name.as_str(),
-                &format!("Deleting remote \"{}\"", &current_remote),
+            send_msg(
+                result_channel,
+                SyncTreesMessage::SyncTreeMessage(Ok(SyncTreeMessage::DeleteRemote((
+                    repo.name.clone(),
+                    current_remote.clone(),
+                )))),
             );
             repo_handle.remote_delete(current_remote)?;
         }
