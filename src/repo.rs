@@ -3,7 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use git2::Repository;
 use thiserror::Error;
 
 use super::{
@@ -607,9 +606,9 @@ pub struct Branch<'a>(git2::Branch<'a>);
 impl RepoHandle {
     pub fn open(path: &Path, worktree_setup: WorktreeSetup) -> Result<Self, Error> {
         let open_func = if worktree_setup.is_worktree() {
-            Repository::open_bare
+            git2::Repository::open_bare
         } else {
-            Repository::open
+            git2::Repository::open
         };
         let path = if worktree_setup.is_worktree() {
             path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
@@ -774,9 +773,9 @@ impl RepoHandle {
 
     pub fn init(path: &Path, worktree_setup: WorktreeSetup) -> Result<Self, Error> {
         let repo = if worktree_setup.is_worktree() {
-            Repository::init_bare(path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY))?
+            git2::Repository::init_bare(path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY))?
         } else {
-            Repository::init(path)?
+            git2::Repository::init(path)?
         };
 
         let repo = Self(repo);
