@@ -442,8 +442,6 @@ pub enum WorktreeRemoveError {
     NotMerged { branch_name: BranchName },
     #[error("Branch {branch_name} is not in line with remote branch")]
     NotInSyncWithRemote { branch_name: BranchName },
-    #[error("No remote tracking branch for branch {branch_name} found")]
-    NoRemoteTrackingBranch { branch_name: BranchName },
     #[error("Removing {path} failed: {error}")]
     RemoveError {
         path: PathBuf,
@@ -1221,9 +1219,8 @@ pub struct CleanupWorktreeWarning {
 }
 
 pub enum CleanupWorktreeWarningReason {
-    Changes(RepoChanges),
+    UncommittedChanges(RepoChanges),
     NotMerged { branch_name: BranchName },
-    NoRemoteTrackingBranch { branch_name: BranchName },
     NoDirectory,
 }
 
@@ -1339,21 +1336,13 @@ impl WorktreeRepoHandle {
                         WorktreeRemoveError::Changes(ref changes) => {
                             warnings.push(CleanupWorktreeWarning {
                                 worktree_name: worktree.name().to_owned(),
-                                reason: CleanupWorktreeWarningReason::Changes(*changes),
+                                reason: CleanupWorktreeWarningReason::UncommittedChanges(*changes),
                             });
                         }
                         WorktreeRemoveError::NotMerged { branch_name } => {
                             warnings.push(CleanupWorktreeWarning {
                                 worktree_name: worktree.name().to_owned(),
                                 reason: CleanupWorktreeWarningReason::NotMerged { branch_name },
-                            });
-                        }
-                        WorktreeRemoveError::NoRemoteTrackingBranch { branch_name } => {
-                            warnings.push(CleanupWorktreeWarning {
-                                worktree_name: worktree.name().to_owned(),
-                                reason: CleanupWorktreeWarningReason::NoRemoteTrackingBranch {
-                                    branch_name,
-                                },
                             });
                         }
                         _ => return Err(CleanupWorktreeError::RemoveError(error)),

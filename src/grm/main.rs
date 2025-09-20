@@ -714,7 +714,6 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
     )
     .map_err(|e| match e {
         repo::WorktreeRemoveError::Changes(_)
-        | repo::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
         | repo::WorktreeRemoveError::NotInSyncWithRemote { .. }
         | repo::WorktreeRemoveError::NotMerged { .. } => MainError::WorktreeRemovalRefuse(e),
         _ => MainError::WorktreeRemove(e),
@@ -798,17 +797,14 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
 
     for warning in &warnings {
         print_warning(format!(
-            "Skipping worktree {}: {}",
+            "Skipping worktree \"{}\": {}",
             warning.worktree_name,
             match warning.reason {
-                repo::CleanupWorktreeWarningReason::Changes(ref changes) => {
-                    format!("changes found ({changes})")
+                repo::CleanupWorktreeWarningReason::UncommittedChanges(ref changes) => {
+                    format!("uncommitted changes found ({changes})")
                 }
                 repo::CleanupWorktreeWarningReason::NotMerged { ref branch_name } => {
-                    format!("branch {branch_name} is not merged")
-                }
-                repo::CleanupWorktreeWarningReason::NoRemoteTrackingBranch { ref branch_name } => {
-                    format!("branch {branch_name} does not have a remote tracking branch")
+                    format!("branch \"{branch_name}\" is not merged")
                 }
                 repo::CleanupWorktreeWarningReason::NoDirectory => {
                     "worktree does not have a directory".to_owned()
