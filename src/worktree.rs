@@ -210,7 +210,10 @@ use std::{fmt, path::Path};
 
 use thiserror::Error;
 
-use super::{BranchName, RemoteName, Warning, config, repo};
+use super::{
+    BranchName, RemoteName, Warning, config,
+    repo::{self, WorktreeSetup},
+};
 
 pub const GIT_MAIN_WORKTREE_DIRECTORY: &str = ".git-main-working-tree";
 
@@ -612,10 +615,13 @@ pub fn add_worktree(
 
     validate_worktree_name(name)?;
 
-    let repo = repo::RepoHandle::open(directory, true).map_err(|error| match error {
-        repo::Error::NotFound => Error::NotAWorktreeSetup,
-        _ => error.into(),
-    })?;
+    let repo =
+        repo::RepoHandle::open(directory, WorktreeSetup::Worktree).map_err(
+            |error| match error {
+                repo::Error::NotFound => Error::NotAWorktreeSetup,
+                _ => error.into(),
+            },
+        )?;
 
     let remotes = &repo.remotes()?;
 

@@ -11,7 +11,8 @@ use thiserror::Error;
 use super::{
     config,
     output::{print_error, print_repo_action, print_repo_error, print_repo_success, print_warning},
-    path, repo,
+    path,
+    repo::{self, WorktreeSetup},
     worktree::{self, WorktreeName},
 };
 
@@ -268,7 +269,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     // Handling the branches on checkout is a bit magic. For minimum surprises, we
     // just set up local tracking branches for all remote branches.
     if repo_path.exists() && repo_path.read_dir()?.next().is_some() {
-        if repo.worktree_setup && !actual_git_directory.exists() {
+        if repo.worktree_setup.is_worktree() && !actual_git_directory.exists() {
             return Err(Error::WorktreeExpected);
         }
     } else if let Some(first) = repo.remotes.first() {
@@ -304,7 +305,9 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     let repo_handle = match repo::RepoHandle::open(&repo_path, repo.worktree_setup) {
         Ok(repo) => repo,
         Err(error) => {
-            if !repo.worktree_setup && repo::RepoHandle::open(&repo_path, true).is_ok() {
+            if !repo.worktree_setup.is_worktree()
+                && repo::RepoHandle::open(&repo_path, WorktreeSetup::Worktree).is_ok()
+            {
                 return Err(Error::WorktreeNotExpected);
             } else {
                 return Err(error.into());
@@ -312,7 +315,7 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
         }
     };
 
-    if newly_created && repo.worktree_setup && init_worktree {
+    if newly_created && repo.worktree_setup.is_worktree() && init_worktree {
         match repo_handle.default_branch() {
             Ok(branch) => {
                 worktree::add_worktree(
@@ -369,8 +372,8 @@ fn sync_repo(root_path: &Path, repo: &repo::Repo, init_worktree: bool) -> Result
     Ok(())
 }
 
-fn get_actual_git_directory(path: &Path, is_worktree: bool) -> PathBuf {
-    if is_worktree {
+fn get_actual_git_directory(path: &Path, worktree_setup: WorktreeSetup) -> PathBuf {
+    if worktree_setup.is_worktree() {
         path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
     } else {
         path.to_path_buf()

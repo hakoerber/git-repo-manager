@@ -6,7 +6,13 @@ use std::{
 use comfy_table::{Cell, Table};
 use thiserror::Error;
 
-use super::{config, path, repo, repo::ProjectName, tree, worktree::WorktreeName};
+use super::{
+    config, path,
+    repo::ProjectName,
+    repo::{self, WorktreeSetup},
+    tree,
+    worktree::WorktreeName,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -52,9 +58,9 @@ fn add_repo_status(
     table: &mut Table,
     repo_name: Option<&ProjectName>,
     repo_handle: &repo::RepoHandle,
-    is_worktree: bool,
+    worktree_setup: repo::WorktreeSetup,
 ) -> Result<(), Error> {
-    let repo_status = repo_handle.status(is_worktree).map_err(Error::Repo)?;
+    let repo_status = repo_handle.status(worktree_setup).map_err(Error::Repo)?;
 
     let branch_info = {
         let mut acc = String::new();
@@ -98,8 +104,12 @@ fn add_repo_status(
             Some(name) => name.as_str(),
             None => "unknown",
         },
-        if is_worktree { "\u{2714}" } else { "" },
-        &if is_worktree {
+        if worktree_setup.is_worktree() {
+            "\u{2714}"
+        } else {
+            ""
+        },
+        &if worktree_setup.is_worktree() {
             String::new()
         } else {
             match repo_status.changes {
@@ -120,7 +130,7 @@ fn add_repo_status(
             }
         },
         &branch_info,
-        &if is_worktree {
+        &if worktree_setup.is_worktree() {
             String::new()
         } else {
             match repo_status.head {
@@ -148,7 +158,7 @@ pub fn get_worktree_status_table(
     for worktree in &worktrees {
         let worktree_dir = &directory.join(worktree.name().as_str());
         if worktree_dir.exists() {
-            let repo = match repo::RepoHandle::open(worktree_dir, false) {
+            let repo = match repo::RepoHandle::open(worktree_dir, WorktreeSetup::NoWorktree) {
                 Ok(repo) => repo,
                 Err(error) => {
                     errors.push(error.into());
@@ -251,7 +261,9 @@ fn add_worktree_status(
     worktree: &repo::Worktree,
     repo: &repo::RepoHandle,
 ) -> Result<(), Error> {
-    let repo_status = repo.status(false).map_err(Error::Repo)?;
+    let repo_status = repo
+        .status(WorktreeSetup::NoWorktree)
+        .map_err(Error::Repo)?;
 
     let local_branch = repo.head_branch().map_err(Error::Repo)?;
 
@@ -308,10 +320,10 @@ pub fn show_single_repo_status(
     let mut table = Table::new();
     let mut warnings = Vec::new();
 
-    let is_worktree = repo::RepoHandle::detect_worktree(path);
+    let worktree_setup = repo::RepoHandle::detect_worktree(path);
     add_table_header(&mut table);
 
-    let repo_handle = repo::RepoHandle::open(path, is_worktree);
+    let repo_handle = repo::RepoHandle::open(path, worktree_setup);
 
     if let Err(error) = repo_handle {
         if matches!(error, repo::Error::NotFound) {
@@ -341,7 +353,12 @@ pub fn show_single_repo_status(
         },
     };
 
-    add_repo_status(&mut table, repo_name.as_ref(), &repo_handle?, is_worktree)?;
+    add_repo_status(
+        &mut table,
+        repo_name.as_ref(),
+        &repo_handle?,
+        worktree_setup,
+    )?;
 
     Ok((table, warnings))
 }

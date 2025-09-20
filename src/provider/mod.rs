@@ -153,7 +153,7 @@ pub trait Project {
     fn into_repo_config(
         self,
         remote_name: &RemoteName,
-        worktree_setup: bool,
+        worktree_setup: repo::WorktreeSetup,
         force_ssh: bool,
     ) -> repo::Repo
     where
@@ -337,7 +337,7 @@ pub trait Provider {
 
     fn get_repos(
         &self,
-        worktree_setup: bool,
+        worktree_setup: repo::WorktreeSetup,
         force_ssh: bool,
         remote_name: Option<RemoteName>,
     ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, Error> {

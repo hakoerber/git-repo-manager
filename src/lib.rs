@@ -171,17 +171,21 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
             continue;
         }
 
-        let is_worktree = repo::RepoHandle::detect_worktree(&path);
+        let worktree_setup = repo::RepoHandle::detect_worktree(&path);
         if path == root {
             repo_in_root = true;
         }
 
-        match repo::RepoHandle::open(&path, is_worktree) {
+        match repo::RepoHandle::open(&path, worktree_setup) {
             Err(error) => {
                 warnings.push(Warning(format!(
                     "Error opening repo {}{}: {}",
                     path.display(),
-                    if is_worktree { " as worktree" } else { "" },
+                    if worktree_setup.is_worktree() {
+                        " as worktree"
+                    } else {
+                        ""
+                    },
                     error
                 )));
             }
@@ -266,7 +270,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                     name: repo::ProjectName::new(name),
                     namespace: namespace.map(repo::ProjectNamespace::new),
                     remotes,
-                    worktree_setup: is_worktree,
+                    worktree_setup,
                 });
             }
         }

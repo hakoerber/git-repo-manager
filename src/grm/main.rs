@@ -15,7 +15,8 @@ use grm::{
     BranchName, RemoteName, auth, config, find_in_tree,
     output::{print, print_error, print_success, print_warning, println},
     provider::{self, Provider},
-    repo, table, tree,
+    repo::{self, WorktreeSetup},
+    table, tree,
     worktree::{self, WorktreeName},
 };
 
@@ -90,7 +91,7 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> Result<(), MainError> 
         print_warning("You did not specify any filters, so no repos will match");
     }
 
-    let worktree = args.worktree == "true";
+    let worktree = (args.worktree == "true").into();
 
     let repos = match args.provider {
         cmd::RemoteProvider::Github => {
@@ -333,8 +334,8 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> Result<(), MainError> 
                     message: format!("Error: {e}"),
                 })?
                 .get_repos(
-                    config.worktree.unwrap_or(false),
-                    config.force_ssh.unwrap_or(false),
+                    config.worktree.unwrap_or(false).into(),
+                    config.force_ssh.unwrap_or(false).into(),
                     config.remote_name.map(RemoteName::new),
                 )
                 .map_err(|e| MainError {
@@ -349,8 +350,8 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> Result<(), MainError> 
                     message: format!("Error: {e}"),
                 })?
                 .get_repos(
-                    config.worktree.unwrap_or(false),
-                    config.force_ssh.unwrap_or(false),
+                    config.worktree.unwrap_or(false).into(),
+                    config.force_ssh.unwrap_or(false).into(),
                     config.remote_name.map(RemoteName::new),
                 )
                 .map_err(|e| MainError {
@@ -420,7 +421,7 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> Result<(), MainError> 
         print_warning("You did not specify any filters, so no repos will match");
     }
 
-    let worktree = args.worktree == "true";
+    let worktree = (args.worktree == "true").into();
 
     let repos = match args.provider {
         cmd::RemoteProvider::Github => {
@@ -580,7 +581,7 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> Result<(), MainError
         })?
         .map(Into::into);
 
-    let repo = repo::RepoHandle::open(&cwd, true).map_err(|e| MainError {
+    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
         exit_code: None,
         message: format!("Error opening repository: {e}"),
     })?;
@@ -618,7 +619,7 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> Result<(), MainError
 fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> Result<(), MainError> {
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, true).map_err(|e| MainError {
+    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
         exit_code: None,
         message: format!("Error opening repository: {e}"),
     })?;
@@ -645,7 +646,7 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> Result<(), MainEr
 
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, false).map_err(|e| MainError {
+    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::NoWorktree).map_err(|e| MainError {
         exit_code: None,
         message: if matches!(e, repo::Error::NotFound) {
             "Directory does not contain a git repository".to_owned()
@@ -681,7 +682,7 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> Result<(), MainEr
 fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> Result<(), MainError> {
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, true).map_err(|e| MainError {
+    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
         exit_code: None,
         message: if matches!(e, repo::Error::NotFound) {
             "Directory does not contain a git repository".to_owned()
@@ -714,7 +715,7 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> Result<(), MainError>
 fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> Result<(), MainError> {
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, true).map_err(|e| MainError {
+    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
         exit_code: None,
         message: if matches!(e, repo::Error::NotFound) {
             "Directory does not contain a git repository".to_owned()
@@ -724,19 +725,20 @@ fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> Result<(), MainError>
     })?;
 
     if let Err(e) = repo.fetchall() {
-        return Err(MainError {
+        Err(MainError {
             exit_code: None,
             message: format!("Error fetching remotes: {e}"),
-        });
+        })
+    } else {
+        print_success("Fetched from all remotes");
+        Ok(())
     }
-    print_success("Fetched from all remotes");
-    Ok(())
 }
 
 fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> Result<(), MainError> {
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, true).map_err(|e| MainError {
+    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
         exit_code: None,
         message: if matches!(e, repo::Error::NotFound) {
             "Directory does not contain a git repository".to_owned()
@@ -790,7 +792,7 @@ fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> Result<(), MainError
         });
     }
 
-    let repo = repo::RepoHandle::open(&cwd, true).map_err(|e| MainError {
+    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
         exit_code: None,
         message: if matches!(e, repo::Error::NotFound) {
             "Directory does not contain a git repository".to_owned()

@@ -8,7 +8,8 @@ use super::{
     output::print_warning,
     path, provider,
     provider::{Filter, Provider},
-    repo, tree,
+    repo::{self, WorktreeSetup},
+    tree,
 };
 
 #[derive(Debug, Deserialize, Serialize, clap::ValueEnum, Clone)]
@@ -212,7 +213,7 @@ impl Config {
                         config.api_url.map(provider::Url::new),
                     )?
                     .get_repos(
-                        config.worktree.unwrap_or(false),
+                        config.worktree.unwrap_or(false).into(),
                         config.force_ssh.unwrap_or(false),
                         config.remote_name.map(RemoteName::new),
                     )?,
@@ -222,7 +223,7 @@ impl Config {
                         config.api_url.map(provider::Url::new),
                     )?
                     .get_repos(
-                        config.worktree.unwrap_or(false),
+                        config.worktree.unwrap_or(false).into(),
                         config.force_ssh.unwrap_or(false),
                         config.remote_name.map(RemoteName::new),
                     )?,
