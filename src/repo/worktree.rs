@@ -928,16 +928,10 @@ pub struct WorktreeRootConfig {
     pub track: Option<TrackingConfig>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TrackingDefault {
     Track,
     NoTrack,
-}
-
-impl TrackingDefault {
-    fn track(self) -> bool {
-        matches!(self, Self::Track)
-    }
 }
 
 pub struct TrackingConfig {
@@ -1377,9 +1371,11 @@ impl WorktreeRepoHandle {
         let prefix = track_config
             .as_ref()
             .and_then(|track| track.default_remote_prefix.as_ref());
-        let enable_tracking = track_config
+
+        let default_tracking = track_config
             .as_ref()
-            .is_some_and(|track| track.default.track());
+            .map_or(TrackingDefault::NoTrack, |track| track.default);
+
         let default_remote = track_config
             .as_ref()
             .map(|track| track.default_remote.clone());
@@ -1542,7 +1538,7 @@ impl WorktreeRepoHandle {
                 Some((remote_name, remote_branch_name)),
                 None, // Always disable prefixing when explicitly given --track
             )
-        } else if !enable_tracking {
+        } else if default_tracking == TrackingDefault::NoTrack {
             worktree.set_remote_tracking_branch(None, prefix.map(String::as_str))
         } else {
             match remotes.len() {
