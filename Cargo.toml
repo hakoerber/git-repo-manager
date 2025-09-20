@@ -81,7 +81,7 @@ version = "=1.11.2"
 default-features = false
 
 [dependencies.comfy-table]
-version = "=7.1.4"
+version = "=7.2.1"
 default-features = false
 
 [dependencies.serde_yaml]
