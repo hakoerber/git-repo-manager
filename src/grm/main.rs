@@ -683,10 +683,8 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
         )
         .map_err(|e| MainError::CreateWorktree(e))?;
 
-    if let Some(warnings) = warnings {
-        for warning in warnings {
-            print_warning(&warning);
-        }
+    for warning in warnings {
+        print_warning(&warning);
     }
 
     print_success(&format!("Worktree {} created", &args.name));

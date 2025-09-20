@@ -1359,7 +1359,7 @@ impl WorktreeRepoHandle {
         &self,
         name: &WorktreeName,
         tracking_selection: &TrackingSelection,
-    ) -> Result<Option<Vec<Warning>>, Error> {
+    ) -> Result<Vec<Warning>, Error> {
         let mut warnings: Vec<Warning> = vec![];
 
         let repo_directory = self.base_directory()?;
@@ -1570,10 +1570,6 @@ impl WorktreeRepoHandle {
 
         worktree.create(repo_directory)?;
 
-        Ok(if warnings.is_empty() {
-            None
-        } else {
-            Some(warnings)
-        })
+        Ok(warnings)
     }
 }
