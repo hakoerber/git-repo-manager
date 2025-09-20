@@ -44,49 +44,67 @@ path = "src/grm/main.rs"
 
 [dependencies.thiserror]
 version = "=2.0"
+default-features = false
 features = ["std"]
 
 [dependencies.toml]
 version = "=0.9.2"
+default-features = false
+features = ["serde", "display", "parse"]
 
 [dependencies.serde]
 version = "=1.0.219"
+default-features = false
 features = ["derive"]
 
 [dependencies.git2]
 version = "=0.20.2"
+default-features = false
 
 [dependencies.shellexpand]
 version = "=3.1.1"
+default-features = false
+features = ["base-0"]
 
 [dependencies.clap]
 version = "=4.5.41"
-features = ["derive", "cargo"]
+default-features = false
+features = ["std", "derive", "cargo", "color", "help", "usage", "error-context"]
 
 [dependencies.console]
 version = "=0.16.0"
+default-features = false
+features = ["std"]
 
 [dependencies.regex]
 version = "=1.11.1"
+default-features = false
 
 [dependencies.comfy-table]
 version = "=7.1.4"
+default-features = false
 
 [dependencies.serde_yaml]
 version = "=0.9.34"
+default-features = false
 
 [dependencies.serde_json]
 version = "=1.0.141"
+default-features = false
 
 [dependencies.ureq]
 version = "=3.0.12"
+default-features = false
 features = ["json"]
 
 [dependencies.parse_link_header]
 version = "=0.4.0"
+features = ["http"]
+default-features = false
 
 [dependencies.url-escape]
 version = "=0.1.1"
+default-features = false
 
 [dev-dependencies.temp-env]
 version = "=0.3.6"
@@ -94,6 +112,7 @@ default-features = false
 
 [dev-dependencies.outdir-tempdir]
 version = "=0.2.0"
+default-features = false
 
 [features]
 static-build = [
