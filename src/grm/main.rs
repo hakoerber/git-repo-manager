@@ -104,23 +104,43 @@ enum MainError {
     CmdRebaseWithoutPull,
 }
 
-enum MainResult {
-    Success(InformationalExitCode),
-    Failure(MainError),
-}
+impl MainError {
+    fn exit_code(&self) -> ExitCode {
+        match *self {
+            Self::WorktreeConvertRefuseChanges(..)
+            | Self::WorktreeConvertRefuseIgnored
+            | Self::WorktreeRemovalRefuse(..) => MainExitCode::Refusal.into(),
 
-enum InformationalExitCode {
-    Success,
-    Warnings,
-}
+            Self::CmdRebaseWithoutPull => MainExitCode::Cli.into(),
 
-impl From<InformationalExitCode> for ExitCode {
-    fn from(value: InformationalExitCode) -> Self {
-        match value {
-            InformationalExitCode::Success => Self::SUCCESS,
-            InformationalExitCode::Warnings => Self::from(2),
+            _ => MainExitCode::Failure.into(),
         }
     }
+}
+
+enum MainExitCode {
+    Success,
+    Failure,
+    Warnings,
+    Refusal,
+    Cli,
+}
+
+impl From<MainExitCode> for ExitCode {
+    fn from(value: MainExitCode) -> Self {
+        match value {
+            MainExitCode::Success => Self::SUCCESS,
+            MainExitCode::Failure => Self::FAILURE,
+            MainExitCode::Warnings => Self::from(2),
+            MainExitCode::Refusal => Self::from(3),
+            MainExitCode::Cli => Self::from(4),
+        }
+    }
+}
+
+enum MainResult {
+    Success(MainExitCode),
+    Failure(MainError),
 }
 
 impl Termination for MainResult {
@@ -129,7 +149,7 @@ impl Termination for MainResult {
             Self::Success(exit_code) => exit_code.into(),
             Self::Failure(main_error) => {
                 print_error(&main_error.to_string());
-                ExitCode::FAILURE
+                main_error.exit_code()
             }
         }
     }
@@ -162,7 +182,7 @@ fn handle_repos_sync_config(args: cmd::Config) -> HandlerResult {
     tree::sync_trees(read_config(&args.config)?, args.init_worktree)
         .map_err(|e| MainError::SyncTrees(e))?
         .is_success()
-        .then_some(InformationalExitCode::Success)
+        .then_some(MainExitCode::Success)
         .ok_or(MainError::SyncTreeHasFailures)
 }
 
@@ -230,7 +250,7 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
     tree::sync_trees(config, args.init_worktree)
         .map_err(|e| MainError::SyncTrees(e))?
         .is_success()
-        .then_some(InformationalExitCode::Success)
+        .then_some(MainExitCode::Success)
         .ok_or(MainError::SyncTreeHasFailures)
 }
 
@@ -263,7 +283,7 @@ fn handle_repos_status(args: cmd::OptionalConfig) -> HandlerResult {
             print_warning(&warning);
         }
     }
-    Ok(InformationalExitCode::Success)
+    Ok(MainExitCode::Success)
 }
 
 fn handle_repos_find_local(args: cmd::FindLocalArgs) -> HandlerResult {
@@ -314,7 +334,7 @@ fn handle_repos_find_local(args: cmd::FindLocalArgs) -> HandlerResult {
     for warning in warnings {
         print_warning(&warning);
     }
-    Ok(InformationalExitCode::Success)
+    Ok(MainExitCode::Success)
 }
 
 fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
@@ -410,7 +430,7 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
             print(&yaml);
         }
     }
-    Ok(InformationalExitCode::Success)
+    Ok(MainExitCode::Success)
 }
 
 fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
@@ -496,10 +516,10 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
             print(&yaml);
         }
     }
-    Ok(InformationalExitCode::Success)
+    Ok(MainExitCode::Success)
 }
 
-type HandlerResult = Result<InformationalExitCode, MainError>;
+type HandlerResult = Result<MainExitCode, MainError>;
 
 fn handle_repos_find(find: cmd::FindAction) -> HandlerResult {
     Ok(match find {
@@ -563,7 +583,7 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
 
     print_success(&format!("Worktree {} created", &args.name));
 
-    Ok(InformationalExitCode::Success)
+    Ok(MainExitCode::Success)
 }
 
 fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
@@ -595,7 +615,7 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
 
     print_success(&format!("Worktree {} deleted", &args.name));
 
-    Ok(InformationalExitCode::Success)
+    Ok(MainExitCode::Success)
 }
 
 fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> HandlerResult {
@@ -612,7 +632,7 @@ fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> HandlerResult {
         print_error(&format!("Error: {error}"));
     }
 
-    Ok(InformationalExitCode::Success)
+    Ok(MainExitCode::Success)
 }
 
 fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
@@ -644,7 +664,7 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
         })
     } else {
         print_success("Conversion done");
-        Ok(InformationalExitCode::Success)
+        Ok(MainExitCode::Success)
     }
 }
 
@@ -694,9 +714,9 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
         ));
     }
     Ok(if warnings.is_empty() {
-        InformationalExitCode::Success
+        MainExitCode::Success
     } else {
-        InformationalExitCode::Warnings
+        MainExitCode::Warnings
     })
 }
 
@@ -715,7 +735,7 @@ fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> HandlerResult {
         Err(MainError::FetchRemotes(e))
     } else {
         print_success("Fetched from all remotes");
-        Ok(InformationalExitCode::Success)
+        Ok(MainExitCode::Success)
     }
 }
 
@@ -750,9 +770,9 @@ fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> HandlerResult {
         }
     }
     if failures {
-        Ok(InformationalExitCode::Warnings)
+        Ok(MainExitCode::Warnings)
     } else {
-        Ok(InformationalExitCode::Success)
+        Ok(MainExitCode::Success)
     }
 }
 
@@ -812,9 +832,9 @@ fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> HandlerResult {
     }
 
     if failures {
-        Ok(InformationalExitCode::Warnings)
+        Ok(MainExitCode::Warnings)
     } else {
-        Ok(InformationalExitCode::Success)
+        Ok(MainExitCode::Success)
     }
 }
 
