@@ -659,13 +659,10 @@ impl<'a> NewWorktree<'a, WithRemoteTrackingBranch<'a>> {
 
         if let Some((remote_name, remote_branch_name)) = self.extra.remote_tracking_branch {
             let remote_branch_with_prefix = if let Some(ref prefix) = self.extra.prefix {
-                self.repo
-                    .as_repo()
-                    .find_remote_branch(
-                        &remote_name,
-                        &BranchName::new(format!("{prefix}/{remote_branch_name}")),
-                    )
-                    .ok()
+                self.repo.as_repo().find_remote_branch(
+                    &remote_name,
+                    &BranchName::new(format!("{prefix}/{remote_branch_name}")),
+                )?
             } else {
                 None
             };
@@ -673,8 +670,7 @@ impl<'a> NewWorktree<'a, WithRemoteTrackingBranch<'a>> {
             let remote_branch_without_prefix = self
                 .repo
                 .as_repo()
-                .find_remote_branch(&remote_name, &remote_branch_name)
-                .ok();
+                .find_remote_branch(&remote_name, &remote_branch_name)?;
 
             let remote_branch = if let Some(ref _prefix) = self.extra.prefix {
                 remote_branch_with_prefix
@@ -967,14 +963,11 @@ pub fn add_worktree(
     let get_remote_head = |remote_name: &RemoteName,
                            remote_branch_name: &BranchName|
      -> Result<Option<repo::Commit>, Error> {
-        if let Ok(remote_branch) = repo
+        Ok(repo
             .as_repo()
-            .find_remote_branch(remote_name, remote_branch_name)
-        {
-            Ok(Some(remote_branch.commit_owned()?))
-        } else {
-            Ok(None)
-        }
+            .find_remote_branch(remote_name, remote_branch_name)?
+            .map(|branch| branch.commit_owned())
+            .transpose()?)
     };
 
     let worktree = if worktree.local_branch_already_exists() {
@@ -989,9 +982,9 @@ pub fn add_worktree(
             remote_branch_name,
         } = tracking_selection
         {
-            if let Ok(remote_branch) = repo
+            if let Some(remote_branch) = repo
                 .as_repo()
-                .find_remote_branch(remote_name, remote_branch_name)
+                .find_remote_branch(remote_name, remote_branch_name)?
             {
                 worktree.select_commit(Some(remote_branch.commit_owned()?))
             } else {
@@ -1024,24 +1017,13 @@ pub fn add_worktree(
                 _ => {
                     let commit = if let Some(ref default_remote) = default_remote {
                     if let Some(prefix) = prefix {
-                        if let Ok(remote_branch) = repo.as_repo()
-                            .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))
-                        {
-                            Some(remote_branch.commit_owned()?)
-                        } else {
-                            None
-                        }
+                        repo.as_repo()
+                            .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
                     } else {
                         None
                     }
                     .or({
-                        if let Ok(remote_branch) =
-                            repo.as_repo().find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))
-                        {
-                            Some(remote_branch.commit_owned()?)
-                        } else {
-                            None
-                        }
+                        repo.as_repo().find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned() ).transpose()?
                     })
                 } else {
                     None
@@ -1050,26 +1032,16 @@ pub fn add_worktree(
                     for remote_name in remotes {
                         let remote_head: Option<repo::Commit> = ({
                             if let Some(prefix) = prefix {
-                                if let Ok(remote_branch) = repo.as_repo().find_remote_branch(
+                                repo.as_repo().find_remote_branch(
                                     remote_name,
                                     &BranchName::new(format!("{prefix}/{name}")),
-                                ) {
-                                    Some(remote_branch.commit_owned()?)
-                                } else {
-                                    None
-                                }
+                                )?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
                             } else {
                                 None
                             }
                         })
                         .or({
-                            if let Ok(remote_branch) =
-                                repo.as_repo().find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))
-                            {
-                                Some(remote_branch.commit_owned()?)
-                            } else {
-                                None
-                            }
+                            repo.as_repo().find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned()).transpose()?
                         })
                         .or(None);
                         commits.push(remote_head);

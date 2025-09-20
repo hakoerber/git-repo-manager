@@ -584,11 +584,17 @@ impl RepoHandle {
         &self,
         remote_name: &RemoteName,
         branch_name: &BranchName,
-    ) -> Result<Branch<'_>, Error> {
-        Ok(Branch(self.0.find_branch(
+    ) -> Result<Option<Branch<'_>>, Error> {
+        match self.0.find_branch(
             &format!("{}/{}", remote_name.as_str(), branch_name.as_str()),
             git2::BranchType::Remote,
-        )?))
+        ) {
+            Ok(branch) => Ok(Some(Branch(branch))),
+            Err(e) => match e.code() {
+                git2::ErrorCode::NotFound => Ok(None),
+                _ => Err(e.into()),
+            },
+        }
     }
 
     pub fn find_local_branch(&self, name: &BranchName) -> Result<Option<Branch<'_>>, Error> {
@@ -911,27 +917,27 @@ impl RepoHandle {
 
         // Note that <remote>/HEAD only exists after a normal clone, there is no way to
         // get the remote HEAD afterwards. So this is a "best effort" approach.
-        if let Ok(remote_head) =
-            self.find_remote_branch(remote_name, &BranchName::new("HEAD".to_owned()))
-        {
-            if let Some(pointer_name) = remote_head.as_reference().symbolic_target() {
-                if let Some(local_branch_name) =
-                    pointer_name.strip_prefix(&format!("refs/remotes/{remote_name}/"))
-                {
-                    return Ok(Some(
-                        self.find_local_branch(&BranchName(local_branch_name.to_owned()))?
-                            .ok_or(Error::BranchNotFound)?,
-                    ));
+        match self.find_remote_branch(remote_name, &BranchName::new("HEAD".to_owned()))? {
+            Some(remote_head) => {
+                if let Some(pointer_name) = remote_head.as_reference().symbolic_target() {
+                    if let Some(local_branch_name) =
+                        pointer_name.strip_prefix(&format!("refs/remotes/{remote_name}/"))
+                    {
+                        Ok(Some(
+                            self.find_local_branch(&BranchName(local_branch_name.to_owned()))?
+                                .ok_or(Error::BranchNotFound)?,
+                        ))
+                    } else {
+                        Err(Error::InvalidRemoteHeadPointer {
+                            name: pointer_name.to_owned(),
+                        })
+                    }
                 } else {
-                    return Err(Error::InvalidRemoteHeadPointer {
-                        name: pointer_name.to_owned(),
-                    });
+                    Err(Error::RemoteHeadNoSymbolicTarget)
                 }
-            } else {
-                return Err(Error::RemoteHeadNoSymbolicTarget);
             }
+            None => Ok(None),
         }
-        Ok(None)
     }
 
     pub fn default_branch(&self) -> Result<Branch<'_>, Error> {
