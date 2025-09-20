@@ -1361,10 +1361,11 @@ impl WorktreeRepoHandle {
         let worktrees = self.get_worktrees()?;
 
         let mut unmanaged_worktrees = Vec::new();
-        for entry in std::fs::read_dir(directory)? {
-            let entry = path::from_std_path_buf(entry?.path())?;
+        for entry in directory.read_dir_utf8()? {
             #[expect(clippy::missing_panics_doc, reason = "see expect() message")]
+            let entry = entry?;
             let dirname = entry
+                .path()
                 .strip_prefix(directory)
                 // that unwrap() is safe as each entry is
                 // guaranteed to be a subentry of &directory

@@ -641,30 +641,31 @@ impl RepoHandle {
             WorktreeConversionError::RenameError(format!("Error moving .git directory: {error}"))
         })?;
 
-        for entry in match std::fs::read_dir(root_dir) {
-            Ok(iterator) => iterator,
-            Err(error) => {
-                return Err(WorktreeConversionError::OpenDirectoryError(error));
-            }
-        } {
+        for entry in root_dir
+            .read_dir_utf8()
+            .map_err(|err| WorktreeConversionError::OpenDirectoryError(err))?
+        {
             match entry {
                 Ok(entry) => {
-                    let path = path::from_std_path_buf(entry.path())?;
                     #[expect(
                         clippy::missing_panics_doc,
                         reason = "the path will ALWAYS have a file component"
                     )]
-                    if path.file_name().expect("path has a file name component")
-                        == worktree::GIT_MAIN_WORKTREE_DIRECTORY
-                    {
+                    if entry.file_name() == worktree::GIT_MAIN_WORKTREE_DIRECTORY {
                         continue;
                     }
-                    if path.is_file() || path.is_symlink() {
-                        if let Err(error) = std::fs::remove_file(path.as_std_path()) {
-                            return Err(WorktreeConversionError::RemoveError { path, error });
+                    if entry.path().is_file() || entry.path().is_symlink() {
+                        if let Err(error) = std::fs::remove_file(entry.path()) {
+                            return Err(WorktreeConversionError::RemoveError {
+                                path: entry.into_path(),
+                                error,
+                            });
                         }
-                    } else if let Err(error) = std::fs::remove_dir_all(&path) {
-                        return Err(WorktreeConversionError::RemoveError { path, error });
+                    } else if let Err(error) = std::fs::remove_dir_all(&entry.path()) {
+                        return Err(WorktreeConversionError::RemoveError {
+                            path: entry.into_path(),
+                            error,
+                        });
                     }
                 }
                 Err(error) => {
