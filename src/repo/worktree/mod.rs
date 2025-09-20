@@ -1276,7 +1276,8 @@ impl WorktreeRepoHandle {
         //
         // So if we define `commit` *after* the respective worktrees, it will be dropped
         // first while still being borrowed by `Worktree`.
-        let default_branch_head = self.as_repo().default_branch()?.commit_owned()?;
+        let default_branch_head =
+            || Ok::<_, Error>(self.as_repo().default_branch()?.commit_owned()?);
 
         let worktree = NewWorktree::<Init>::new(self)
             .set_local_branch_name(&BranchName::new(name.as_str().to_owned()))?;
@@ -1294,115 +1295,147 @@ impl WorktreeRepoHandle {
         let worktree = if worktree.local_branch_already_exists() {
             worktree.select_commit(None)
         } else {
-            if let TrackingSelection::Explicit {
-                ref remote_name,
-                ref remote_branch_name,
-            } = tracking_selection
-            {
-                worktree.select_commit(Some(
+            match tracking_selection {
+                TrackingSelection::Explicit {
+                    ref remote_name,
+                    ref remote_branch_name,
+                } => worktree.select_commit(Some(
                     self.as_repo()
                         .find_remote_branch(remote_name, remote_branch_name)?
                         .map_or_else(
-                            || Ok(default_branch_head),
-                            |remote_branch| remote_branch.commit_owned(),
+                            || default_branch_head(),
+                            |remote_branch| Ok(remote_branch.commit_owned()?),
                         )?,
-                ))
-            } else {
-                match remotes.len() {
-                    0 => worktree.select_commit(Some(default_branch_head)),
-                    1 => {
-                        #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
-                        let remote_name = &remotes[0];
-                        let commit: Option<repo::Commit> = ({
-                            if let Some(prefix) = prefix {
-                                get_remote_head(
-                                    remote_name,
-                                    &BranchName::new(format!("{prefix}/{name}")),
-                                )?
-                            } else {
-                                None
-                            }
-                        })
-                        .or(get_remote_head(
-                            remote_name,
-                            &BranchName::new(name.as_str().to_owned()),
-                        )?)
-                        .or_else(|| Some(default_branch_head));
+                )),
+                TrackingSelection::Automatic | TrackingSelection::Disabled => {
+                    match remotes.len() {
+                        0 => worktree.select_commit(Some(default_branch_head()?)),
+                        1 => {
+                            #[expect(
+                                clippy::indexing_slicing,
+                                reason = "checked for len() explicitly"
+                            )]
+                            let remote_name = &remotes[0];
 
-                        worktree.select_commit(commit)
-                    }
-                    _ => {
-                        let commit = if let Some(ref default_remote) = default_remote {
-                            if let Some(prefix) = prefix {
-                                self.as_repo()
-                                    .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
-                            } else {
-                                None
-                            }
-                            .or({
-                                self.as_repo().find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned() ).transpose()?
-                            })
-                        } else {
-                            None
-                        }.or({
-                            let mut commits = vec![];
-                            for remote_name in &remotes {
-                                let remote_head: Option<repo::Commit> = ({
-                                    if let Some(prefix) = prefix {
-                                        self.as_repo().find_remote_branch(
-                                            remote_name,
-                                            &BranchName::new(format!("{prefix}/{name}")),
-                                        )?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
-                                    } else {
-                                        None
-                                    }
+                            let commit: Option<repo::Commit> = prefix
+                                .map(|prefix| {
+                                    get_remote_head(
+                                        remote_name,
+                                        &BranchName::new(format!("{prefix}/{name}")),
+                                    )
+                                    .transpose()
                                 })
-                                .or({
-                                    self.as_repo().find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned()).transpose()?
-                                })
-                                .or(None);
-                                commits.push(remote_head);
-                            }
-
-                            let mut commits = commits
-                                .into_iter()
                                 .flatten()
-                                // have to collect first because the `flatten()` return
-                                // typedoes not implement `windows()`
-                                .collect::<Vec<repo::Commit>>();
-                            // `flatten()` takes care of `None` values here. If all
-                            // remotes return None for the branch, we do *not* abort, we
-                            // continue!
-                            if commits.is_empty() {
-                                Some(default_branch_head)
-                            } else if commits.len() == 1 {
-                                Some(commits.swap_remove(0))
-                            } else if commits.windows(2).any(
-                                #[expect(
-                                    clippy::missing_asserts_for_indexing,
-                                    clippy::indexing_slicing,
-                                    reason = "windows function always returns two elements"
-                                )]
-                                |window| {
-                                    let c1 = &window[0];
-                                    let c2 = &window[1];
-                                    (*c1).id().hex_string() != (*c2).id().hex_string()
-                                }) {
-                                warnings.push(
-                                    // TODO this should also include the branch
-                                    // name. BUT: the branch name may be different
-                                    // between the remotes. Let's just leave it
-                                    // until I get around to fix that inconsistency
-                                    // (see module-level doc about), which might be
-                                    // never, as it's such a rare edge case.
-                                    Warning("Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned())
-                                );
-                                Some(default_branch_head)
-                            } else {
-                                Some(commits.swap_remove(0))
-                            }
-                        });
-                        worktree.select_commit(commit)
+                                .or_else(|| {
+                                    get_remote_head(
+                                        remote_name,
+                                        &BranchName::new(name.as_str().to_owned()),
+                                    )
+                                    .transpose()
+                                })
+                                .or_else(|| Some(default_branch_head()))
+                                .transpose()?;
+
+                            worktree.select_commit(commit)
+                        }
+                        _ => {
+                            let x = prefix
+                                .map(|prefix| {
+                                    Ok(self
+                                        .as_repo()
+                                        .find_remote_branch(
+                                            default_remote.as_ref().unwrap(),
+                                            &BranchName::new(format!("{prefix}/{name}")),
+                                        )?
+                                        .map(|remote_branch| remote_branch.commit_owned()))
+                                })
+                                .transpose()
+                                .map(Option::flatten)
+                                .transpose()
+                                .map(Result::flatten)
+                                .or({
+                                    self.as_repo()
+                                        .find_remote_branch(
+                                            default_remote.as_ref().unwrap(),
+                                            &BranchName::new(name.as_str().to_owned()),
+                                        )?
+                                        .map(|remote_branch| remote_branch.commit_owned())
+                                });
+
+                            // let commit = if let Some(ref default_remote) = default_remote {
+                            //     x
+                            // } else {
+                            //     None
+                            // }
+                            // .transpose()?;
+
+                            let commit = default_remote
+                                .map(|default_remote| {
+                                    let x = x;
+                                    x
+                                })
+                                .flatten();
+
+                            let commit = commit.or( {
+                                let mut commits = vec![];
+                                for remote_name in &remotes {
+                                    let remote_head: Option<repo::Commit> = ({
+                                        if let Some(prefix) = prefix {
+                                            self.as_repo().find_remote_branch(
+                                                remote_name,
+                                                &BranchName::new(format!("{prefix}/{name}")),
+                                            )?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .or({
+                                        self.as_repo().find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned()).transpose()?
+                                    })
+                                    .or(None);
+                                    commits.push(remote_head);
+                                }
+
+                                let mut commits = commits
+                                    .into_iter()
+                                    .flatten()
+                                    // have to collect first because the `flatten()` return
+                                    // type does not implement `windows()`
+                                    .collect::<Vec<repo::Commit>>();
+                                // `flatten()` takes care of `None` values here. If all
+                                // remotes return None for the branch, we do *not* abort, we
+                                // continue!
+                                if commits.is_empty() {
+                                    Some(default_branch_head()?)
+                                } else if commits.len() == 1 {
+                                    Some(commits.swap_remove(0))
+                                } else if commits.windows(2).any(
+                                    #[expect(
+                                        clippy::missing_asserts_for_indexing,
+                                        clippy::indexing_slicing,
+                                        reason = "windows function always returns two elements"
+                                    )]
+                                    |window| {
+                                        let c1 = &window[0];
+                                        let c2 = &window[1];
+                                        (*c1).id().hex_string() != (*c2).id().hex_string()
+                                    }) {
+                                    warnings.push(
+                                        // TODO this should also include the branch
+                                        // name. BUT: the branch name may be different
+                                        // between the remotes. Let's just leave it
+                                        // until I get around to fix that inconsistency
+                                        // (see module-level doc about), which might be
+                                        // never, as it's such a rare edge case.
+                                        Warning("Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned())
+                                    );
+                                    Some(default_branch_head()?)
+                                } else {
+                                    Some(commits.swap_remove(0))
+                                }
+                            });
+                            worktree.select_commit(commit)
+                        }
                     }
                 }
             }
