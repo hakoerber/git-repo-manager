@@ -48,7 +48,7 @@ default-features = false
 features = ["std"]
 
 [dependencies.toml]
-version = "=0.9.5"
+version = "=0.9.6"
 default-features = false
 features = ["serde", "display", "parse"]
 
