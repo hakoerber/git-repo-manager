@@ -5,6 +5,7 @@
 )]
 
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     process::{ExitCode, Termination},
 };
@@ -14,9 +15,11 @@ use thiserror::Error;
 mod cmd;
 
 use grm::{
-    BranchName, RemoteName, auth, config, find_in_tree,
+    BranchName, RemoteName,
+    auth::{self, AuthToken},
+    config, find_in_tree,
     output::{print, print_error, print_success, print_warning, println},
-    provider::{self, ProtocolConfig, Provider},
+    provider::{self, Filter, ProjectNamespace, ProtocolConfig, Provider, RemoteProvider},
     repo::{
         self, RepoChanges,
         worktree::{self, WorktreeName, WorktreeSetup},
@@ -186,6 +189,46 @@ fn handle_repos_sync_config(args: cmd::Config) -> HandlerResult {
         .ok_or(MainError::SyncTreeHasFailures)
 }
 
+fn get_repos_from_provider(
+    provider: RemoteProvider,
+    filter: Filter,
+    token: AuthToken,
+    api_url: Option<String>,
+    use_worktree: bool,
+    force_ssh: bool,
+    remote_name: Option<String>,
+) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, MainError> {
+    match provider {
+        cmd::RemoteProvider::Github => {
+            provider::Github::new(filter, token, api_url.map(provider::Url::new))
+                .map_err(|e| MainError::ProviderInit(e))?
+                .get_repos(
+                    use_worktree.into(),
+                    if force_ssh {
+                        ProtocolConfig::ForceSsh
+                    } else {
+                        ProtocolConfig::Default
+                    },
+                    remote_name.map(RemoteName::new),
+                )
+        }
+        cmd::RemoteProvider::Gitlab => {
+            provider::Gitlab::new(filter, token, api_url.map(provider::Url::new))
+                .map_err(|e| MainError::ProviderInit(e))?
+                .get_repos(
+                    use_worktree.into(),
+                    if force_ssh {
+                        ProtocolConfig::ForceSsh
+                    } else {
+                        ProtocolConfig::Default
+                    },
+                    remote_name.map(RemoteName::new),
+                )
+        }
+    }
+    .map_err(|e| MainError::ProviderGetRepo(e))
+}
+
 fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
     let token = auth::get_token_from_command(&args.token_command)
         .map_err(|e| MainError::TokenCommandFailed(e))?;
@@ -201,35 +244,15 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
         print_warning("You did not specify any filters, so no repos will match");
     }
 
-    let repos = match args.provider {
-        cmd::RemoteProvider::Github => {
-            provider::Github::new(filter, token, args.api_url.map(provider::Url::new))
-                .map_err(|e| MainError::ProviderInit(e))?
-                .get_repos(
-                    args.worktree.into(),
-                    if args.force_ssh {
-                        ProtocolConfig::ForceSsh
-                    } else {
-                        ProtocolConfig::Default
-                    },
-                    args.remote_name.map(RemoteName::new),
-                )
-        }
-        cmd::RemoteProvider::Gitlab => {
-            provider::Gitlab::new(filter, token, args.api_url.map(provider::Url::new))
-                .map_err(|e| MainError::ProviderInit(e))?
-                .get_repos(
-                    args.worktree.into(),
-                    if args.force_ssh {
-                        ProtocolConfig::ForceSsh
-                    } else {
-                        ProtocolConfig::Default
-                    },
-                    args.remote_name.map(RemoteName::new),
-                )
-        }
-    }
-    .map_err(|e| MainError::ProviderGetRepo(e))?;
+    let repos = get_repos_from_provider(
+        args.provider,
+        filter,
+        token,
+        args.api_url,
+        args.worktree,
+        args.force_ssh,
+        args.remote_name,
+    )?;
 
     let mut trees: Vec<config::Tree> = vec![];
 
@@ -371,36 +394,15 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
         print_warning("You did not specify any filters, so no repos will match");
     }
 
-    let repos = match config.provider.into() {
-        provider::RemoteProvider::Github => {
-            provider::Github::new(filter, token, config.api_url.map(provider::Url::new))
-                .map_err(|e| MainError::ProviderInit(e))?
-                .get_repos(
-                    config.worktree.unwrap_or(false).into(),
-                    if config.force_ssh.unwrap_or(false) {
-                        ProtocolConfig::ForceSsh
-                    } else {
-                        ProtocolConfig::Default
-                    },
-                    config.remote_name.map(RemoteName::new),
-                )
-                .map_err(|e| MainError::ProviderGetRepo(e))?
-        }
-        provider::RemoteProvider::Gitlab => {
-            provider::Gitlab::new(filter, token, config.api_url.map(provider::Url::new))
-                .map_err(|e| MainError::ProviderInit(e))?
-                .get_repos(
-                    config.worktree.unwrap_or(false).into(),
-                    if config.force_ssh.unwrap_or(false) {
-                        ProtocolConfig::ForceSsh
-                    } else {
-                        ProtocolConfig::Default
-                    },
-                    config.remote_name.map(RemoteName::new),
-                )
-                .map_err(|e| MainError::ProviderGetRepo(e))?
-        }
-    };
+    let repos = get_repos_from_provider(
+        config.provider.into(),
+        filter,
+        token,
+        config.api_url,
+        config.worktree.unwrap_or(false),
+        config.force_ssh.unwrap_or(false),
+        config.remote_name,
+    )?;
 
     let mut trees = vec![];
 
@@ -454,35 +456,15 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
         print_warning("You did not specify any filters, so no repos will match");
     }
 
-    let repos = match args.provider {
-        cmd::RemoteProvider::Github => {
-            provider::Github::new(filter, token, args.api_url.map(provider::Url::new))
-                .map_err(|e| MainError::ProviderInit(e))?
-                .get_repos(
-                    args.worktree.into(),
-                    if args.force_ssh {
-                        ProtocolConfig::ForceSsh
-                    } else {
-                        ProtocolConfig::Default
-                    },
-                    args.remote_name.map(RemoteName::new),
-                )
-        }
-        cmd::RemoteProvider::Gitlab => {
-            provider::Gitlab::new(filter, token, args.api_url.map(provider::Url::new))
-                .map_err(|e| MainError::ProviderInit(e))?
-                .get_repos(
-                    args.worktree.into(),
-                    if args.force_ssh {
-                        ProtocolConfig::ForceSsh
-                    } else {
-                        ProtocolConfig::Default
-                    },
-                    args.remote_name.map(RemoteName::new),
-                )
-        }
-    }
-    .map_err(|e| MainError::ProviderGetRepo(e))?;
+    let repos = get_repos_from_provider(
+        args.provider,
+        filter,
+        token,
+        args.api_url,
+        args.worktree,
+        args.force_ssh,
+        args.remote_name,
+    )?;
 
     let mut trees: Vec<config::Tree> = vec![];
 
