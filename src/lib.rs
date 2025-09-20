@@ -16,7 +16,6 @@ pub mod provider;
 pub mod repo;
 pub mod table;
 pub mod tree;
-pub mod worktree;
 
 #[derive(Debug, Error)]
 pub enum Error {

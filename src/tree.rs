@@ -12,8 +12,10 @@ use super::{
     config,
     output::{print_error, print_repo_action, print_repo_error, print_repo_success, print_warning},
     path,
-    repo::{self, WorktreeSetup},
-    worktree::{self, WorktreeName},
+    repo::{
+        self,
+        worktree::{self, WorktreeName, WorktreeSetup},
+    },
 };
 
 #[derive(Debug, Error)]

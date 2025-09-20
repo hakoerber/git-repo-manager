@@ -15,9 +15,11 @@ use grm::{
     BranchName, RemoteName, auth, config, find_in_tree,
     output::{print, print_error, print_success, print_warning, println},
     provider::{self, ProtocolConfig, Provider},
-    repo::{self, WorktreeSetup},
+    repo::{
+        self,
+        worktree::{self, WorktreeName, WorktreeSetup},
+    },
     table, tree,
-    worktree::{self, WorktreeName},
 };
 
 struct MainError {
@@ -630,10 +632,10 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
         worktree_config.as_ref(),
     )
     .map_err(|e| match e {
-        repo::WorktreeRemoveError::Changes(_)
-        | repo::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
-        | repo::WorktreeRemoveError::NotInSyncWithRemote { .. }
-        | repo::WorktreeRemoveError::NotMerged { .. } => MainError {
+        repo::worktree::WorktreeRemoveError::Changes(_)
+        | repo::worktree::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
+        | repo::worktree::WorktreeRemoveError::NotInSyncWithRemote { .. }
+        | repo::worktree::WorktreeRemoveError::NotMerged { .. } => MainError {
             exit_code: None,
             message: format!("{e}. Refusing to delete."),
         },
@@ -691,10 +693,10 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
         Err(MainError {
             exit_code: None,
             message: match *e {
-                repo::WorktreeConversionError::Changes(ref _changes) => {
+                repo::worktree::WorktreeConversionError::Changes(ref _changes) => {
                     format!("{e} Refusing to convert")
                 }
-                repo::WorktreeConversionError::Ignored => {
+                repo::worktree::WorktreeConversionError::Ignored => {
                         "Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.".to_owned()
                 },
                 _ => e.to_string(),

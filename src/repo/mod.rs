@@ -9,33 +9,14 @@ use super::{
     BranchName, RemoteName, RemoteUrl, SubmoduleName, Warning, config,
     output::{print_action, print_success},
     path,
-    worktree::{self, WorktreeName},
 };
+
+pub mod worktree;
+
+use worktree::{WorktreeConversionError, WorktreeName, WorktreeRemoveError, WorktreeSetup};
 
 const GIT_CONFIG_BARE_KEY: GitConfigKey = GitConfigKey("core.bare");
 const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum WorktreeSetup {
-    Worktree,
-    NoWorktree,
-}
-
-impl WorktreeSetup {
-    pub fn is_worktree(&self) -> bool {
-        *self == Self::Worktree
-    }
-}
-
-impl From<bool> for WorktreeSetup {
-    fn from(value: bool) -> Self {
-        if value {
-            Self::Worktree
-        } else {
-            Self::NoWorktree
-        }
-    }
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RemoteType {
@@ -61,74 +42,6 @@ impl From<RemoteType> for config::RemoteType {
             RemoteType::Https => Self::Https,
             RemoteType::File => Self::File,
         }
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum WorktreeRemoveError {
-    #[error(transparent)]
-    RepoError(Error),
-    #[error("Worktree at {0} does not exist")]
-    DoesNotExist(PathBuf),
-    #[error(
-        "Branch \"{branch_name}\" is checked out in worktree \"{worktree_name}\", this does not look correct"
-    )]
-    BranchNameMismatch {
-        worktree_name: WorktreeName,
-        branch_name: BranchName,
-    },
-    #[error("Branch {0} not found")]
-    BranchNotFound(BranchName),
-    #[error("Changes found in worktree: {0}")]
-    Changes(RepoChanges),
-    #[error("Branch {branch_name} is not merged into any persistent branches")]
-    NotMerged { branch_name: BranchName },
-    #[error("Branch {branch_name} is not in line with remote branch")]
-    NotInSyncWithRemote { branch_name: BranchName },
-    #[error("No remote tracking branch for branch {branch_name} found")]
-    NoRemoteTrackingBranch { branch_name: BranchName },
-    #[error("Removing {path} failed: {error}")]
-    RemoveError {
-        path: PathBuf,
-        error: std::io::Error,
-    },
-    #[error("Error getting directory entry {path}: {error}")]
-    ReadDirectoryError {
-        path: PathBuf,
-        error: std::io::Error,
-    },
-}
-
-impl From<Error> for WorktreeRemoveError {
-    fn from(value: Error) -> Self {
-        Self::RepoError(value)
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum WorktreeConversionError {
-    #[error(transparent)]
-    RepoError(Error),
-    #[error("Changes found in worktree: {0}")]
-    Changes(RepoChanges),
-    #[error("Ignored files found")]
-    Ignored,
-    #[error("{}", .0)]
-    RenameError(String),
-    #[error("Opening directory failed: {0}")]
-    OpenDirectoryError(std::io::Error),
-    #[error("Removing {path} failed: {error}")]
-    RemoveError {
-        path: PathBuf,
-        error: std::io::Error,
-    },
-    #[error("Error getting directory entry: {0}")]
-    ReadDirectoryError(std::io::Error),
-}
-
-impl From<Error> for WorktreeConversionError {
-    fn from(value: Error) -> Self {
-        Self::RepoError(value)
     }
 }
 
