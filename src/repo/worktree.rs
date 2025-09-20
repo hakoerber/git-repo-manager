@@ -584,14 +584,6 @@ impl<'a, 'b> NewWorktree<'a, WithLocalBranchName<'b>>
 where
     'a: 'b,
 {
-    // fn check_local_branch(&self) {
-    //     let mut branchref = self.extra.local_branch.borrow_mut();
-    //     if branchref.is_none() {
-    //         let branch = self.repo.find_local_branch(&self.extra.local_branch_name);
-    //         *branchref = Some(branch.ok());
-    //     }
-    // }
-
     fn local_branch_already_exists(&self) -> bool {
         matches!(
             self.extra.local_branch,
