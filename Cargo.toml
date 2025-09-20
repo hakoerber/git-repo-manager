@@ -58,7 +58,7 @@ default-features = false
 features = ["serde", "display", "parse"]
 
 [dependencies.serde]
-version = "=1.0.223"
+version = "=1.0.224"
 default-features = false
 features = ["derive"]
 
