@@ -1,5 +1,4 @@
-use std::path::{Path, PathBuf};
-
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

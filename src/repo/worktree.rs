@@ -206,12 +206,9 @@
 //! * Does the local branch have the correct commit?
 //! * Does the local branch track the correct remote branch?
 //! * Does that remote branch also exist?
-use std::{
-    fmt, iter,
-    path::{Path, PathBuf},
-    sync::mpsc,
-};
+use std::{fmt, iter, sync::mpsc};
 
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use thiserror::Error;
 
 use super::{Branch, BranchName, RemoteName, RepoHandle, Warning, config};
@@ -470,6 +467,8 @@ pub enum WorktreeConversionError {
     Ignored,
     #[error("{}", .0)]
     RenameError(String),
+    #[error(transparent)]
+    Path(#[from] path::Error),
     #[error("Opening directory failed: {0}")]
     OpenDirectoryError(std::io::Error),
     #[error("Removing {path} failed: {error}")]
@@ -1364,14 +1363,12 @@ impl WorktreeRepoHandle {
         let mut unmanaged_worktrees = Vec::new();
         for entry in std::fs::read_dir(directory)? {
             #[expect(clippy::missing_panics_doc, reason = "see expect() message")]
-            let dirname = path::path_as_string(
-                entry?
-                    .path()
-                    .strip_prefix(directory)
-                    // that unwrap() is safe as each entry is
-                    // guaranteed to be a subentry of &directory
-                    .expect("each entry is guaranteed to have the prefix"),
-            )?;
+            let entry = path::from_std_path_buf(entry?.path())?;
+            let dirname = entry
+                .strip_prefix(directory)
+                // that unwrap() is safe as each entry is
+                // guaranteed to be a subentry of &directory
+                .expect("each entry is guaranteed to have the prefix");
 
             let config: Option<WorktreeRootConfig> =
                 config::read_worktree_root_config(directory)?.map(Into::into);
@@ -1583,7 +1580,7 @@ impl WorktreeRepoHandle {
     ) -> Result<(), Error> {
         self.0.0.worktree(
             name,
-            directory,
+            directory.as_std_path(),
             Some(git2::WorktreeAddOptions::new().reference(Some(target_branch.as_reference()))),
         )?;
         Ok(())

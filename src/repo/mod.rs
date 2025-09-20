@@ -1,8 +1,6 @@
-use std::{
-    fmt,
-    path::{Path, PathBuf},
-};
+use std::fmt;
 
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use thiserror::Error;
 
 use super::{Warning, config, path};
@@ -420,6 +418,10 @@ impl RepoHandle {
         }
     }
 
+    pub fn path(&self) -> Result<&Path, Error> {
+        Ok(path::from_std_path(self.0.path())?)
+    }
+
     pub fn stash(&self) -> Result<(), Error> {
         let head_branch = self.head_branch()?;
         let head = head_branch.commit()?;
@@ -431,14 +433,14 @@ impl RepoHandle {
         // struct. I'm really not sure how to best solve this. Right now, we
         // just open the repo AGAIN. It is safe, as we are only accessing the stash
         // with the second reference, so there are no cross effects. But it just smells.
-        let mut repo = Self::open(self.0.path())?;
+        let mut repo = Self::open(self.path()?)?;
         repo.0
             .stash_save2(&author, None, Some(git2::StashFlags::INCLUDE_UNTRACKED))?;
         Ok(())
     }
 
     pub fn stash_pop(&self) -> Result<(), Error> {
-        let mut repo = Self::open(self.0.path())?;
+        let mut repo = Self::open(self.path()?)?;
         repo.0.stash_pop(
             0,
             Some(git2::StashApplyOptions::new().reinstantiate_index()),
@@ -648,7 +650,7 @@ impl RepoHandle {
         } {
             match entry {
                 Ok(entry) => {
-                    let path = entry.path();
+                    let path = path::from_std_path_buf(entry.path())?;
                     #[expect(
                         clippy::missing_panics_doc,
                         reason = "the path will ALWAYS have a file component"
@@ -659,7 +661,7 @@ impl RepoHandle {
                         continue;
                     }
                     if path.is_file() || path.is_symlink() {
-                        if let Err(error) = std::fs::remove_file(&path) {
+                        if let Err(error) = std::fs::remove_file(&path.as_path()) {
                             return Err(WorktreeConversionError::RemoveError { path, error });
                         }
                     } else if let Err(error) = std::fs::remove_dir_all(&path) {
@@ -1210,7 +1212,7 @@ pub fn clone_repo(
             builder.bare(worktree_setup.is_worktree());
             builder.fetch_options(fetchopts);
 
-            builder.clone(remote.url.as_str(), &clone_target)?;
+            builder.clone(remote.url.as_str(), &clone_target.as_std_path())?;
         }
         RemoteType::Ssh => {
             let mut fo = git2::FetchOptions::new();
@@ -1220,7 +1222,7 @@ pub fn clone_repo(
             builder.bare(worktree_setup.is_worktree());
             builder.fetch_options(fo);
 
-            builder.clone(remote.url.as_str(), &clone_target)?;
+            builder.clone(remote.url.as_str(), &clone_target.as_std_path())?;
         }
     }
 

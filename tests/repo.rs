@@ -1,4 +1,4 @@
-use grm::repo::*;
+use grm::{path, repo::*};
 
 mod helpers;
 
@@ -8,11 +8,11 @@ use helpers::*;
 fn open_empty_repo() {
     let tmpdir = init_tmpdir();
     assert!(matches!(
-        WorktreeRepoHandle::open(tmpdir.path()),
+        WorktreeRepoHandle::open(path::from_std_path(tmpdir.path()).unwrap()),
         Err(Error::RepoNotFound)
     ));
     assert!(matches!(
-        RepoHandle::open(tmpdir.path()),
+        RepoHandle::open(path::from_std_path(tmpdir.path()).unwrap()),
         Err(Error::RepoNotFound)
     ));
     cleanup_tmpdir(tmpdir);
@@ -21,7 +21,10 @@ fn open_empty_repo() {
 #[test]
 fn create_repo() -> Result<(), Box<dyn std::error::Error>> {
     let tmpdir = init_tmpdir();
-    let repo = RepoHandle::init(tmpdir.path(), WorktreeSetup::NoWorktree)?;
+    let repo = RepoHandle::init(
+        path::from_std_path(tmpdir.path()).unwrap(),
+        WorktreeSetup::NoWorktree,
+    )?;
     assert!(!repo.is_bare());
     assert!(repo.is_empty()?);
     cleanup_tmpdir(tmpdir);
@@ -31,7 +34,10 @@ fn create_repo() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn create_repo_with_worktree() -> Result<(), Box<dyn std::error::Error>> {
     let tmpdir = init_tmpdir();
-    let repo = RepoHandle::init(tmpdir.path(), WorktreeSetup::Worktree)?;
+    let repo = RepoHandle::init(
+        path::from_std_path(tmpdir.path()).unwrap(),
+        WorktreeSetup::Worktree,
+    )?;
     assert!(repo.is_bare());
     assert!(repo.is_empty()?);
     cleanup_tmpdir(tmpdir);

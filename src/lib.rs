@@ -1,13 +1,8 @@
 #![forbid(unsafe_code)]
 
-use std::{
-    fmt::Display,
-    panic,
-    path::{Path, PathBuf},
-    sync::mpsc,
-    thread,
-};
+use std::{fmt::Display, panic, sync::mpsc, thread};
 
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use thiserror::Error;
 
 use crate::{
@@ -111,16 +106,11 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
     for path in tree::find_repo_paths(root)? {
         if exclusion_pattern
             .as_ref()
-            .map(|regex| -> Result<bool, Error> {
-                Ok(regex.is_match(&path::path_as_string(&path)?))
-            })
+            .map(|regex| -> Result<bool, Error> { Ok(regex.is_match(path.as_str())) })
             .transpose()?
             .unwrap_or(false)
         {
-            warnings.push(Warning(format!(
-                "[skipped] {}",
-                &path::path_as_string(&path)?
-            )));
+            warnings.push(Warning(format!("[skipped] {path}")));
             continue;
         }
 
@@ -133,7 +123,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
             Err(error) => {
                 warnings.push(Warning(format!(
                     "Error opening repo {}{}: {}",
-                    path.display(),
+                    path,
                     if worktree_setup.is_worktree() {
                         " as worktree"
                     } else {
@@ -146,11 +136,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                 let remotes = match repo.remotes() {
                     Ok(remote) => remote,
                     Err(error) => {
-                        warnings.push(Warning(format!(
-                            "{}: Error getting remotes: {}",
-                            &path::path_as_string(&path)?,
-                            error
-                        )));
+                        warnings.push(Warning(format!("{path}: Error getting remotes: {error}")));
                         continue;
                     }
                 };
@@ -165,10 +151,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                                 Ok(t) => t,
                                 Err(e) => {
                                     warnings.push(Warning(format!(
-                                        "{}: Could not handle URL {}. Reason: {}",
-                                        &path::path_as_string(&path)?,
-                                        &url,
-                                        e
+                                        "{path}: Could not handle URL {url}. Reason: {e}"
                                     )));
                                     continue;
                                 }
@@ -181,11 +164,8 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                             });
                         }
                         None => {
-                            warnings.push(Warning(format!(
-                                "{}: Remote {} not found",
-                                &path::path_as_string(&path)?,
-                                remote_name
-                            )));
+                            warnings
+                                .push(Warning(format!("{path}: Remote {remote_name} not found")));
                         }
                     }
                 }
@@ -195,10 +175,10 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                     (
                         None,
                         if let Some(parent) = root.parent() {
-                            path::path_as_string(
-                                path.strip_prefix(parent)
-                                    .expect("checked for prefix explicitly above"),
-                            )?
+                            path.strip_prefix(parent)
+                                .expect("checked for prefix explicitly above")
+                                .to_owned()
+                                .to_string()
                         } else {
                             warnings.push(Warning(String::from("Getting name of the search root failed. Do you have a git repository in \"/\"?")));
                             continue;
@@ -211,11 +191,11 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                     let namespace = name.parent().expect("path always has a parent");
                     (
                         if namespace != Path::new("") {
-                            Some(path::path_as_string(namespace)?.clone())
+                            Some(namespace.to_string())
                         } else {
                             None
                         },
-                        path::path_as_string(name)?,
+                        name.to_owned().to_string(),
                     )
                 };
 

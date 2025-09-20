@@ -6,10 +6,10 @@
 
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
     process::{ExitCode, Termination},
 };
 
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use thiserror::Error;
 
 mod cmd;
@@ -54,13 +54,16 @@ enum MainError {
     #[error("Failed generating repo status: {0}")]
     RepoStatus(table::Error),
     #[error("Failed getting current directory: {0}")]
-    CurrentDirectory(std::io::Error),
+    CurrentDirectory(path::Error),
     #[error("Path \"{0}\" does not exist")]
     PathDoesNotExist(PathBuf),
     #[error("Path \"{0}\" is not a directory")]
     PathNotADirectory(PathBuf),
-    #[error("Failed to canonicalize path \"{0}\". This is a bug. Error message: {1}")]
-    PathCanoncailization(PathBuf, std::io::Error),
+    #[error("Failed to canonicalize path \"{path}\": {error}")]
+    PathCanoncailization {
+        path: PathBuf,
+        error: std::io::Error,
+    },
     #[error("Failed parsing regex \"{0}\": {1}")]
     ExclusionRegex(String, regex::Error),
     #[error("Failed finding repositories: {0}")]
@@ -111,8 +114,8 @@ enum MainError {
     TrackAndNoTrackInCli,
     #[error("Failed getting tree: {0}")]
     GetTree(grm::Error),
-    #[error("Failed converting path to string: {0}")]
-    PathConversion(path::Error),
+    #[error("Path error: {0}")]
+    Path(#[from] path::Error),
     #[error("Failed validating worktree: {0}")]
     InvalidWorktreeName(repo::WorktreeValidationError),
     #[error("Failed guessing default branch")]
@@ -213,9 +216,7 @@ fn sync_trees(
                         Ok(message) => match message {
                             tree::SyncTreeMessage::Cloning((repo_name, url)) => {
                                 print_action(&format!(
-                                    "Cloning into \"{}\" from \"{}\"",
-                                    &repo_name.display(),
-                                    &url
+                                    "Cloning into \"{repo_name}\" from \"{url}\""
                                 ));
                             }
                             tree::SyncTreeMessage::Cloned(repo_name) => {
@@ -285,10 +286,7 @@ fn sync_trees(
     )?;
 
     for repo_path in unmanaged_repos {
-        print_warning(format!(
-            "Found unmanaged repository: \"{}\"",
-            path::path_as_string(repo_path.as_path()).map_err(MainError::PathConversion)?
-        ));
+        print_warning(format!("Found unmanaged repository: \"{repo_path}\""));
     }
 
     Ok(result)
@@ -431,7 +429,7 @@ fn handle_repos_status(args: cmd::OptionalConfig) -> HandlerResult {
             config_path,
         )?;
     } else {
-        let dir = std::env::current_dir().map_err(|e| MainError::CurrentDirectory(e))?;
+        let dir = path::current_dir()?;
 
         let (table, warnings) =
             table::show_single_repo_status(&dir).map_err(|e| MainError::RepoStatus(e))?;
@@ -453,9 +451,12 @@ fn handle_repos_find_local(args: cmd::FindLocalArgs) -> HandlerResult {
         return Err(MainError::PathNotADirectory(path.to_path_buf()));
     }
 
-    let path = path
-        .canonicalize()
-        .map_err(|e| MainError::PathCanoncailization(path.to_path_buf(), e))?;
+    let path = path::from_std_path_buf(path.canonicalize().map_err(|err| {
+        MainError::PathCanoncailization {
+            path: path.to_owned(),
+            error: err,
+        }
+    })?)?;
 
     let exclusion_pattern = args
         .exclude
@@ -785,7 +786,7 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
                 .find_unmanaged_worktrees(cwd)
                 .map_err(|e| MainError::FindUnmanagedWorktrees(e))?;
 
-            Ok((warnings, unmanaged_worktrees))
+            Ok::<_, MainError>((warnings, unmanaged_worktrees))
         },
         move |rx| {
             for worktree_name in rx {
@@ -815,8 +816,7 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
 
     for unmanaged_worktree in unmanaged_worktrees {
         print_warning(format!(
-            "Found {}, which is not a valid worktree directory!",
-            unmanaged_worktree.display()
+            "Found \"{unmanaged_worktree}\", which is not a valid worktree directory!",
         ));
     }
 
@@ -947,7 +947,7 @@ fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> HandlerResult {
 }
 
 fn get_cwd() -> Result<PathBuf, MainError> {
-    std::env::current_dir().map_err(|e| MainError::CurrentDirectory(e))
+    path::current_dir().map_err(|e| MainError::CurrentDirectory(e))
 }
 
 fn handle_worktree(worktree: cmd::Worktree) -> HandlerResult {

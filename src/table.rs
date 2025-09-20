@@ -1,8 +1,6 @@
-use std::{
-    fmt::{self, Write},
-    path::{Path, PathBuf},
-};
+use std::fmt::{self, Write};
 
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use comfy_table::{Cell, Table};
 use thiserror::Error;
 
@@ -335,21 +333,11 @@ pub fn show_single_repo_status(
     let repo_name = match path.file_name() {
         None => {
             warnings.push(format!(
-                "Cannot detect repo name for path {}. Are you working in /?",
-                &path.display()
+                "Cannot detect repo name for path {path}. Are you working in /?"
             ));
             None
         }
-        Some(file_name) => match file_name.to_str() {
-            None => {
-                warnings.push(format!(
-                    "Name of repo directory {} is not valid UTF-8",
-                    &path.display()
-                ));
-                None
-            }
-            Some(name) => Some(RepoName::new(name.to_owned())),
-        },
+        Some(file_name) => Some(RepoName::new(file_name.to_owned())),
     };
 
     add_repo_status(

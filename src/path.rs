@@ -1,8 +1,6 @@
-use std::{
-    fmt,
-    path::{Path, PathBuf},
-};
+use std::fmt;
 
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -17,7 +15,7 @@ impl fmt::Display for EnvVariableName {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Found non-utf8 path: {:?}", .path)]
-    NonUtf8 { path: PathBuf },
+    NonUtf8 { path: std::path::PathBuf },
     #[error("Failed getting env variable `{}`: {}", .variable, .error)]
     Env {
         variable: EnvVariableName,
@@ -25,15 +23,20 @@ pub enum Error {
     },
     #[error("Failed expanding path: {}", .error)]
     Expand { error: String },
+    #[error("Failed getting current directory: {0}")]
+    CurrentDir(std::io::Error),
 }
 
-pub fn path_as_string(path: &Path) -> Result<String, Error> {
-    path.to_path_buf()
-        .into_os_string()
-        .into_string()
-        .map_err(|_s| Error::NonUtf8 {
-            path: path.to_path_buf(),
-        })
+pub fn from_std_path(from: &std::path::Path) -> Result<&Path, Error> {
+    Path::from_path(from).ok_or_else(|| Error::NonUtf8 {
+        path: from.to_owned(),
+    })
+}
+
+pub fn from_std_path_buf(from: std::path::PathBuf) -> Result<PathBuf, Error> {
+    PathBuf::from_path_buf(from).map_err(|original_path| Error::NonUtf8 {
+        path: original_path,
+    })
 }
 
 pub fn env_home() -> Result<PathBuf, Error> {
@@ -45,14 +48,18 @@ pub fn env_home() -> Result<PathBuf, Error> {
     })?))
 }
 
+pub fn current_dir() -> Result<PathBuf, Error> {
+    from_std_path_buf(std::env::current_dir().map_err(|err| Error::CurrentDir(err))?)
+}
+
 pub fn expand_path(path: &Path) -> Result<PathBuf, Error> {
-    let home = path_as_string(&env_home()?)?;
+    let home = &env_home()?;
     let expanded_path = match shellexpand::full_with_context(
-        &path_as_string(path)?,
+        path,
         || Some(home.clone()),
         |name| -> Result<Option<String>, Error> {
             match name {
-                "HOME" => Ok(Some(home.clone())),
+                "HOME" => Ok(Some(home.as_str().to_owned())),
                 _ => Ok(None),
             }
         },

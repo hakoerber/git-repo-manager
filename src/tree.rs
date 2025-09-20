@@ -1,12 +1,9 @@
 //! A `Tree` represents a collection of `Repo` instances under a shared root
 //! directory.
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    sync::mpsc,
-};
+use std::{fmt, fs, sync::mpsc};
 
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use thiserror::Error;
 
 use super::{
@@ -102,6 +99,12 @@ pub struct RepoPath(PathBuf);
 impl RepoPath {
     pub fn as_path(&self) -> &Path {
         self.0.as_path()
+    }
+}
+
+impl fmt::Display for RepoPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -221,7 +224,7 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
                 for content in contents {
                     match content {
                         Ok(entry) => {
-                            let path = entry.path();
+                            let path = path::from_std_path_buf(entry.path())?;
                             if path.is_symlink() {
                                 continue;
                             }
