@@ -67,7 +67,7 @@ default-features = false
 features = ["base-0"]
 
 [dependencies.clap]
-version = "=4.5.44"
+version = "=4.5.47"
 default-features = false
 features = ["std", "derive", "cargo", "color", "help", "usage", "error-context"]
 
