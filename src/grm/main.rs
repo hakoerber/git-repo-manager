@@ -113,6 +113,8 @@ enum MainError {
     GetTree(grm::Error),
     #[error("Failed converting path to string: {0}")]
     PathConversion(path::Error),
+    #[error("Failed validating worktree: {0}")]
+    InvalidWorktreeName(repo::WorktreeValidationError),
 }
 
 impl MainError {
@@ -671,7 +673,7 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
 
     let warnings = repo::add_worktree(
         &cwd,
-        &WorktreeName::new(args.name.clone()),
+        &WorktreeName::new(args.name.clone()).map_err(MainError::InvalidWorktreeName)?,
         &tracking_config,
     )
     .map_err(|e| MainError::CreateWorktree(e))?;
@@ -698,7 +700,7 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
         .map_err(|e| MainError::OpenRepo(e))?
         .remove_worktree(
             &cwd,
-            &WorktreeName::new(args.name.clone()),
+            &WorktreeName::new(args.name.clone()).map_err(MainError::InvalidWorktreeName)?,
             Path::new(&args.name),
             args.force,
             worktree_config.as_ref(),

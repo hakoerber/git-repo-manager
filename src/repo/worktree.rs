@@ -227,10 +227,12 @@ pub struct Worktree {
 }
 
 impl Worktree {
-    pub fn new(name: &str) -> Self {
-        Self {
-            name: WorktreeName::new(name.to_owned()),
-        }
+    /// A branch name must never start or end with a slash, and it cannot have two
+    /// consecutive slashes
+    pub fn new(name: &str) -> Result<Self, WorktreeValidationError> {
+        Ok(Self {
+            name: WorktreeName::new(name.to_owned())?,
+        })
     }
 
     pub fn name(&self) -> &WorktreeName {
@@ -816,8 +818,29 @@ impl fmt::Display for WorktreeName {
 }
 
 impl WorktreeName {
-    pub fn new(from: String) -> Self {
-        Self(from)
+    pub fn new(name: String) -> Result<Self, WorktreeValidationError> {
+        if name.starts_with('/') || name.ends_with('/') {
+            return Err(WorktreeValidationError {
+                name,
+                reason: WorktreeValidationErrorReason::SlashAtStartOrEnd,
+            });
+        }
+
+        if name.contains("//") {
+            return Err(WorktreeValidationError {
+                name,
+                reason: WorktreeValidationErrorReason::ConsecutiveSlashes,
+            });
+        }
+
+        if name.contains(char::is_whitespace) {
+            return Err(WorktreeValidationError {
+                name,
+                reason: WorktreeValidationErrorReason::ContainsWhitespace,
+            });
+        }
+
+        Ok(Self(name))
     }
 
     pub fn as_str(&self) -> &str {
@@ -830,7 +853,7 @@ impl WorktreeName {
 }
 
 #[derive(Debug)]
-enum WorktreeValidationErrorReason {
+pub enum WorktreeValidationErrorReason {
     SlashAtStartOrEnd,
     ConsecutiveSlashes,
     ContainsWhitespace,
@@ -841,12 +864,10 @@ impl fmt::Display for WorktreeValidationErrorReason {
         write!(
             f,
             "{}",
-            match self {
-                WorktreeValidationErrorReason::SlashAtStartOrEnd =>
-                    "Cannot start or end with a slash",
-                WorktreeValidationErrorReason::ConsecutiveSlashes =>
-                    "Cannot contain two consecutive slashes",
-                WorktreeValidationErrorReason::ContainsWhitespace => "Cannot contain whitespace",
+            match *self {
+                Self::SlashAtStartOrEnd => "Cannot start or end with a slash",
+                Self::ConsecutiveSlashes => "Cannot contain two consecutive slashes",
+                Self::ContainsWhitespace => "Cannot contain whitespace",
             }
         )
     }
@@ -855,37 +876,8 @@ impl fmt::Display for WorktreeValidationErrorReason {
 #[derive(Debug, Error)]
 #[error("invalid worktree name \"{name}\": {reason}")]
 pub struct WorktreeValidationError {
-    name: WorktreeName,
+    name: String,
     reason: WorktreeValidationErrorReason,
-}
-
-/// A branch name must never start or end with a slash, and it cannot have two
-/// consecutive slashes
-fn validate_worktree_name(name: &WorktreeName) -> Result<(), WorktreeValidationError> {
-    let name = name.as_str();
-
-    if name.starts_with('/') || name.ends_with('/') {
-        return Err(WorktreeValidationError {
-            name: WorktreeName::new(name.to_owned()),
-            reason: WorktreeValidationErrorReason::SlashAtStartOrEnd,
-        });
-    }
-
-    if name.contains("//") {
-        return Err(WorktreeValidationError {
-            name: WorktreeName::new(name.to_owned()),
-            reason: WorktreeValidationErrorReason::ConsecutiveSlashes,
-        });
-    }
-
-    if name.contains(char::is_whitespace) {
-        return Err(WorktreeValidationError {
-            name: WorktreeName::new(name.to_owned()),
-            reason: WorktreeValidationErrorReason::ContainsWhitespace,
-        });
-    }
-
-    Ok(())
 }
 
 #[derive(Debug, Error)]
@@ -935,8 +927,6 @@ pub fn add_worktree(
     tracking_selection: &TrackingSelection,
 ) -> Result<Option<Vec<Warning>>, Error> {
     let mut warnings: Vec<Warning> = vec![];
-
-    validate_worktree_name(name)?;
 
     let repo = repo::WorktreeRepoHandle::open(directory).map_err(|error| match error {
         repo::Error::NotFound => Error::NotAWorktreeSetup,
@@ -1184,54 +1174,12 @@ mod tests {
 
     #[test]
     fn invalid_worktree_names() {
-        assert!(
-            add_worktree(
-                Path::new("/tmp/"),
-                &WorktreeName::new("/leadingslash".to_owned()),
-                &TrackingSelection::Automatic
-            )
-            .is_err()
-        );
-        assert!(
-            add_worktree(
-                Path::new("/tmp/"),
-                &WorktreeName::new("trailingslash/".to_owned()),
-                &TrackingSelection::Automatic
-            )
-            .is_err()
-        );
-        assert!(
-            add_worktree(
-                Path::new("/tmp/"),
-                &WorktreeName::new("//".to_owned()),
-                &TrackingSelection::Automatic
-            )
-            .is_err()
-        );
-        assert!(
-            add_worktree(
-                Path::new("/tmp/"),
-                &WorktreeName::new("test//test".to_owned()),
-                &TrackingSelection::Automatic
-            )
-            .is_err()
-        );
-        assert!(
-            add_worktree(
-                Path::new("/tmp/"),
-                &WorktreeName::new("test test".to_owned()),
-                &TrackingSelection::Automatic
-            )
-            .is_err()
-        );
-        assert!(
-            add_worktree(
-                Path::new("/tmp/"),
-                &WorktreeName::new("test\ttest".to_owned()),
-                &TrackingSelection::Automatic
-            )
-            .is_err()
-        );
+        assert!(WorktreeName::new("/leadingslash".to_owned()).is_err());
+        assert!(WorktreeName::new("trailingslash/".to_owned()).is_err());
+        assert!(WorktreeName::new("//".to_owned()).is_err());
+        assert!(WorktreeName::new("test//test".to_owned()).is_err());
+        assert!(WorktreeName::new("test test".to_owned()).is_err());
+        assert!(WorktreeName::new("test\ttest".to_owned()).is_err());
     }
 }
 
@@ -1296,7 +1244,7 @@ pub struct WorktreeRepoHandle(super::RepoHandle);
 impl WorktreeRepoHandle {
     pub fn open(path: &Path) -> Result<Self, super::Error> {
         Ok(Self(super::RepoHandle::open_with_worktree_setup(
-            &path,
+            path,
             WorktreeSetup::Worktree,
         )?))
     }
@@ -1490,7 +1438,7 @@ impl WorktreeRepoHandle {
             .collect::<Result<Vec<_>, Error>>()?
             .into_iter()
             .map(Worktree::new)
-            .collect())
+            .collect::<Result<Vec<_>, WorktreeValidationError>>()?)
     }
 
     pub fn remove_worktree(

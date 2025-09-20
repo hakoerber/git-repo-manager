@@ -15,7 +15,7 @@ pub use worktree::{
     CleanupWorktreeError, CleanupWorktreeWarningReason, Error as WorktreeError,
     GIT_MAIN_WORKTREE_DIRECTORY, TrackingSelection, Worktree, WorktreeConversionError,
     WorktreeName, WorktreeRemoveError, WorktreeRepoHandle, WorktreeRootConfig, WorktreeSetup,
-    add_worktree,
+    WorktreeValidationError, add_worktree,
 };
 
 const GIT_CONFIG_BARE_KEY: GitConfigKey = GitConfigKey("core.bare");

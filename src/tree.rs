@@ -46,6 +46,8 @@ pub enum Error {
     TreesFromConfig { message: String },
     #[error(transparent)]
     Path(#[from] path::Error),
+    #[error(transparent)]
+    WorktreeValidation(#[from] repo::WorktreeValidationError),
 }
 
 #[derive(Debug)]
@@ -356,7 +358,7 @@ fn sync_repo(
             Ok(branch) => {
                 repo::add_worktree(
                     &repo_path,
-                    &WorktreeName::new(branch.name()?.into_string()),
+                    &WorktreeName::new(branch.name()?.into_string())?,
                     &TrackingSelection::Automatic,
                 )?;
             }
