@@ -1333,75 +1333,75 @@ impl WorktreeRepoHandle {
                     }
                     _ => {
                         let commit = if let Some(ref default_remote) = default_remote {
-                    if let Some(prefix) = prefix {
-                        self.as_repo()
-                            .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
-                    } else {
-                        None
-                    }
-                    .or({
-                        self.as_repo().find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned() ).transpose()?
-                    })
-                } else {
-                    None
-                }.or({
-                    let mut commits = vec![];
-                    for remote_name in &remotes {
-                        let remote_head: Option<repo::Commit> = ({
                             if let Some(prefix) = prefix {
-                                self.as_repo().find_remote_branch(
-                                    remote_name,
-                                    &BranchName::new(format!("{prefix}/{name}")),
-                                )?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
+                                self.as_repo()
+                                    .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
                             } else {
                                 None
                             }
-                        })
-                        .or({
-                            self.as_repo().find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned()).transpose()?
-                        })
-                        .or(None);
-                        commits.push(remote_head);
-                    }
+                            .or({
+                                self.as_repo().find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned() ).transpose()?
+                            })
+                        } else {
+                            None
+                        }.or({
+                            let mut commits = vec![];
+                            for remote_name in &remotes {
+                                let remote_head: Option<repo::Commit> = ({
+                                    if let Some(prefix) = prefix {
+                                        self.as_repo().find_remote_branch(
+                                            remote_name,
+                                            &BranchName::new(format!("{prefix}/{name}")),
+                                        )?.map(|remote_branch| remote_branch.commit_owned()).transpose()?
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .or({
+                                    self.as_repo().find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))?.map(|remote_branch|remote_branch.commit_owned()).transpose()?
+                                })
+                                .or(None);
+                                commits.push(remote_head);
+                            }
 
-                    let mut commits = commits
-                        .into_iter()
-                        .flatten()
-                        // have to collect first because the `flatten()` return
-                        // typedoes not implement `windows()`
-                        .collect::<Vec<repo::Commit>>();
-                    // `flatten()` takes care of `None` values here. If all
-                    // remotes return None for the branch, we do *not* abort, we
-                    // continue!
-                    if commits.is_empty() {
-                        Some(default_branch_head)
-                    } else if commits.len() == 1 {
-                        Some(commits.swap_remove(0))
-                    } else if commits.windows(2).any(
-                        #[expect(
-                            clippy::missing_asserts_for_indexing,
-                            clippy::indexing_slicing,
-                            reason = "windows function always returns two elements"
-                        )]
-                        |window| {
-                            let c1 = &window[0];
-                            let c2 = &window[1];
-                            (*c1).id().hex_string() != (*c2).id().hex_string()
-                        }) {
-                        warnings.push(
-                            // TODO this should also include the branch
-                            // name. BUT: the branch name may be different
-                            // between the remotes. Let's just leave it
-                            // until I get around to fix that inconsistency
-                            // (see module-level doc about), which might be
-                            // never, as it's such a rare edge case.
-                            Warning("Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned())
-                        );
-                        Some(default_branch_head)
-                    } else {
-                        Some(commits.swap_remove(0))
-                    }
-                });
+                            let mut commits = commits
+                                .into_iter()
+                                .flatten()
+                                // have to collect first because the `flatten()` return
+                                // typedoes not implement `windows()`
+                                .collect::<Vec<repo::Commit>>();
+                            // `flatten()` takes care of `None` values here. If all
+                            // remotes return None for the branch, we do *not* abort, we
+                            // continue!
+                            if commits.is_empty() {
+                                Some(default_branch_head)
+                            } else if commits.len() == 1 {
+                                Some(commits.swap_remove(0))
+                            } else if commits.windows(2).any(
+                                #[expect(
+                                    clippy::missing_asserts_for_indexing,
+                                    clippy::indexing_slicing,
+                                    reason = "windows function always returns two elements"
+                                )]
+                                |window| {
+                                    let c1 = &window[0];
+                                    let c2 = &window[1];
+                                    (*c1).id().hex_string() != (*c2).id().hex_string()
+                                }) {
+                                warnings.push(
+                                    // TODO this should also include the branch
+                                    // name. BUT: the branch name may be different
+                                    // between the remotes. Let's just leave it
+                                    // until I get around to fix that inconsistency
+                                    // (see module-level doc about), which might be
+                                    // never, as it's such a rare edge case.
+                                    Warning("Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned())
+                                );
+                                Some(default_branch_head)
+                            } else {
+                                Some(commits.swap_remove(0))
+                            }
+                        });
                         worktree.select_commit(commit)
                     }
                 }
