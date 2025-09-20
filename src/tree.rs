@@ -112,7 +112,23 @@ pub fn find_unmanaged_repos(
     Ok(unmanaged_repos)
 }
 
-pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, Error> {
+#[derive(PartialEq, Eq, Copy, Clone)]
+pub enum OperationResult {
+    Success,
+    Failure,
+}
+
+impl OperationResult {
+    pub fn is_success(self) -> bool {
+        self == Self::Success
+    }
+
+    pub fn is_failure(self) -> bool {
+        !self.is_success()
+    }
+}
+
+pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<OperationResult, Error> {
     let mut failures = false;
 
     let mut unmanaged_repos_absolute_paths = vec![];
@@ -164,7 +180,11 @@ pub fn sync_trees(config: config::Config, init_worktree: bool) -> Result<bool, E
         ));
     }
 
-    Ok(!failures)
+    Ok(if failures {
+        OperationResult::Failure
+    } else {
+        OperationResult::Success
+    })
 }
 
 /// Finds repositories recursively, returning their path
