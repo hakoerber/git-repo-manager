@@ -210,7 +210,7 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
             let repo_handle = match repo_handle {
                 Ok(repo) => repo,
                 Err(error) => {
-                    if matches!(error, repo::Error::NotFound) {
+                    if matches!(error, repo::Error::RepoNotFound) {
                         errors.push(Error::RepoNotGit {
                             name: repo.name.clone(),
                         });
@@ -325,7 +325,7 @@ pub fn show_single_repo_status(
     let repo_handle = RepoHandle::open_with_worktree_setup(path, worktree_setup);
 
     if let Err(error) = repo_handle {
-        if matches!(error, repo::Error::NotFound) {
+        if matches!(error, repo::Error::RepoNotFound) {
             return Err(Error::NotAGitDirectory);
         } else {
             return Err(error.into());

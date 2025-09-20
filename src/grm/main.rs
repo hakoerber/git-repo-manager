@@ -739,7 +739,7 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
 
     repo::RepoHandle::open(&cwd)
         .map_err(|e| {
-            if matches!(e, repo::Error::NotFound) {
+            if matches!(e, repo::Error::RepoNotFound) {
                 MainError::DirectoryDoesNotContainRepo(cwd.clone())
             } else {
                 MainError::OpenRepo(e)
@@ -762,7 +762,7 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     let repo = repo::WorktreeRepoHandle::open(&cwd).map_err(|e| {
-        if matches!(e, repo::Error::NotFound) {
+        if matches!(e, repo::Error::RepoNotFound) {
             MainError::DirectoryDoesNotContainRepo(cwd.clone())
         } else {
             MainError::OpenRepo(e)
@@ -829,7 +829,7 @@ fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> HandlerResult {
 
     repo::WorktreeRepoHandle::open(&cwd)
         .map_err(|e| {
-            if matches!(e, repo::Error::NotFound) {
+            if matches!(e, repo::Error::RepoNotFound) {
                 MainError::DirectoryDoesNotContainRepo(cwd.clone())
             } else {
                 MainError::OpenRepo(e)
@@ -847,7 +847,7 @@ fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     let repo = repo::WorktreeRepoHandle::open(&cwd).map_err(|e| {
-        if matches!(e, repo::Error::NotFound) {
+        if matches!(e, repo::Error::RepoNotFound) {
             MainError::DirectoryDoesNotContainRepo(cwd.clone())
         } else {
             MainError::OpenRepo(e)
@@ -889,7 +889,7 @@ fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> HandlerResult {
     }
 
     let repo = repo::WorktreeRepoHandle::open(&cwd).map_err(|e| {
-        if matches!(e, repo::Error::NotFound) {
+        if matches!(e, repo::Error::RepoNotFound) {
             MainError::DirectoryDoesNotContainRepo(cwd.clone())
         } else {
             MainError::OpenRepo(e)

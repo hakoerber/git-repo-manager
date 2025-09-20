@@ -99,8 +99,10 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
-    #[error("Repository not found")]
-    NotFound,
+    #[error("Branch not found")]
+    BranchNotFound,
+    #[error("Repo not found")]
+    RepoNotFound,
     #[error("Could not determine default branch")]
     NoDefaultBranch,
     #[error("Failed getting default branch name: {message}")]
@@ -412,7 +414,7 @@ impl RepoHandle {
         match open_func(path) {
             Ok(r) => Ok(Self(r)),
             Err(e) => match e.code() {
-                git2::ErrorCode::NotFound => Err(Error::NotFound),
+                git2::ErrorCode::NotFound => Err(Error::RepoNotFound),
                 _ => Err(Error::Libgit(e)),
             },
         }
@@ -478,7 +480,7 @@ impl RepoHandle {
             .find_local_branch(&BranchName::new(
                 head.shorthand().ok_or(Error::BranchNameNotUtf8)?.to_owned(),
             ))?
-            .ok_or(Error::NotFound)?;
+            .ok_or(Error::BranchNotFound)?;
         Ok(branch)
     }
 
@@ -899,7 +901,7 @@ impl RepoHandle {
                 if let Ok(remote_default_branch) = remote.default_branch() {
                     return Ok(Some(
                         self.find_local_branch(&remote_default_branch)?
-                            .ok_or(Error::NotFound)?,
+                            .ok_or(Error::BranchNotFound)?,
                     ));
                 }
             }
@@ -916,7 +918,7 @@ impl RepoHandle {
                 {
                     return Ok(Some(
                         self.find_local_branch(&BranchName(local_branch_name.to_owned()))?
-                            .ok_or(Error::NotFound)?,
+                            .ok_or(Error::BranchNotFound)?,
                     ));
                 } else {
                     return Err(Error::InvalidRemoteHeadPointer {

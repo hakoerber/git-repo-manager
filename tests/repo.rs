@@ -9,11 +9,11 @@ fn open_empty_repo() {
     let tmpdir = init_tmpdir();
     assert!(matches!(
         WorktreeRepoHandle::open(tmpdir.path()),
-        Err(Error::NotFound)
+        Err(Error::RepoNotFound)
     ));
     assert!(matches!(
         RepoHandle::open(tmpdir.path()),
-        Err(Error::NotFound)
+        Err(Error::RepoNotFound)
     ));
     cleanup_tmpdir(tmpdir);
 }

@@ -929,7 +929,7 @@ pub fn add_worktree(
     let mut warnings: Vec<Warning> = vec![];
 
     let repo = repo::WorktreeRepoHandle::open(directory).map_err(|error| match error {
-        repo::Error::NotFound => Error::NotAWorktreeSetup,
+        repo::Error::RepoNotFound => Error::NotAWorktreeSetup,
         _ => error.into(),
     })?;
 
