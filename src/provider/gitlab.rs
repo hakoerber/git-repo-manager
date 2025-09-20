@@ -6,10 +6,10 @@ use super::{
 };
 
 const ACCEPT_HEADER_JSON: &str = "application/json";
-const GITLAB_API_BASEURL: &str = match option_env!("GITLAB_API_BASEURL") {
+const GITLAB_API_BASEURL: Url = Url::new_static(match option_env!("GITLAB_API_BASEURL") {
     Some(url) => url,
     None => "https://gitlab.com",
-};
+});
 
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -83,8 +83,8 @@ impl Gitlab {
         Url::new(
             self.api_url_override
                 .as_ref()
-                .map(Url::as_str)
-                .unwrap_or(GITLAB_API_BASEURL)
+                .unwrap_or(&GITLAB_API_BASEURL)
+                .as_str()
                 .trim_end_matches('/')
                 .to_owned(),
         )

@@ -74,8 +74,8 @@ impl Github {
         Url::new(
             self.api_url_override
                 .as_ref()
-                .map(Url::as_str)
-                .unwrap_or(GITHUB_API_BASEURL.as_str())
+                .unwrap_or(&GITHUB_API_BASEURL)
+                .as_str()
                 .trim_end_matches('/')
                 .to_owned(),
         )

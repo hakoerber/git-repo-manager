@@ -236,10 +236,9 @@ impl From<config::Repo> for Repo {
             name: RepoName::new(name),
             namespace: namespace.map(RepoNamespace::new),
             worktree_setup: other.worktree_setup.into(),
-            remotes: other
-                .remotes
-                .map(|remotes| remotes.into_iter().map(Into::into).collect())
-                .unwrap_or_else(|| Vec::new()),
+            remotes: other.remotes.map_or_else(Vec::new, |remotes| {
+                remotes.into_iter().map(Into::into).collect()
+            }),
         }
     }
 }
@@ -661,7 +660,7 @@ impl RepoHandle {
                         continue;
                     }
                     if path.is_file() || path.is_symlink() {
-                        if let Err(error) = std::fs::remove_file(&path.as_path()) {
+                        if let Err(error) = std::fs::remove_file(path.as_std_path()) {
                             return Err(WorktreeConversionError::RemoveError { path, error });
                         }
                     } else if let Err(error) = std::fs::remove_dir_all(&path) {
@@ -1212,7 +1211,7 @@ pub fn clone_repo(
             builder.bare(worktree_setup.is_worktree());
             builder.fetch_options(fetchopts);
 
-            builder.clone(remote.url.as_str(), &clone_target.as_std_path())?;
+            builder.clone(remote.url.as_str(), clone_target.as_std_path())?;
         }
         RemoteType::Ssh => {
             let mut fo = git2::FetchOptions::new();
@@ -1222,7 +1221,7 @@ pub fn clone_repo(
             builder.bare(worktree_setup.is_worktree());
             builder.fetch_options(fo);
 
-            builder.clone(remote.url.as_str(), &clone_target.as_std_path())?;
+            builder.clone(remote.url.as_str(), clone_target.as_std_path())?;
         }
     }
 

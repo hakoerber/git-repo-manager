@@ -703,7 +703,7 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
 
     let default_branch = repo
         .default_branch()
-        .map_err(|err| MainError::WorktreeDefaultBranch(err.into()))?;
+        .map_err(|err| MainError::WorktreeDefaultBranch(err))?;
 
     repo.remove_worktree(
         &cwd,

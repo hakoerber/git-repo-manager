@@ -1283,11 +1283,11 @@ impl WorktreeRepoHandle {
                 None => self.default_branch()?,
                 Some(persistent_branches) => {
                     if let Some(branch) = persistent_branches.first() {
-                        self.find_local_branch(branch)?.ok_or(
+                        self.find_local_branch(branch)?.ok_or_else(|| {
                             CleanupWorktreeError::BranchNotFound {
                                 branch_name: branch.to_owned(),
-                            },
-                        )?
+                            }
+                        })?
                     } else {
                         self.default_branch()?
                     }
@@ -1362,8 +1362,8 @@ impl WorktreeRepoHandle {
 
         let mut unmanaged_worktrees = Vec::new();
         for entry in std::fs::read_dir(directory)? {
-            #[expect(clippy::missing_panics_doc, reason = "see expect() message")]
             let entry = path::from_std_path_buf(entry?.path())?;
+            #[expect(clippy::missing_panics_doc, reason = "see expect() message")]
             let dirname = entry
                 .strip_prefix(directory)
                 // that unwrap() is safe as each entry is
@@ -1488,7 +1488,7 @@ impl WorktreeRepoHandle {
 
             let is_merged_into_default_branch = {
                 let (ahead_of_default_branch, _behind) =
-                    worktree_repo.graph_ahead_behind(&branch, &default_branch)?;
+                    worktree_repo.graph_ahead_behind(&branch, default_branch)?;
 
                 ahead_of_default_branch == 0
             };
