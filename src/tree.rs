@@ -11,10 +11,7 @@ use thiserror::Error;
 
 use super::{
     RemoteName, RemoteUrl, SyncTreesMessage, config, path,
-    repo::{
-        self, RepoName,
-        worktree::{self, WorktreeName, WorktreeSetup},
-    },
+    repo::{self, RepoName, TrackingSelection, WorktreeName, WorktreeSetup},
     send_msg,
 };
 
@@ -25,7 +22,7 @@ pub enum Error {
     #[error(transparent)]
     Repo(#[from] repo::Error),
     #[error(transparent)]
-    Worktree(#[from] worktree::Error),
+    Worktree(#[from] repo::WorktreeError),
     #[error("Failed to open \"{path}\": Not found")]
     NotFound { path: PathBuf },
     #[error("Failed to open \"{path}\": {kind}")]
@@ -212,7 +209,7 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
     let mut repos = Vec::new();
 
     let git_dir = path.join(".git");
-    let git_worktree = path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY);
+    let git_worktree = path.join(repo::GIT_MAIN_WORKTREE_DIRECTORY);
 
     if git_dir.exists() || git_worktree.exists() {
         repos.push(path.to_path_buf());
@@ -340,26 +337,27 @@ fn sync_repo(
         }
     }
 
-    let repo_handle = match repo::RepoHandle::open(&repo_path, repo.worktree_setup) {
-        Ok(repo) => repo,
-        Err(error) => {
-            if !repo.worktree_setup.is_worktree()
-                && repo::RepoHandle::open(&repo_path, WorktreeSetup::Worktree).is_ok()
-            {
-                return Err(Error::WorktreeNotExpected);
-            } else {
-                return Err(error.into());
+    let repo_handle =
+        match repo::RepoHandle::open_with_worktree_setup(&repo_path, repo.worktree_setup) {
+            Ok(repo) => repo,
+            Err(error) => {
+                if !repo.worktree_setup.is_worktree()
+                    && repo::WorktreeRepoHandle::open(&repo_path).is_ok()
+                {
+                    return Err(Error::WorktreeNotExpected);
+                } else {
+                    return Err(error.into());
+                }
             }
-        }
-    };
+        };
 
     if newly_created && repo.worktree_setup.is_worktree() && init_worktree {
         match repo_handle.default_branch() {
             Ok(branch) => {
-                worktree::add_worktree(
+                repo::add_worktree(
                     &repo_path,
                     &WorktreeName::new(branch.name()?.into_string()),
-                    &worktree::TrackingSelection::Automatic,
+                    &TrackingSelection::Automatic,
                 )?;
             }
             Err(_error) => send_msg(
@@ -421,7 +419,7 @@ fn sync_repo(
 
 fn get_actual_git_directory(path: &Path, worktree_setup: WorktreeSetup) -> PathBuf {
     if worktree_setup.is_worktree() {
-        path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
+        path.join(repo::GIT_MAIN_WORKTREE_DIRECTORY)
     } else {
         path.to_path_buf()
     }

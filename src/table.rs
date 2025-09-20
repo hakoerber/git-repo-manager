@@ -8,11 +8,8 @@ use thiserror::Error;
 
 use super::{
     config, path,
-    repo::{
-        self,
-        worktree::{WorktreeName, WorktreeSetup},
-    },
-    repo::{RepoHandle, RepoName},
+    repo::{self, WorktreeName, WorktreeSetup},
+    repo::{RepoHandle, RepoName, WorktreeRepoHandle},
     tree,
 };
 
@@ -24,6 +21,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error("Repo error: {0}")]
     Repo(#[from] repo::Error),
+    #[error("Worktreeerror: {0}")]
+    Worktree(#[from] repo::WorktreeError),
     #[error("Directory is not a git directory")]
     NotAGitDirectory,
     #[error("Worktree {worktree:?} does not have a directory")]
@@ -150,10 +149,10 @@ fn add_repo_status(
 
 // Don't return table, return a type that implements Display(?)
 pub fn get_worktree_status_table(
-    repo: &RepoHandle,
+    repo: &WorktreeRepoHandle,
     directory: &Path,
 ) -> Result<(impl std::fmt::Display, Vec<Error>), Error> {
-    let worktrees = repo.get_worktrees().map_err(Error::Repo)?;
+    let worktrees = repo.get_worktrees()?;
     let mut table = Table::new();
 
     let mut errors = Vec::new();
@@ -162,7 +161,7 @@ pub fn get_worktree_status_table(
     for worktree in &worktrees {
         let worktree_dir = &directory.join(worktree.name().as_str());
         if worktree_dir.exists() {
-            let repo = match RepoHandle::open(worktree_dir, WorktreeSetup::NoWorktree) {
+            let repo = match RepoHandle::open(worktree_dir) {
                 Ok(repo) => repo,
                 Err(error) => {
                     errors.push(error.into());
@@ -178,7 +177,7 @@ pub fn get_worktree_status_table(
             });
         }
     }
-    for worktree in RepoHandle::find_unmanaged_worktrees(repo, directory).map_err(Error::Repo)? {
+    for worktree in WorktreeRepoHandle::find_unmanaged_worktrees(repo, directory)? {
         errors.push(Error::InvalidWorktreeDirectory { path: worktree });
     }
     Ok((table, errors))
@@ -206,7 +205,7 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
                 continue;
             }
 
-            let repo_handle = RepoHandle::open(&repo_path, repo.worktree_setup);
+            let repo_handle = RepoHandle::open_with_worktree_setup(&repo_path, repo.worktree_setup);
 
             let repo_handle = match repo_handle {
                 Ok(repo) => repo,
@@ -320,10 +319,10 @@ pub fn show_single_repo_status(
     let mut table = Table::new();
     let mut warnings = Vec::new();
 
-    let worktree_setup = RepoHandle::detect_worktree(path);
+    let worktree_setup = WorktreeRepoHandle::detect_worktree(path);
     add_table_header(&mut table);
 
-    let repo_handle = RepoHandle::open(path, worktree_setup);
+    let repo_handle = RepoHandle::open_with_worktree_setup(path, worktree_setup);
 
     if let Err(error) = repo_handle {
         if matches!(error, repo::Error::NotFound) {

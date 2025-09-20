@@ -124,12 +124,12 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
             continue;
         }
 
-        let worktree_setup = repo::RepoHandle::detect_worktree(&path);
+        let worktree_setup = repo::WorktreeRepoHandle::detect_worktree(&path);
         if path == root {
             repo_in_root = true;
         }
 
-        match repo::RepoHandle::open(&path, worktree_setup) {
+        match repo::RepoHandle::open_with_worktree_setup(&path, worktree_setup) {
             Err(error) => {
                 warnings.push(Warning(format!(
                     "Error opening repo {}{}: {}",

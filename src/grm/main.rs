@@ -25,10 +25,7 @@ use grm::{
     auth::{self, AuthToken},
     config, exec_with_result_channel, find_in_tree, get_trees, path,
     provider::{self, Filter, ProjectNamespace, ProtocolConfig, Provider, RemoteProvider},
-    repo::{
-        self, RepoChanges,
-        worktree::{self, WorktreeName, WorktreeSetup},
-    },
+    repo::{self, RepoChanges, WorktreeName},
     table, tree,
 };
 
@@ -76,15 +73,15 @@ enum MainError {
     #[error("Tracking branch needs to match the pattern <remote>/<branch_name>")]
     TrackingBranchWrongFormat,
     #[error("Failed creating worktree: {0}")]
-    CreateWorktree(worktree::Error),
+    CreateWorktree(repo::WorktreeError),
     #[error("Failed getting worktree configuration: {0}")]
     WorktreeConfiguration(config::Error),
     #[error("Failed opening repository: {0}")]
     OpenRepo(repo::Error),
     #[error("Failed deleting worktree: {0}")]
-    WorktreeRemove(worktree::WorktreeRemoveError),
+    WorktreeRemove(repo::WorktreeRemoveError),
     #[error("{0}, refusing to delete")]
-    WorktreeRemovalRefuse(worktree::WorktreeRemoveError),
+    WorktreeRemovalRefuse(repo::WorktreeRemoveError),
     #[error("Directory \"{0}\" does not contain a git repository")]
     DirectoryDoesNotContainRepo(PathBuf),
     #[error("Repo contains changes ({0}), refusing to convert")]
@@ -95,19 +92,19 @@ enum MainError {
     )]
     WorktreeConvertRefuseIgnored,
     #[error("Failed converting repo to worktree: {0}")]
-    WorktreeConvert(worktree::WorktreeConversionError),
+    WorktreeConvert(repo::WorktreeConversionError),
     #[error("Failed cleaning worktrees: {0}")]
     WorktreeCleanup(repo::CleanupWorktreeError),
     #[error("Failed finding unmanaged worktrees: {0}")]
-    FindUnmanagedWorktrees(repo::Error),
+    FindUnmanagedWorktrees(repo::WorktreeError),
     #[error("Failed fetching remotes: {0}")]
     FetchRemotes(repo::Error),
     #[error("Failed getting worktrees: {0}")]
-    GetWorktrees(repo::Error),
+    GetWorktrees(repo::WorktreeError),
     #[error("Failed forwarding worktree branch: {0}")]
-    ForwardWorktreeBranch(repo::Error),
+    ForwardWorktreeBranch(repo::WorktreeError),
     #[error("Failed rebasing worktree branch: {0}")]
-    RebaseWorktreeBranch(repo::Error),
+    RebaseWorktreeBranch(repo::WorktreeError),
     #[error("There is no point in using --rebase without --pull")]
     CmdRebaseWithoutPull,
     #[error("Command line: --track and --no-track cannot be used at the same time")]
@@ -662,17 +659,17 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
         .transpose()?;
 
     let tracking_config = if args.no_track {
-        worktree::TrackingSelection::Disabled
+        repo::TrackingSelection::Disabled
     } else if let Some((remote_name, remote_branch_name)) = track {
-        worktree::TrackingSelection::Explicit {
+        repo::TrackingSelection::Explicit {
             remote_name,
             remote_branch_name,
         }
     } else {
-        worktree::TrackingSelection::Automatic
+        repo::TrackingSelection::Automatic
     };
 
-    let warnings = worktree::add_worktree(
+    let warnings = repo::add_worktree(
         &cwd,
         &WorktreeName::new(args.name.clone()),
         &tracking_config,
@@ -697,7 +694,7 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
         .map_err(MainError::WorktreeConfiguration)?
         .map(Into::into);
 
-    repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree)
+    repo::WorktreeRepoHandle::open(&cwd)
         .map_err(|e| MainError::OpenRepo(e))?
         .remove_worktree(
             &cwd,
@@ -707,12 +704,10 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
             worktree_config.as_ref(),
         )
         .map_err(|e| match e {
-            repo::worktree::WorktreeRemoveError::Changes(_)
-            | repo::worktree::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
-            | repo::worktree::WorktreeRemoveError::NotInSyncWithRemote { .. }
-            | repo::worktree::WorktreeRemoveError::NotMerged { .. } => {
-                MainError::WorktreeRemovalRefuse(e)
-            }
+            repo::WorktreeRemoveError::Changes(_)
+            | repo::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
+            | repo::WorktreeRemoveError::NotInSyncWithRemote { .. }
+            | repo::WorktreeRemoveError::NotMerged { .. } => MainError::WorktreeRemovalRefuse(e),
             _ => MainError::WorktreeRemove(e),
         })?;
 
@@ -724,8 +719,7 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
 fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree)
-        .map_err(|e| MainError::OpenRepo(e))?;
+    let repo = repo::WorktreeRepoHandle::open(&cwd).map_err(|e| MainError::OpenRepo(e))?;
 
     let (table, errors) =
         table::get_worktree_status_table(&repo, &cwd).map_err(|e| MainError::RepoStatus(e))?;
@@ -741,7 +735,7 @@ fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> HandlerResult {
 fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
-    repo::RepoHandle::open(&cwd, WorktreeSetup::NoWorktree)
+    repo::RepoHandle::open(&cwd)
         .map_err(|e| {
             if matches!(e, repo::Error::NotFound) {
                 MainError::DirectoryDoesNotContainRepo(cwd.clone())
@@ -751,12 +745,10 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
         })?
         .convert_to_worktree(&cwd)
         .map_err(|e| match e {
-            repo::worktree::WorktreeConversionError::Changes(changes) => {
+            repo::WorktreeConversionError::Changes(changes) => {
                 MainError::WorktreeConvertRefuseChanges(changes)
             }
-            repo::worktree::WorktreeConversionError::Ignored => {
-                MainError::WorktreeConvertRefuseIgnored
-            }
+            repo::WorktreeConversionError::Ignored => MainError::WorktreeConvertRefuseIgnored,
             _ => MainError::WorktreeConvert(e),
         })?;
 
@@ -767,7 +759,7 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
 fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| {
+    let repo = repo::WorktreeRepoHandle::open(&cwd).map_err(|e| {
         if matches!(e, repo::Error::NotFound) {
             MainError::DirectoryDoesNotContainRepo(cwd.clone())
         } else {
@@ -833,7 +825,7 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
 fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
-    repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree)
+    repo::WorktreeRepoHandle::open(&cwd)
         .map_err(|e| {
             if matches!(e, repo::Error::NotFound) {
                 MainError::DirectoryDoesNotContainRepo(cwd.clone())
@@ -841,6 +833,7 @@ fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> HandlerResult {
                 MainError::OpenRepo(e)
             }
         })?
+        .as_repo()
         .fetchall()
         .map_err(MainError::FetchRemotes)?;
 
@@ -851,7 +844,7 @@ fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> HandlerResult {
 fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
-    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| {
+    let repo = repo::WorktreeRepoHandle::open(&cwd).map_err(|e| {
         if matches!(e, repo::Error::NotFound) {
             MainError::DirectoryDoesNotContainRepo(cwd.clone())
         } else {
@@ -859,7 +852,7 @@ fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> HandlerResult {
         }
     })?;
 
-    if let Err(e) = repo.fetchall() {
+    if let Err(e) = repo.as_repo().fetchall() {
         return Err(MainError::FetchRemotes(e));
     }
 
@@ -893,7 +886,7 @@ fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> HandlerResult {
         return Err(MainError::CmdRebaseWithoutPull);
     }
 
-    let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| {
+    let repo = repo::WorktreeRepoHandle::open(&cwd).map_err(|e| {
         if matches!(e, repo::Error::NotFound) {
             MainError::DirectoryDoesNotContainRepo(cwd.clone())
         } else {
@@ -902,7 +895,7 @@ fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> HandlerResult {
     })?;
 
     if args.pull {
-        if let Err(e) = repo.fetchall() {
+        if let Err(e) = repo.as_repo().fetchall() {
             return Err(MainError::FetchRemotes(e));
         }
     }
