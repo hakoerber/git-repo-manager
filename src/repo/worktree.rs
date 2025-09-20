@@ -226,7 +226,7 @@ pub struct Worktree {
 impl Worktree {
     /// A branch name must never start or end with a slash, and it cannot have two
     /// consecutive slashes
-    pub fn new(name: &str) -> Result<Self, WorktreeValidationError> {
+    fn new(name: &str) -> Result<Self, WorktreeValidationError> {
         Ok(Self {
             name: WorktreeName::new(name.to_owned())?,
         })
@@ -236,7 +236,7 @@ impl Worktree {
         &self.name
     }
 
-    pub fn into_name(self) -> WorktreeName {
+    fn into_name(self) -> WorktreeName {
         self.name
     }
 
@@ -839,10 +839,6 @@ impl WorktreeName {
     pub fn as_str(&self) -> &str {
         &self.0
     }
-
-    pub fn into_string(self) -> String {
-        self.0
-    }
 }
 
 #[derive(Debug)]
@@ -1014,7 +1010,7 @@ impl WorktreeRepoHandle {
         &self.0
     }
 
-    pub fn base_directory(&self) -> Result<&Path, Error> {
+    fn base_directory(&self) -> Result<&Path, Error> {
         let commondir = self.0.commondir()?;
         commondir
             .parent()
@@ -1031,7 +1027,7 @@ impl WorktreeRepoHandle {
         self.0
     }
 
-    pub fn find_worktree(&self, name: &WorktreeName) -> Result<(), Error> {
+    fn find_worktree(&self, name: &WorktreeName) -> Result<(), Error> {
         self.0.0.find_worktree(name.as_str())?;
         Ok(())
     }
@@ -1040,7 +1036,7 @@ impl WorktreeRepoHandle {
         Ok(self.0.default_branch()?)
     }
 
-    pub fn find_local_branch(&self, name: &BranchName) -> Result<Option<Branch<'_>>, Error> {
+    fn find_local_branch(&self, name: &BranchName) -> Result<Option<Branch<'_>>, Error> {
         Ok(self.0.find_local_branch(name)?)
     }
 
@@ -1345,7 +1341,7 @@ impl WorktreeRepoHandle {
         Ok(())
     }
 
-    pub fn new_worktree(
+    fn new_worktree(
         &self,
         name: &str,
         directory: &Path,
