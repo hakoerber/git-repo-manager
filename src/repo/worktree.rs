@@ -1237,6 +1237,8 @@ pub enum CleanupWorktreeError {
     DefaultBranch(repo::Error),
     #[error("Branch name error: {0}")]
     BranchName(repo::Error),
+    #[error("Branch \"{branch_name}\" not found")]
+    BranchNotFound { branch_name: BranchName },
 }
 
 pub struct WorktreeRepoHandle(super::RepoHandle);
@@ -1258,6 +1260,14 @@ impl WorktreeRepoHandle {
         Ok(())
     }
 
+    pub fn default_branch(&self) -> Result<Branch<'_>, Error> {
+        Ok(self.0.default_branch()?)
+    }
+
+    pub fn find_local_branch(&self, name: &BranchName) -> Result<Option<Branch<'_>>, Error> {
+        Ok(self.0.find_local_branch(name)?)
+    }
+
     pub fn cleanup_worktrees(
         &self,
         directory: &Path,
@@ -1271,27 +1281,27 @@ impl WorktreeRepoHandle {
             .map_err(|e| <config::Error as Into<Error>>::into(e))?
             .map(Into::into);
 
-        let guess_default_branch = || {
-            self.0
-                .default_branch()
-                .map_err(|e| CleanupWorktreeError::DefaultBranch(e))?
-                .name()
-                .map_err(|e| CleanupWorktreeError::BranchName(e))
-        };
-
-        let default_branch_name = match config {
-            None => guess_default_branch()?,
+        let default_branch = match config {
+            None => self.default_branch()?,
             Some(ref config) => match config.persistent_branches.as_ref() {
-                None => guess_default_branch()?,
+                None => self.default_branch()?,
                 Some(persistent_branches) => {
                     if let Some(branch) = persistent_branches.first() {
-                        branch.clone()
+                        self.find_local_branch(branch)?.ok_or(
+                            CleanupWorktreeError::BranchNotFound {
+                                branch_name: branch.to_owned(),
+                            },
+                        )?
                     } else {
-                        guess_default_branch()?
+                        self.default_branch()?
                     }
                 }
             },
         };
+
+        let default_branch_name = default_branch
+            .name()
+            .map_err(|err| CleanupWorktreeError::BranchName(err))?;
 
         for worktree in worktrees
             .into_iter()
@@ -1314,6 +1324,7 @@ impl WorktreeRepoHandle {
                     Path::new(worktree.name().as_str()),
                     false,
                     config.as_ref(),
+                    &default_branch,
                 ) {
                     Ok(()) => {
                         #[expect(
@@ -1448,7 +1459,18 @@ impl WorktreeRepoHandle {
         worktree_dir: &Path,
         force: bool,
         worktree_config: Option<&WorktreeRootConfig>,
+        default_branch: &Branch,
     ) -> Result<(), WorktreeRemoveError> {
+        //! We remove the worktree only under the following conditions (unless `force` is given):
+        //!
+        //! * It has no changes
+        //! * If it has a remote tracking branch, it does not differ
+        //! * It is merged into the default branch
+        //! * It is merged into any "persistent branch"
+        //!
+        //! To clarify: Even if it is merged into local persistent branches, it will still not be
+        //! deleted when the remote branch differs
+
         let fullpath = base_dir.join(worktree_dir);
 
         if !fullpath.exists() {
@@ -1478,6 +1500,13 @@ impl WorktreeRepoHandle {
                 return Err(WorktreeRemoveError::Changes(changes));
             }
 
+            let is_merged_into_default_branch = {
+                let (ahead_of_default_branch, _behind) =
+                    worktree_repo.graph_ahead_behind(&branch, &default_branch)?;
+
+                ahead_of_default_branch == 0
+            };
+
             let mut is_merged_into_persistent_branch = false;
             let mut has_persistent_branches = false;
             if let Some(config) = worktree_config {
@@ -1500,23 +1529,18 @@ impl WorktreeRepoHandle {
                 }
             }
 
-            if has_persistent_branches && !is_merged_into_persistent_branch {
+            let merged_into_default_or_persistent_branches = is_merged_into_default_branch
+                || (has_persistent_branches && is_merged_into_persistent_branch);
+
+            if !merged_into_default_or_persistent_branches {
                 return Err(WorktreeRemoveError::NotMerged { branch_name });
             }
 
-            if !has_persistent_branches {
-                match branch.upstream()? {
-                    Some(remote_branch) => {
-                        let (ahead, behind) =
-                            worktree_repo.graph_ahead_behind(&branch, &remote_branch)?;
+            if let Some(remote_branch) = branch.upstream()? {
+                let (ahead, behind) = worktree_repo.graph_ahead_behind(&branch, &remote_branch)?;
 
-                        if (ahead, behind) != (0, 0) {
-                            return Err(WorktreeRemoveError::NotInSyncWithRemote { branch_name });
-                        }
-                    }
-                    None => {
-                        return Err(WorktreeRemoveError::NoRemoteTrackingBranch { branch_name });
-                    }
+                if (ahead, behind) != (0, 0) {
+                    return Err(WorktreeRemoveError::NotInSyncWithRemote { branch_name });
                 }
             }
         }

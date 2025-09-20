@@ -25,18 +25,14 @@ def test_worktree_clean():
         assert "test" not in os.listdir(base_dir)
 
 
-def test_worktree_clean_refusal_no_tracking_branch():
+def test_worktree_clean_new_with_no_tracking_branch():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode != 0
-        assert "test" in os.listdir(base_dir)
-
-        after = checksum_directory(f"{base_dir}/test")
-        assert before == after
+        assert cmd.returncode == 0
+        assert "test" not in os.listdir(base_dir)
 
 
 def test_worktree_clean_refusal_uncommited_changes_new_file():

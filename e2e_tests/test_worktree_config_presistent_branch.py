@@ -53,6 +53,7 @@ def test_worktree_clean_branch_merged_into_persistent():
             touch change1
             git add change1
             git commit -m "commit1"
+            git push
             """
         )
 
@@ -125,6 +126,7 @@ def test_worktree_delete_branch_merged_into_persistent():
             touch change1
             git add change1
             git commit -m "commit1"
+            git push
             """
         )
 

@@ -632,16 +632,9 @@ def test_worktree_delete_refusal_no_tracking_branch():
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
-        assert cmd.returncode != 0
-        assert len(cmd.stdout) == 0
-        stderr = cmd.stderr.lower()
-        assert "refuse" in stderr or "refusing" in stderr
-        assert "test" in os.listdir(base_dir)
-
-        after = checksum_directory(f"{base_dir}/test")
-        assert before == after
+        assert cmd.returncode == 0
+        assert "test" not in os.listdir(base_dir)
 
 
 @pytest.mark.parametrize(

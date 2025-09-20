@@ -25,7 +25,7 @@ use grm::{
     auth::{self, AuthToken},
     config, exec_with_result_channel, find_in_tree, get_trees, path,
     provider::{self, Filter, ProjectNamespace, ProtocolConfig, Provider, RemoteProvider},
-    repo::{self, RepoChanges, WorktreeName},
+    repo::{self, RepoChanges, WorktreeError, WorktreeName},
     table, tree,
 };
 
@@ -115,6 +115,8 @@ enum MainError {
     PathConversion(path::Error),
     #[error("Failed validating worktree: {0}")]
     InvalidWorktreeName(repo::WorktreeValidationError),
+    #[error("Failed guessing default branch")]
+    WorktreeDefaultBranch(WorktreeError),
 }
 
 impl MainError {
@@ -696,22 +698,27 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
         .map_err(MainError::WorktreeConfiguration)?
         .map(Into::into);
 
-    repo::WorktreeRepoHandle::open(&cwd)
-        .map_err(|e| MainError::OpenRepo(e))?
-        .remove_worktree(
-            &cwd,
-            &WorktreeName::new(args.name.clone()).map_err(MainError::InvalidWorktreeName)?,
-            Path::new(&args.name),
-            args.force,
-            worktree_config.as_ref(),
-        )
-        .map_err(|e| match e {
-            repo::WorktreeRemoveError::Changes(_)
-            | repo::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
-            | repo::WorktreeRemoveError::NotInSyncWithRemote { .. }
-            | repo::WorktreeRemoveError::NotMerged { .. } => MainError::WorktreeRemovalRefuse(e),
-            _ => MainError::WorktreeRemove(e),
-        })?;
+    let repo = repo::WorktreeRepoHandle::open(&cwd).map_err(|e| MainError::OpenRepo(e))?;
+
+    let default_branch = repo
+        .default_branch()
+        .map_err(|err| MainError::WorktreeDefaultBranch(err.into()))?;
+
+    repo.remove_worktree(
+        &cwd,
+        &WorktreeName::new(args.name.clone()).map_err(MainError::InvalidWorktreeName)?,
+        Path::new(&args.name),
+        args.force,
+        worktree_config.as_ref(),
+        &default_branch,
+    )
+    .map_err(|e| match e {
+        repo::WorktreeRemoveError::Changes(_)
+        | repo::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
+        | repo::WorktreeRemoveError::NotInSyncWithRemote { .. }
+        | repo::WorktreeRemoveError::NotMerged { .. } => MainError::WorktreeRemovalRefuse(e),
+        _ => MainError::WorktreeRemove(e),
+    })?;
 
     print_success(&format!("Worktree {} deleted", &args.name));
 
