@@ -323,13 +323,13 @@ struct WithLocalBranchName<'a> {
 struct WithLocalTargetSelected<'a> {
     local_branch_name: BranchName,
     local_branch: Option<repo::Branch<'a>>,
-    target_commit: Option<Box<repo::Commit<'a>>>,
+    target_commit: Option<repo::Commit<'a>>,
 }
 
 struct WithRemoteTrackingBranch<'a> {
     local_branch_name: BranchName,
     local_branch: Option<repo::Branch<'a>>,
-    target_commit: Option<Box<repo::Commit<'a>>>,
+    target_commit: Option<repo::Commit<'a>>,
     remote_tracking_branch: Option<(RemoteName, BranchName)>,
     prefix: Option<String>,
 }
@@ -401,7 +401,7 @@ where
 
     fn select_commit(
         self,
-        commit: Option<Box<repo::Commit<'b>>>,
+        commit: Option<repo::Commit<'b>>,
     ) -> Worktree<'a, WithLocalTargetSelected<'b>> {
         Worktree::<'a, WithLocalTargetSelected> {
             repo: self.repo,
@@ -758,9 +758,9 @@ pub fn add_worktree(
 
     let get_remote_head = |remote_name: &RemoteName,
                            remote_branch_name: &BranchName|
-     -> Result<Option<Box<repo::Commit>>, Error> {
+     -> Result<Option<repo::Commit>, Error> {
         if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
-            Ok(Some(Box::new(remote_branch.commit_owned()?)))
+            Ok(Some(remote_branch.commit_owned()?))
         } else {
             Ok(None)
         }
@@ -779,17 +779,17 @@ pub fn add_worktree(
         } = tracking_selection
         {
             if let Ok(remote_branch) = repo.find_remote_branch(remote_name, remote_branch_name) {
-                worktree.select_commit(Some(Box::new(remote_branch.commit_owned()?)))
+                worktree.select_commit(Some(remote_branch.commit_owned()?))
             } else {
-                worktree.select_commit(Some(Box::new(default_branch_head)))
+                worktree.select_commit(Some(default_branch_head))
             }
         } else {
             match remotes.len() {
-                0 => worktree.select_commit(Some(Box::new(default_branch_head))),
+                0 => worktree.select_commit(Some(default_branch_head)),
                 1 => {
                     #[expect(clippy::indexing_slicing, reason = "checked for len() explicitly")]
                     let remote_name = &remotes[0];
-                    let commit: Option<Box<repo::Commit>> = ({
+                    let commit: Option<repo::Commit> = ({
                         if let Some(prefix) = prefix {
                             get_remote_head(
                                 remote_name,
@@ -803,7 +803,7 @@ pub fn add_worktree(
                         remote_name,
                         &BranchName::new(name.as_str().to_owned()),
                     )?)
-                    .or_else(|| Some(Box::new(default_branch_head)));
+                    .or_else(|| Some(default_branch_head));
 
                     worktree.select_commit(commit)
                 }
@@ -813,7 +813,7 @@ pub fn add_worktree(
                         if let Ok(remote_branch) = repo
                             .find_remote_branch(default_remote, &BranchName::new(format!("{prefix}/{name}")))
                         {
-                            Some(Box::new(remote_branch.commit_owned()?))
+                            Some(remote_branch.commit_owned()?)
                         } else {
                             None
                         }
@@ -824,7 +824,7 @@ pub fn add_worktree(
                         if let Ok(remote_branch) =
                             repo.find_remote_branch(default_remote, &BranchName::new(name.as_str().to_owned()))
                         {
-                            Some(Box::new(remote_branch.commit_owned()?))
+                            Some(remote_branch.commit_owned()?)
                         } else {
                             None
                         }
@@ -834,13 +834,13 @@ pub fn add_worktree(
                 }.or({
                     let mut commits = vec![];
                     for remote_name in remotes {
-                        let remote_head: Option<Box<repo::Commit>> = ({
+                        let remote_head: Option<repo::Commit> = ({
                             if let Some(prefix) = prefix {
                                 if let Ok(remote_branch) = repo.find_remote_branch(
                                     remote_name,
                                     &BranchName::new(format!("{prefix}/{name}")),
                                 ) {
-                                    Some(Box::new(remote_branch.commit_owned()?))
+                                    Some(remote_branch.commit_owned()?)
                                 } else {
                                     None
                                 }
@@ -852,7 +852,7 @@ pub fn add_worktree(
                             if let Ok(remote_branch) =
                                 repo.find_remote_branch(remote_name, &BranchName::new(name.as_str().to_owned()))
                             {
-                                Some(Box::new(remote_branch.commit_owned()?))
+                                Some(remote_branch.commit_owned()?)
                             } else {
                                 None
                             }
@@ -866,12 +866,12 @@ pub fn add_worktree(
                         .flatten()
                         // have to collect first because the `flatten()` return
                         // typedoes not implement `windows()`
-                        .collect::<Vec<Box<repo::Commit>>>();
+                        .collect::<Vec<repo::Commit>>();
                     // `flatten()` takes care of `None` values here. If all
                     // remotes return None for the branch, we do *not* abort, we
                     // continue!
                     if commits.is_empty() {
-                        Some(Box::new(default_branch_head))
+                        Some(default_branch_head)
                     } else if commits.len() == 1 {
                         Some(commits.swap_remove(0))
                     } else if commits.windows(2).any(
@@ -894,7 +894,7 @@ pub fn add_worktree(
                             // never, as it's such a rare edge case.
                             Warning("Branch exists on multiple remotes, but they deviate. Selecting default branch instead".to_owned())
                         );
-                        Some(Box::new(default_branch_head))
+                        Some(default_branch_head)
                     } else {
                         Some(commits.swap_remove(0))
                     }
