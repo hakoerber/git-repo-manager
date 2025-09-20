@@ -32,7 +32,7 @@ def test_worktree_clean_refusal_no_tracking_branch():
 
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
+        assert cmd.returncode != 0
         assert "test" in os.listdir(base_dir)
 
         after = checksum_directory(f"{base_dir}/test")
@@ -48,7 +48,7 @@ def test_worktree_clean_refusal_uncommited_changes_new_file():
 
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
+        assert cmd.returncode != 0
         assert "test" in os.listdir(base_dir)
 
         after = checksum_directory(f"{base_dir}/test")
@@ -64,7 +64,7 @@ def test_worktree_clean_refusal_uncommited_changes_changed_file():
 
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
+        assert cmd.returncode != 0
         assert "test" in os.listdir(base_dir)
 
         after = checksum_directory(f"{base_dir}/test")
@@ -82,7 +82,7 @@ def test_worktree_clean_refusal_uncommited_changes_cleand_file():
 
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
+        assert cmd.returncode != 0
         assert "test" in os.listdir(base_dir)
 
         after = checksum_directory(f"{base_dir}/test")
@@ -100,7 +100,7 @@ def test_worktree_clean_refusal_commited_changes():
 
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
+        assert cmd.returncode != 0
         assert "test" in os.listdir(base_dir)
 
         after = checksum_directory(f"{base_dir}/test")
@@ -118,7 +118,7 @@ def test_worktree_clean_refusal_tracking_branch_mismatch():
 
         before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
+        assert cmd.returncode != 0
         assert "test" in os.listdir(base_dir)
 
         after = checksum_directory(f"{base_dir}/test")
@@ -198,8 +198,9 @@ def test_worktree_clean_configured_default_branch(
         )
 
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
         if configure_default_branch and not branch_list_empty:
+            assert cmd.returncode == 0
             assert "test" not in os.listdir(base_dir)
         else:
+            assert cmd.returncode != 0
             assert "test" in os.listdir(base_dir)

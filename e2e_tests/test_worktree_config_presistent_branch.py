@@ -100,7 +100,7 @@ def test_worktree_no_clean_unmerged_branch():
         assert cmd.returncode == 0
 
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
+        assert cmd.returncode == 2
 
         assert "test" in os.listdir(base_dir)
 

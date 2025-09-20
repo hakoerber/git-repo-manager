@@ -65,23 +65,71 @@ impl From<RemoteType> for config::RemoteType {
 }
 
 #[derive(Debug, Error)]
-pub enum WorktreeRemoveFailureReason {
-    #[error("Changes found")]
-    Changes(String),
-    #[error("{}", .0)]
-    Error(String),
-    #[error("Worktree is not merged")]
-    NotMerged(String),
+pub enum WorktreeRemoveError {
+    #[error(transparent)]
+    RepoError(Error),
+    #[error("Worktree at {0} does not exist")]
+    DoesNotExist(PathBuf),
+    #[error(
+        "Branch \"{branch_name}\" is checked out in worktree \"{worktree_name}\", this does not look correct"
+    )]
+    BranchNameMismatch {
+        worktree_name: WorktreeName,
+        branch_name: BranchName,
+    },
+    #[error("Branch {0} not found")]
+    BranchNotFound(BranchName),
+    #[error("Changes found in worktree: {0}")]
+    Changes(RepoChanges),
+    #[error("Branch {branch_name} is not merged into any persistent branches")]
+    NotMerged { branch_name: BranchName },
+    #[error("Branch {branch_name} is not in line with remote branch")]
+    NotInSyncWithRemote { branch_name: BranchName },
+    #[error("No remote tracking branch for branch {branch_name} found")]
+    NoRemoteTrackingBranch { branch_name: BranchName },
+    #[error("Removing {path} failed: {error}")]
+    RemoveError {
+        path: PathBuf,
+        error: std::io::Error,
+    },
+    #[error("Error getting directory entry {path}: {error}")]
+    ReadDirectoryError {
+        path: PathBuf,
+        error: std::io::Error,
+    },
+}
+
+impl From<Error> for WorktreeRemoveError {
+    fn from(value: Error) -> Self {
+        Self::RepoError(value)
+    }
 }
 
 #[derive(Debug, Error)]
-pub enum WorktreeConversionFailureReason {
-    #[error("Changes found")]
-    Changes,
+pub enum WorktreeConversionError {
+    #[error(transparent)]
+    RepoError(Error),
+    #[error("Changes found in worktree: {0}")]
+    Changes(RepoChanges),
     #[error("Ignored files found")]
     Ignored,
     #[error("{}", .0)]
-    Error(String),
+    RenameError(String),
+    #[error("Opening directory failed: {0}")]
+    OpenDirectoryError(std::io::Error),
+    #[error("Removing {path} failed: {error}")]
+    RemoveError {
+        path: PathBuf,
+        error: std::io::Error,
+    },
+    #[error("Error getting directory entry: {0}")]
+    ReadDirectoryError(std::io::Error),
+}
+
+impl From<Error> for WorktreeConversionError {
+    fn from(value: Error) -> Self {
+        Self::RepoError(value)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -102,6 +150,14 @@ impl fmt::Display for GitConfigKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
+}
+
+#[derive(Debug, Error)]
+pub enum CleanupWorktreeError {
+    #[error(transparent)]
+    RepoError(#[from] Error),
+    #[error(transparent)]
+    RemoveError(#[from] WorktreeRemoveError),
 }
 
 #[derive(Debug, Error)]
@@ -134,10 +190,6 @@ pub enum Error {
     NoBranchCheckedOut,
     #[error("Could not set {key}: {error}", key = .key, error = .error)]
     GitConfigSetError { key: GitConfigKey, error: String },
-    #[error(transparent)]
-    WorktreeConversionFailure(WorktreeConversionFailureReason),
-    #[error(transparent)]
-    WorktreeRemovalFailure(WorktreeRemoveFailureReason),
     #[error("Cannot get changes as this is a bare worktree repository")]
     GettingChangesFromBareWorktree,
     #[error("Trying to push to a non-pushable remote")]
@@ -176,6 +228,18 @@ pub enum Error {
     InvalidRemoteHeadPointer { name: String },
     #[error("Remote HEAD does not point to a symbolic target")]
     RemoteHeadNoSymbolicTarget,
+}
+
+pub struct CleanupWorktreeWarning {
+    pub worktree_name: WorktreeName,
+    pub reason: CleanupWorktreeWarningReason,
+}
+
+pub enum CleanupWorktreeWarningReason {
+    Changes(RepoChanges),
+    NotMerged { branch_name: BranchName },
+    NoRemoteTrackingBranch { branch_name: BranchName },
+    NoDirectory,
 }
 
 #[derive(Debug)]
@@ -330,10 +394,49 @@ impl From<config::WorktreeRootConfig> for WorktreeRootConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct RepoChanges {
     pub files_new: usize,
     pub files_modified: usize,
     pub files_deleted: usize,
+}
+
+impl fmt::Display for RepoChanges {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.files_new == 0 && self.files_modified == 0 && self.files_deleted == 0 {
+            write!(f, "no changes")
+        } else {
+            #[expect(
+                clippy::useless_let_if_seq,
+                reason = "Clearer to set started in the beginning and then modify it in each block"
+            )]
+            {
+                let mut started = false;
+
+                if self.files_new > 0 {
+                    write!(f, "{} new", self.files_new)?;
+                    started = true;
+                }
+
+                if self.files_modified > 0 {
+                    if started {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{} modified", self.files_modified)?;
+                    started = true;
+                }
+
+                if self.files_deleted > 0 {
+                    if started {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{} deleted", self.files_deleted)?;
+                }
+
+                Ok(())
+            }
+        }
+    }
 }
 
 pub enum SubmoduleStatus {
@@ -838,49 +941,30 @@ impl RepoHandle {
             })
     }
 
-    pub fn convert_to_worktree(&self, root_dir: &Path) -> Result<(), Error> {
-        if self
+    pub fn convert_to_worktree(&self, root_dir: &Path) -> Result<(), WorktreeConversionError> {
+        if let Some(changes) = self
             .status(WorktreeSetup::NoWorktree)
-            .map_err(|e| {
-                Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(
-                    e.to_string(),
-                ))
-            })?
+            .map_err(|e| WorktreeConversionError::RepoError(e))?
             .changes
-            .is_some()
         {
-            return Err(Error::WorktreeConversionFailure(
-                WorktreeConversionFailureReason::Changes,
-            ));
+            return Err(WorktreeConversionError::Changes(changes));
         }
 
         if self
             .has_untracked_files(WorktreeSetup::NoWorktree)
-            .map_err(|e| {
-                Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(
-                    e.to_string(),
-                ))
-            })?
+            .map_err(|e| WorktreeConversionError::RepoError(e))?
         {
-            return Err(Error::WorktreeConversionFailure(
-                WorktreeConversionFailureReason::Ignored,
-            ));
+            return Err(WorktreeConversionError::Ignored);
         }
 
         std::fs::rename(".git", worktree::GIT_MAIN_WORKTREE_DIRECTORY).map_err(|error| {
-            Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(format!(
-                "Error moving .git directory: {error}"
-            )))
+            WorktreeConversionError::RenameError(format!("Error moving .git directory: {error}"))
         })?;
 
         for entry in match std::fs::read_dir(root_dir) {
             Ok(iterator) => iterator,
             Err(error) => {
-                return Err(Error::WorktreeConversionFailure(
-                    WorktreeConversionFailureReason::Error(format!(
-                        "Opening directory failed: {error}"
-                    )),
-                ));
+                return Err(WorktreeConversionError::OpenDirectoryError(error));
             }
         } {
             match entry {
@@ -897,49 +981,28 @@ impl RepoHandle {
                     }
                     if path.is_file() || path.is_symlink() {
                         if let Err(error) = std::fs::remove_file(&path) {
-                            return Err(Error::WorktreeConversionFailure(
-                                WorktreeConversionFailureReason::Error(format!(
-                                    "Failed removing {error}"
-                                )),
-                            ));
+                            return Err(WorktreeConversionError::RemoveError { path, error });
                         }
                     } else if let Err(error) = std::fs::remove_dir_all(&path) {
-                        return Err(Error::WorktreeConversionFailure(
-                            WorktreeConversionFailureReason::Error(format!(
-                                "Failed removing {error}"
-                            )),
-                        ));
+                        return Err(WorktreeConversionError::RemoveError { path, error });
                     }
                 }
                 Err(error) => {
-                    return Err(Error::WorktreeConversionFailure(
-                        WorktreeConversionFailureReason::Error(format!(
-                            "Error getting directory entry: {error}"
-                        )),
-                    ));
+                    return Err(WorktreeConversionError::ReadDirectoryError(error));
                 }
             }
         }
 
-        let worktree_repo = Self::open(root_dir, WorktreeSetup::Worktree).map_err(|error| {
-            Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(format!(
-                "Opening newly converted repository failed: {error}"
-            )))
-        })?;
+        let worktree_repo = Self::open(root_dir, WorktreeSetup::Worktree)
+            .map_err(|error| WorktreeConversionError::RepoError(error))?;
 
-        worktree_repo.make_bare(true).map_err(|error| {
-            Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(format!(
-                "Error: {error}"
-            )))
-        })?;
+        worktree_repo
+            .make_bare(true)
+            .map_err(|error| WorktreeConversionError::RepoError(error))?;
 
         worktree_repo
             .set_config_push(GitPushDefaultSetting::Upstream)
-            .map_err(|error| {
-                Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(format!(
-                    "Error: {error}"
-                )))
-            })?;
+            .map_err(|error| WorktreeConversionError::RepoError(error))?;
 
         Ok(())
     }
@@ -1288,59 +1351,34 @@ impl RepoHandle {
         worktree_dir: &Path,
         force: bool,
         worktree_config: Option<&WorktreeRootConfig>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), WorktreeRemoveError> {
         let fullpath = base_dir.join(worktree_dir);
 
         if !fullpath.exists() {
-            return Err(Error::WorktreeRemovalFailure(
-                WorktreeRemoveFailureReason::Error(format!("{worktree_name} does not exist")),
-            ));
+            return Err(WorktreeRemoveError::DoesNotExist(fullpath));
         }
-        let worktree_repo = Self::open(&fullpath, WorktreeSetup::NoWorktree).map_err(|error| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(format!(
-                "Error opening repo: {error}"
-            )))
-        })?;
+        let worktree_repo = Self::open(&fullpath, WorktreeSetup::NoWorktree)?;
 
-        let local_branch = worktree_repo.head_branch().map_err(|error| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(format!(
-                "Failed getting head branch: {error}"
-            )))
-        })?;
+        let local_branch = worktree_repo.head_branch()?;
 
-        let branch_name = local_branch.name().map_err(|error| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(format!(
-                "Failed getting name of branch: {error}"
-            )))
-        })?;
+        let branch_name = local_branch.name()?;
 
         if branch_name.as_str() != worktree_name.as_str() {
-            return Err(Error::WorktreeRemovalFailure(
-                WorktreeRemoveFailureReason::Error(format!(
-                    "Branch \"{}\" is checked out in worktree \"{}\", this does not look correct",
-                    &branch_name,
-                    &worktree_dir.display(),
-                )),
-            ));
+            return Err(WorktreeRemoveError::BranchNameMismatch {
+                worktree_name: worktree_name.clone(),
+                branch_name,
+            });
         }
 
         let branch = worktree_repo
-            .find_local_branch(&branch_name)
-            .map_err(|e| {
-                Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
-            })?
-            .ok_or(Error::NotFound)?;
+            .find_local_branch(&branch_name)?
+            .ok_or_else(|| WorktreeRemoveError::BranchNotFound(branch_name.clone()))?;
 
         if !force {
-            let status = worktree_repo
-                .status(WorktreeSetup::NoWorktree)
-                .map_err(|e| {
-                    Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
-                })?;
-            if status.changes.is_some() {
-                return Err(Error::WorktreeRemovalFailure(
-                    WorktreeRemoveFailureReason::Changes(String::from("Changes found in worktree")),
-                ));
+            let status = worktree_repo.status(WorktreeSetup::NoWorktree)?;
+
+            if let Some(changes) = status.changes {
+                return Err(WorktreeRemoveError::Changes(changes));
             }
 
             let mut is_merged_into_persistent_branch = false;
@@ -1350,13 +1388,10 @@ impl RepoHandle {
                     has_persistent_branches = true;
                     for persistent_branch in branches {
                         let persistent_branch = worktree_repo
-                            .find_local_branch(persistent_branch)
-                            .map_err(|e| {
-                                Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(
-                                    e.to_string(),
-                                ))
-                            })?
-                            .ok_or(Error::NotFound)?;
+                            .find_local_branch(persistent_branch)?
+                            .ok_or_else(|| {
+                                WorktreeRemoveError::BranchNotFound(branch_name.clone())
+                            })?;
 
                         let (ahead, _behind) =
                             worktree_repo.graph_ahead_behind(&branch, &persistent_branch)?;
@@ -1369,11 +1404,7 @@ impl RepoHandle {
             }
 
             if has_persistent_branches && !is_merged_into_persistent_branch {
-                return Err(Error::WorktreeRemovalFailure(
-                    WorktreeRemoveFailureReason::NotMerged(format!(
-                        "Branch {worktree_name} is not merged into any persistent branches"
-                    )),
-                ));
+                return Err(WorktreeRemoveError::NotMerged { branch_name });
             }
 
             if !has_persistent_branches {
@@ -1383,19 +1414,11 @@ impl RepoHandle {
                             worktree_repo.graph_ahead_behind(&branch, &remote_branch)?;
 
                         if (ahead, behind) != (0, 0) {
-                            return Err(Error::WorktreeRemovalFailure(
-                                WorktreeRemoveFailureReason::Changes(format!(
-                                    "Branch {worktree_name} is not in line with remote branch"
-                                )),
-                            ));
+                            return Err(WorktreeRemoveError::NotInSyncWithRemote { branch_name });
                         }
                     }
                     Err(_) => {
-                        return Err(Error::WorktreeRemovalFailure(
-                            WorktreeRemoveFailureReason::Changes(format!(
-                                "No remote tracking branch for branch {worktree_name} found"
-                            )),
-                        ));
+                        return Err(WorktreeRemoveError::NoRemoteTrackingBranch { branch_name });
                     }
                 }
             }
@@ -1406,13 +1429,10 @@ impl RepoHandle {
         // component, in case it is empty. Only the leaf directory can be
         // removed unconditionally (as it contains the worktree itself).
         if let Err(e) = std::fs::remove_dir_all(&fullpath) {
-            return Err(Error::WorktreeRemovalFailure(
-                WorktreeRemoveFailureReason::Error(format!(
-                    "Error deleting {}: {}",
-                    &worktree_dir.display(),
-                    e
-                )),
-            ));
+            return Err(WorktreeRemoveError::RemoveError {
+                path: fullpath,
+                error: e,
+            });
         }
 
         if let Some(current_dir) = worktree_dir.parent() {
@@ -1420,24 +1440,18 @@ impl RepoHandle {
                 let current_dir = base_dir.join(current_dir);
                 if current_dir
                     .read_dir()
-                    .map_err(|error| {
-                        Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(format!(
-                            "Error reading {}: {}",
-                            &current_dir.display(),
-                            error
-                        )))
+                    .map_err(|error| WorktreeRemoveError::ReadDirectoryError {
+                        path: current_dir.clone(),
+                        error,
                     })?
                     .next()
                     .is_none()
                 {
                     if let Err(e) = std::fs::remove_dir(&current_dir) {
-                        return Err(Error::WorktreeRemovalFailure(
-                            WorktreeRemoveFailureReason::Error(format!(
-                                "Error deleting {}: {}",
-                                &worktree_dir.display(),
-                                e
-                            )),
-                        ));
+                        return Err(WorktreeRemoveError::RemoveError {
+                            path: current_dir,
+                            error: e,
+                        });
                     }
                 } else {
                     break;
@@ -1445,23 +1459,23 @@ impl RepoHandle {
             }
         }
 
-        self.prune_worktree(worktree_name).map_err(|e| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
-        })?;
-        branch.delete().map_err(|e| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
-        })?;
+        self.prune_worktree(worktree_name)?;
+        branch.delete()?;
 
         Ok(())
     }
 
-    pub fn cleanup_worktrees(&self, directory: &Path) -> Result<Vec<Warning>, Error> {
+    pub fn cleanup_worktrees(
+        &self,
+        directory: &Path,
+    ) -> Result<Vec<CleanupWorktreeWarning>, CleanupWorktreeError> {
         let mut warnings = Vec::new();
 
         let worktrees = self.get_worktrees()?;
 
-        let config: Option<WorktreeRootConfig> =
-            config::read_worktree_root_config(directory)?.map(Into::into);
+        let config: Option<WorktreeRootConfig> = config::read_worktree_root_config(directory)
+            .map_err(|e| <config::Error as Into<Error>>::into(e))?
+            .map(Into::into);
 
         let guess_default_branch = || self.default_branch()?.name();
 
@@ -1503,29 +1517,34 @@ impl RepoHandle {
                 ) {
                     Ok(()) => print_success(&format!("Worktree {} deleted", &worktree.name())),
                     Err(error) => match error {
-                        Error::WorktreeRemovalFailure(ref removal_error) => match *removal_error {
-                            WorktreeRemoveFailureReason::Changes(ref changes) => {
-                                warnings.push(Warning(format!(
-                                    "Changes found in {}: {}, skipping",
-                                    &worktree.name(),
-                                    &changes
-                                )));
-                            }
-                            WorktreeRemoveFailureReason::NotMerged(ref message) => {
-                                warnings.push(Warning(message.clone()));
-                            }
-                            WorktreeRemoveFailureReason::Error(_) => {
-                                return Err(error);
-                            }
-                        },
-                        _ => return Err(error),
+                        WorktreeRemoveError::Changes(ref changes) => {
+                            warnings.push(CleanupWorktreeWarning {
+                                worktree_name: worktree.name().to_owned(),
+                                reason: CleanupWorktreeWarningReason::Changes(*changes),
+                            });
+                        }
+                        WorktreeRemoveError::NotMerged { branch_name } => {
+                            warnings.push(CleanupWorktreeWarning {
+                                worktree_name: worktree.name().to_owned(),
+                                reason: CleanupWorktreeWarningReason::NotMerged { branch_name },
+                            });
+                        }
+                        WorktreeRemoveError::NoRemoteTrackingBranch { branch_name } => {
+                            warnings.push(CleanupWorktreeWarning {
+                                worktree_name: worktree.name().to_owned(),
+                                reason: CleanupWorktreeWarningReason::NoRemoteTrackingBranch {
+                                    branch_name,
+                                },
+                            });
+                        }
+                        _ => return Err(CleanupWorktreeError::RemoveError(error)),
                     },
                 }
             } else {
-                warnings.push(Warning(format!(
-                    "Worktree {} does not have a directory",
-                    &worktree.name()
-                )));
+                warnings.push(CleanupWorktreeWarning {
+                    worktree_name: worktree.name().to_owned(),
+                    reason: CleanupWorktreeWarningReason::NoDirectory,
+                });
             }
         }
         Ok(warnings)

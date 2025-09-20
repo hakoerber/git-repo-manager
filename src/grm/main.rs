@@ -25,15 +25,38 @@ struct MainError {
     message: String,
 }
 
+impl MainError {
+    fn with_context(e: impl std::error::Error, prefix: &str, exit_code: Option<ExitCode>) -> Self {
+        Self {
+            exit_code,
+            message: format!("{prefix}: {e}"),
+        }
+    }
+}
+
 enum MainResult {
-    Success,
+    Success(InformationalExitCode),
     Failure(MainError),
+}
+
+enum InformationalExitCode {
+    Success,
+    Warnings,
+}
+
+impl From<InformationalExitCode> for ExitCode {
+    fn from(value: InformationalExitCode) -> Self {
+        match value {
+            InformationalExitCode::Success => Self::SUCCESS,
+            InformationalExitCode::Warnings => Self::from(2),
+        }
+    }
 }
 
 impl Termination for MainResult {
     fn report(self) -> ExitCode {
         match self {
-            Self::Success => ExitCode::SUCCESS,
+            Self::Success(exit_code) => exit_code.into(),
             Self::Failure(main_error) => {
                 print_error(&main_error.message);
                 match main_error.exit_code {
@@ -47,34 +70,26 @@ impl Termination for MainResult {
 
 fn main() -> MainResult {
     match main_inner() {
-        Ok(()) => MainResult::Success,
+        Ok(exit_code) => MainResult::Success(exit_code),
         Err(e) => MainResult::Failure(e),
     }
 }
 
-fn handle_repos_sync_config(args: cmd::Config) -> Result<(), MainError> {
-    let config = config::read_config(Path::new(&args.config)).map_err(|e| MainError {
-        exit_code: None,
-        message: e.to_string(),
-    })?;
+fn handle_repos_sync_config(args: cmd::Config) -> HandlerResult {
+    let config = config::read_config(Path::new(&args.config))
+        .map_err(|e| MainError::with_context(e, "Config error", None))?;
 
-    if tree::sync_trees(config, args.init_worktree == "true")
-        .map_err(|e| MainError {
-            exit_code: None,
-            message: format!("Sync error: {e}"),
-        })?
+    tree::sync_trees(config, args.init_worktree == "true")
+        .map_err(|e| MainError::with_context(e, "Sync error", None))?
         .is_success()
-    {
-        Ok(())
-    } else {
-        Err(MainError {
+        .then_some(InformationalExitCode::Success)
+        .ok_or_else(|| MainError {
             exit_code: None,
             message: "Sync failed".to_owned(),
         })
-    }
 }
 
-fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> Result<(), MainError> {
+fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
     let token = auth::get_token_from_command(&args.token_command).map_err(|e| MainError {
         exit_code: None,
         message: format!("Getting token from command failed: {e}"),
@@ -148,31 +163,27 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> Result<(), MainError> 
 
     let config = config::Config::from_trees(trees);
 
-    if tree::sync_trees(config, args.init_worktree == "true")
+    tree::sync_trees(config, args.init_worktree == "true")
         .map_err(|e| MainError {
             exit_code: None,
             message: format!("Sync error: {e}"),
         })?
         .is_success()
-    {
-        Ok(())
-    } else {
-        Err(MainError {
+        .then_some(InformationalExitCode::Success)
+        .ok_or_else(|| MainError {
             exit_code: None,
             message: "Sync failed".to_owned(),
         })
-    }
 }
 
-fn handle_repos_sync(sync: cmd::SyncAction) -> Result<(), MainError> {
-    match sync {
+fn handle_repos_sync(sync: cmd::SyncAction) -> HandlerResult {
+    Ok(match sync {
         cmd::SyncAction::Config(args) => handle_repos_sync_config(args)?,
         cmd::SyncAction::Remote(args) => handle_repos_sync_remote(args)?,
-    }
-    Ok(())
+    })
 }
 
-fn handle_repos_status(args: cmd::OptionalConfig) -> Result<(), MainError> {
+fn handle_repos_status(args: cmd::OptionalConfig) -> HandlerResult {
     if let Some(config_path) = args.config {
         let config = config::read_config(Path::new(&config_path)).map_err(|e| MainError {
             exit_code: None,
@@ -206,10 +217,10 @@ fn handle_repos_status(args: cmd::OptionalConfig) -> Result<(), MainError> {
             print_warning(&warning);
         }
     }
-    Ok(())
+    Ok(InformationalExitCode::Success)
 }
 
-fn handle_repos_find_local(args: cmd::FindLocalArgs) -> Result<(), MainError> {
+fn handle_repos_find_local(args: cmd::FindLocalArgs) -> HandlerResult {
     let path = Path::new(&args.path);
     if !path.exists() {
         return Err(MainError {
@@ -291,10 +302,10 @@ fn handle_repos_find_local(args: cmd::FindLocalArgs) -> Result<(), MainError> {
     for warning in warnings {
         print_warning(&warning);
     }
-    Ok(())
+    Ok(InformationalExitCode::Success)
 }
 
-fn handle_repos_find_config(args: cmd::FindConfigArgs) -> Result<(), MainError> {
+fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
     let config: config::ConfigProvider =
         config::read_config(Path::new(&args.config)).map_err(|e| MainError {
             exit_code: None,
@@ -411,10 +422,10 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> Result<(), MainError> 
             print(&yaml);
         }
     }
-    Ok(())
+    Ok(InformationalExitCode::Success)
 }
 
-fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> Result<(), MainError> {
+fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
     let token = auth::get_token_from_command(&args.token_command).map_err(|e| MainError {
         exit_code: None,
         message: format!("Getting token from command failed: {e}"),
@@ -519,28 +530,28 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> Result<(), MainError> 
             print(&yaml);
         }
     }
-    Ok(())
+    Ok(InformationalExitCode::Success)
 }
 
-fn handle_repos_find(find: cmd::FindAction) -> Result<(), MainError> {
-    match find {
+type HandlerResult = Result<InformationalExitCode, MainError>;
+
+fn handle_repos_find(find: cmd::FindAction) -> HandlerResult {
+    Ok(match find {
         cmd::FindAction::Local(args) => handle_repos_find_local(args)?,
         cmd::FindAction::Config(args) => handle_repos_find_config(args)?,
         cmd::FindAction::Remote(args) => handle_repos_find_remote(args)?,
-    }
-    Ok(())
+    })
 }
 
-fn handle_repos(repos: cmd::Repos) -> Result<(), MainError> {
-    match repos.action {
+fn handle_repos(repos: cmd::Repos) -> HandlerResult {
+    Ok(match repos.action {
         cmd::ReposAction::Sync(sync) => handle_repos_sync(sync)?,
         cmd::ReposAction::Status(args) => handle_repos_status(args)?,
         cmd::ReposAction::Find(find) => handle_repos_find(find)?,
-    }
-    Ok(())
+    })
 }
 
-fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> Result<(), MainError> {
+fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     if args.track.is_some() && args.no_track {
@@ -591,11 +602,13 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> Result<(), MainError> {
             print_warning(&warning);
         }
     }
+
     print_success(&format!("Worktree {} created", &args.name));
-    Ok(())
+
+    Ok(InformationalExitCode::Success)
 }
 
-fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> Result<(), MainError> {
+fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     let worktree_config: Option<repo::WorktreeRootConfig> = config::read_worktree_root_config(&cwd)
@@ -618,18 +631,14 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> Result<(), MainError
         worktree_config.as_ref(),
     )
     .map_err(|e| match e {
-        repo::Error::WorktreeRemovalFailure(reason) => match reason {
-            repo::WorktreeRemoveFailureReason::Error(message)
-            | repo::WorktreeRemoveFailureReason::NotMerged(message) => MainError {
-                exit_code: None,
-                message,
-            },
-            repo::WorktreeRemoveFailureReason::Changes(changes) => MainError {
-                exit_code: None,
-                message: format!("Changes in worktree: {changes}. Refusing to delete"),
-            },
+        repo::WorktreeRemoveError::Changes(_)
+        | repo::WorktreeRemoveError::NoRemoteTrackingBranch { .. }
+        | repo::WorktreeRemoveError::NotInSyncWithRemote { .. }
+        | repo::WorktreeRemoveError::NotMerged { .. } => MainError {
+            exit_code: None,
+            message: format!("{e}. Refusing to delete."),
         },
-        e => MainError {
+        _ => MainError {
             exit_code: None,
             message: e.to_string(),
         },
@@ -637,10 +646,10 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> Result<(), MainError
 
     print_success(&format!("Worktree {} deleted", &args.name));
 
-    Ok(())
+    Ok(InformationalExitCode::Success)
 }
 
-fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> Result<(), MainError> {
+fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
@@ -658,10 +667,10 @@ fn handle_worktree_status(_args: cmd::WorktreeStatusArgs) -> Result<(), MainErro
         print_error(&format!("Error: {error}"));
     }
 
-    Ok(())
+    Ok(InformationalExitCode::Success)
 }
 
-fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> Result<(), MainError> {
+fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> HandlerResult {
     // Converting works like this:
     // * Check whether there are uncommitted/unpushed changes
     // * Move the contents of .git dir to the worktree directory
@@ -679,31 +688,26 @@ fn handle_worktree_convert(_args: cmd::WorktreeConvertArgs) -> Result<(), MainEr
         },
     })?;
 
-    if let Err(e) = repo.convert_to_worktree(&cwd) {
+    if let Err(ref e) = repo.convert_to_worktree(&cwd) {
         Err(MainError {
             exit_code: None,
-            message: match e{
-                repo::Error::WorktreeConversionFailure(reason) => match reason {
-                    repo::WorktreeConversionFailureReason::Changes => {
-                        "Changes found in repository, refusing to convert".to_owned()
-                    }
-                    repo::WorktreeConversionFailureReason::Ignored => {
-                            "Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.".to_owned()
-                    }
-                    repo::WorktreeConversionFailureReason::Error(error) => {
-                                format!("Error during conversion: {error}")
-                            }
-                        },
-                        e => e.to_string(),
+            message: match *e {
+                repo::WorktreeConversionError::Changes(ref _changes) => {
+                    format!("{e} Refusing to convert")
+                }
+                repo::WorktreeConversionError::Ignored => {
+                        "Ignored files found in repository, refusing to convert. Run git clean -f -d -X to remove them manually.".to_owned()
+                },
+                _ => e.to_string(),
             }
         })
     } else {
         print_success("Conversion done");
-        Ok(())
+        Ok(InformationalExitCode::Success)
     }
 }
 
-fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> Result<(), MainError> {
+fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
@@ -720,8 +724,25 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> Result<(), MainError>
         message: format!("Worktree cleanup failed: {e}"),
     })?;
 
-    for warning in warnings {
-        print_warning(&warning);
+    for warning in &warnings {
+        print_warning(format!(
+            "Skipping worktree {}: {}",
+            warning.worktree_name,
+            match warning.reason {
+                repo::CleanupWorktreeWarningReason::Changes(ref changes) => {
+                    format!("changes found ({changes})")
+                }
+                repo::CleanupWorktreeWarningReason::NotMerged { ref branch_name } => {
+                    format!("branch {branch_name} is not merged")
+                }
+                repo::CleanupWorktreeWarningReason::NoRemoteTrackingBranch { ref branch_name } => {
+                    format!("branch {branch_name} does not have a remote tracking branch")
+                }
+                repo::CleanupWorktreeWarningReason::NoDirectory => {
+                    "worktree does not have a directory".to_owned()
+                }
+            }
+        ));
     }
 
     for unmanaged_worktree in repo.find_unmanaged_worktrees(&cwd).map_err(|e| MainError {
@@ -733,10 +754,14 @@ fn handle_worktree_clean(_args: cmd::WorktreeCleanArgs) -> Result<(), MainError>
             unmanaged_worktree.display()
         ));
     }
-    Ok(())
+    Ok(if warnings.is_empty() {
+        InformationalExitCode::Success
+    } else {
+        InformationalExitCode::Warnings
+    })
 }
 
-fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> Result<(), MainError> {
+fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
@@ -755,11 +780,11 @@ fn handle_worktree_fetch(_args: cmd::WorktreeFetchArgs) -> Result<(), MainError>
         })
     } else {
         print_success("Fetched from all remotes");
-        Ok(())
+        Ok(InformationalExitCode::Success)
     }
 }
 
-fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> Result<(), MainError> {
+fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     let repo = repo::RepoHandle::open(&cwd, WorktreeSetup::Worktree).map_err(|e| MainError {
@@ -802,11 +827,11 @@ fn handle_worktree_pull(args: cmd::WorktreePullArgs) -> Result<(), MainError> {
             message: "Pull failed".to_owned(),
         })
     } else {
-        Ok(())
+        Ok(InformationalExitCode::Success)
     }
 }
 
-fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> Result<(), MainError> {
+fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> HandlerResult {
     let cwd = get_cwd()?;
 
     if args.rebase && !args.pull {
@@ -886,7 +911,7 @@ fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> Result<(), MainError
             message: "Rebase failed".to_owned(),
         })
     } else {
-        Ok(())
+        Ok(InformationalExitCode::Success)
     }
 }
 
@@ -897,8 +922,8 @@ fn get_cwd() -> Result<PathBuf, MainError> {
     })
 }
 
-fn handle_worktree(worktree: cmd::Worktree) -> Result<(), MainError> {
-    match worktree.action {
+fn handle_worktree(worktree: cmd::Worktree) -> HandlerResult {
+    Ok(match worktree.action {
         cmd::WorktreeAction::Add(args) => handle_worktree_add(args)?,
         cmd::WorktreeAction::Delete(args) => handle_worktree_delete(args)?,
         cmd::WorktreeAction::Status(args) => handle_worktree_status(args)?,
@@ -907,17 +932,14 @@ fn handle_worktree(worktree: cmd::Worktree) -> Result<(), MainError> {
         cmd::WorktreeAction::Fetch(args) => handle_worktree_fetch(args)?,
         cmd::WorktreeAction::Pull(args) => handle_worktree_pull(args)?,
         cmd::WorktreeAction::Rebase(args) => handle_worktree_rebase(args)?,
-    }
-    Ok(())
+    })
 }
 
-fn main_inner() -> Result<(), MainError> {
+fn main_inner() -> HandlerResult {
     let opts = cmd::parse();
 
-    match opts.subcmd {
+    Ok(match opts.subcmd {
         cmd::SubCommand::Repos(repos) => handle_repos(repos)?,
         cmd::SubCommand::Worktree(args) => handle_worktree(args)?,
-    }
-
-    Ok(())
+    })
 }
