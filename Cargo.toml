@@ -93,7 +93,7 @@ version = "=1.0.145"
 default-features = false
 
 [dependencies.ureq]
-version = "=3.0.12"
+version = "=3.1.2"
 default-features = false
 features = ["json"]
 
