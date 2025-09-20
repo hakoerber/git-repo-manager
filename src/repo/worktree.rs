@@ -1021,9 +1021,12 @@ impl WorktreeRepoHandle {
         self.0
     }
 
-    fn find_worktree(&self, name: &WorktreeName) -> Result<(), Error> {
-        self.0.0.find_worktree(name.as_str())?;
-        Ok(())
+    fn worktree_exists(&self, name: &WorktreeName) -> Result<bool, Error> {
+        match self.0.0.find_worktree(name.as_str()) {
+            Ok(_worktree) => Ok(true),
+            Err(err) if err.code() == git2::ErrorCode::NotFound => Ok(false),
+            Err(e) => Err(e.into()),
+        }
     }
 
     pub fn default_branch(&self) -> Result<Branch<'_>, Error> {
@@ -1363,7 +1366,7 @@ impl WorktreeRepoHandle {
         let config: Option<WorktreeRootConfig> =
             config::read_worktree_root_config(repo_directory)?.map(Into::into);
 
-        if self.find_worktree(name).is_ok() {
+        if self.worktree_exists(name)? {
             return Err(Error::WorktreeAlreadyExists { name: name.clone() });
         }
 
