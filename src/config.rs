@@ -1,14 +1,11 @@
-use std::{
-    path::{Path, PathBuf},
-    process,
-};
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
     RemoteName, auth,
-    output::{print_error, print_warning},
+    output::print_warning,
     path, provider,
     provider::{Filter, Provider},
     repo, tree,
@@ -209,33 +206,21 @@ impl Config {
                 }
 
                 let repos = match config.provider {
-                    RemoteProvider::Github => match provider::Github::new(
+                    RemoteProvider::Github => provider::Github::new(
                         filter,
                         token,
                         config.api_url.map(provider::Url::new),
-                    ) {
-                        Ok(provider) => provider,
-                        Err(error) => {
-                            print_error(&format!("Error: {error}"));
-                            process::exit(1);
-                        }
-                    }
+                    )?
                     .get_repos(
                         config.worktree.unwrap_or(false),
                         config.force_ssh.unwrap_or(false),
                         config.remote_name.map(RemoteName::new),
                     )?,
-                    RemoteProvider::Gitlab => match provider::Gitlab::new(
+                    RemoteProvider::Gitlab => provider::Gitlab::new(
                         filter,
                         token,
                         config.api_url.map(provider::Url::new),
-                    ) {
-                        Ok(provider) => provider,
-                        Err(error) => {
-                            print_error(&format!("Error: {error}"));
-                            process::exit(1);
-                        }
-                    }
+                    )?
                     .get_repos(
                         config.worktree.unwrap_or(false),
                         config.force_ssh.unwrap_or(false),
