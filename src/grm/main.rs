@@ -343,16 +343,7 @@ fn handle_repos_find_local(args: cmd::FindLocalArgs) -> HandlerResult {
             return Err(MainError::ConfigNormalization(e));
         }
 
-        match args.format {
-            cmd::ConfigFormat::Toml => {
-                let toml = config.as_toml().map_err(|e| MainError::TomlConversion(e))?;
-                print(&toml);
-            }
-            cmd::ConfigFormat::Yaml => {
-                let yaml = config.as_yaml().map_err(|e| MainError::YamlConversion(e))?;
-                print(&yaml);
-            }
-        }
+        print(&config_to_string(config, args.format)?);
     }
     for warning in warnings {
         print_warning(&warning);
@@ -422,17 +413,18 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
 
     let config = config::Config::from_trees(trees);
 
-    match args.format {
-        cmd::ConfigFormat::Toml => {
-            let toml = config.as_toml().map_err(|e| MainError::TomlConversion(e))?;
-            print(&toml);
-        }
-        cmd::ConfigFormat::Yaml => {
-            let yaml = config.as_yaml().map_err(|e| MainError::YamlConversion(e))?;
-            print(&yaml);
-        }
-    }
+    print(&config_to_string(config, args.format)?);
     Ok(MainExitCode::Success)
+}
+
+fn config_to_string(
+    config: config::Config,
+    format: cmd::ConfigFormat,
+) -> Result<String, MainError> {
+    Ok(match format {
+        cmd::ConfigFormat::Toml => config.as_toml().map_err(|e| MainError::TomlConversion(e))?,
+        cmd::ConfigFormat::Yaml => config.as_yaml().map_err(|e| MainError::YamlConversion(e))?,
+    })
 }
 
 fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
@@ -440,14 +432,8 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
         .map_err(|e| MainError::TokenCommandFailed(e))?;
 
     let filter = provider::Filter::new(
-        args.users
-            .into_iter()
-            .map(|user| provider::User::new(user))
-            .collect(),
-        args.groups
-            .into_iter()
-            .map(|group| provider::Group::new(group))
-            .collect(),
+        args.users.into_iter().map(provider::User::new).collect(),
+        args.groups.into_iter().map(provider::Group::new).collect(),
         args.owner,
         args.access,
     );
@@ -466,21 +452,23 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
         args.remote_name,
     )?;
 
-    let mut trees: Vec<config::Tree> = vec![];
+    let trees = {
+        let mut trees = vec![];
 
-    #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
-    for (namespace, repolist) in repos {
-        let tree = config::Tree {
-            root: tree::Root::new(if let Some(namespace) = namespace {
-                PathBuf::from(&args.root).join(namespace.as_str())
-            } else {
-                PathBuf::from(&args.root)
-            })
-            .into(),
-            repos: Some(repolist.into_iter().map(Into::into).collect()),
-        };
-        trees.push(tree);
-    }
+        #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
+        for (namespace, repolist) in repos {
+            trees.push(config::Tree {
+                root: tree::Root::new(if let Some(namespace) = namespace {
+                    PathBuf::from(&args.root).join(namespace.as_str())
+                } else {
+                    PathBuf::from(&args.root)
+                })
+                .into(),
+                repos: Some(repolist.into_iter().map(Into::into).collect()),
+            });
+        }
+        trees
+    };
 
     let mut config = config::Config::from_trees(trees);
 
@@ -488,16 +476,7 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
         return Err(MainError::ConfigNormalization(e));
     }
 
-    match args.format {
-        cmd::ConfigFormat::Toml => {
-            let toml = config.as_toml().map_err(|e| MainError::TomlConversion(e))?;
-            print(&toml);
-        }
-        cmd::ConfigFormat::Yaml => {
-            let yaml = config.as_yaml().map_err(|e| MainError::YamlConversion(e))?;
-            print(&yaml);
-        }
-    }
+    print(&config_to_string(config, args.format)?);
     Ok(MainExitCode::Success)
 }
 
