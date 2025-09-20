@@ -772,8 +772,8 @@ fn handle_worktree_rebase(args: cmd::WorktreeRebaseArgs) -> HandlerResult {
 
     let mut failures = false;
 
-    for worktree in &worktrees {
-        if args.pull {
+    if args.pull {
+        for worktree in &worktrees {
             if let Some(warning) = worktree
                 .forward_branch(args.rebase, args.stash)
                 .map_err(|e| MainError::ForwardWorktreeBranch(e))?
