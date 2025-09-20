@@ -248,10 +248,10 @@ impl Worktree {
 
         let branch_name = BranchName::new(self.name.as_str().to_owned());
 
-        if let Ok(remote_branch) = repo
+        if let Some(remote_branch) = repo
             .find_local_branch(&branch_name)?
             .ok_or(Error::BranchNotFound(branch_name))?
-            .upstream()
+            .upstream()?
         {
             let status = repo.status(WorktreeSetup::NoWorktree)?;
             let mut stashed_changes = false;
@@ -1505,8 +1505,8 @@ impl WorktreeRepoHandle {
             }
 
             if !has_persistent_branches {
-                match branch.upstream() {
-                    Ok(remote_branch) => {
+                match branch.upstream()? {
+                    Some(remote_branch) => {
                         let (ahead, behind) =
                             worktree_repo.graph_ahead_behind(&branch, &remote_branch)?;
 
@@ -1514,7 +1514,7 @@ impl WorktreeRepoHandle {
                             return Err(WorktreeRemoveError::NotInSyncWithRemote { branch_name });
                         }
                     }
-                    Err(_) => {
+                    None => {
                         return Err(WorktreeRemoveError::NoRemoteTrackingBranch { branch_name });
                     }
                 }

@@ -1066,8 +1066,13 @@ impl<'a> Branch<'a> {
         ))
     }
 
-    pub fn upstream(&self) -> Result<Branch<'_>, Error> {
-        Ok(Branch(self.0.upstream()?))
+    pub fn upstream(&self) -> Result<Option<Branch<'_>>, Error> {
+        let branch = self.0.upstream();
+        match branch {
+            Ok(branch) => Ok(Some(Branch(branch))),
+            Err(err) if err.code() == git2::ErrorCode::NotFound => Ok(None),
+            Err(err) => Err(err.into()),
+        }
     }
 
     pub fn delete(mut self) -> Result<(), Error> {

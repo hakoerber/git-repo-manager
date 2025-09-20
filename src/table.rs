@@ -266,8 +266,8 @@ fn add_worktree_status(
 
     let local_branch = repo.head_branch().map_err(Error::Repo)?;
 
-    let upstream_output = match local_branch.upstream() {
-        Ok(remote_branch) => {
+    let upstream_output = match local_branch.upstream()? {
+        Some(remote_branch) => {
             let remote_branch_name = remote_branch.name().map_err(Error::Repo)?;
 
             let (ahead, behind) = repo
@@ -285,7 +285,7 @@ fn add_worktree_status(
                 },
             )
         }
-        Err(_) => String::new(),
+        None => String::new(),
     };
 
     table.add_row([
