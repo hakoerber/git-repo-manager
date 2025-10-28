@@ -1,7 +1,8 @@
-use outdir_tempdir::TempDir;
+use tempfile::TempDir;
 
 pub fn init_tmpdir() -> TempDir {
-    let tmp_dir = TempDir::new().autorm();
+    // this is deleted when it goes out of scope
+    let tmp_dir = TempDir::new().expect("Failed to create temporary directory");
     println!("Temporary directory: {}", tmp_dir.path().display());
     tmp_dir
 }
