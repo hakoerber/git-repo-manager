@@ -79,11 +79,11 @@
               buildInputs =
                 environment.buildInputs
                 ++ (with pkgs; [
-                  alejandra # nix formatting
                   black
                   isort
                   just
                   mdbook
+                  nixfmt-classic # nix formatting
                   python3
                   ruff
                   shellcheck
