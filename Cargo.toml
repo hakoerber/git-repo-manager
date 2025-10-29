@@ -115,8 +115,8 @@ default-features = false
 version = "=0.3.6"
 default-features = false
 
-[dev-dependencies.outdir-tempdir]
-version = "=0.2.0"
+[dev-dependencies.tempfile]
+version = "=3.17.0"
 default-features = false
 
 [features]
