@@ -3,51 +3,57 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-
-    crane = {
-      url = "github:ipetkov/crane";
-    };
   };
 
   outputs =
     {
       self,
       nixpkgs,
-      flake-utils,
-      crane,
     }:
+    let
+      inherit (nixpkgs) lib;
+      allSystems = [
+        "x86_64-linux"
+        "x86_64-darwin"
+        "aarch64-linux"
+        "aarch64-darwin"
+      ];
+      forAllSystems = function: lib.genAttrs allSystems (sys: function sys self.legacyPackages.${sys});
+    in
     {
       overlays = {
         git-repo-manager = final: prev: {
           git-repo-manager = self.packages.${prev.stdenv.system}.default;
         };
       };
-    }
-    // flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
 
-        craneLib = crane.mkLib pkgs;
-      in
-      {
-        apps = {
+      legacyPackages = forAllSystems (system: _: import nixpkgs { inherit system; });
+
+      apps = forAllSystems (
+        system: _: {
           default = self.apps.${system}.git-repo-manager;
 
-          git-repo-manager = flake-utils.lib.mkApp {
-            drv = self.packages.${system}.git-repo-manager;
-          };
-        };
+          git-repo-manager =
+            let
+              inherit (self.packages.${system}) git-repo-manager;
+            in
+            {
+              type = "app";
+              inherit (git-repo-manager) meta;
+              program = lib.getExe git-repo-manager;
+            };
+        }
+      );
 
-        checks = {
+      checks = forAllSystems (
+        system: _: {
           pkg = self.packages.${system}.default;
           shl = self.devShells.${system}.default;
-        };
+        }
+      );
 
-        devShells = {
+      devShells = forAllSystems (
+        system: pkgs: {
           default = pkgs.mkShell {
             buildInputs = [
               self.packages.${pkgs.system}.default
@@ -64,14 +70,16 @@
               shfmt
             ]);
           };
-        };
+        }
+      );
 
-        packages = {
+      packages = forAllSystems (
+        system: pkgs: {
           default = self.packages.${system}.git-repo-manager;
 
           git-repo-manager = pkgs.rustPlatform.buildRustPackage {
             name = "grm"; # otherwise `nix run` looks for git-repo-manager
-            src = craneLib.cleanCargoSource (craneLib.path ./.);
+            src = ./.;
 
             cargoLock.lockFile = ./Cargo.lock;
 
@@ -86,7 +94,7 @@
             ];
             meta.mainProgram = "grm";
           };
-        };
-      }
-    );
+        }
+      );
+    };
 }
