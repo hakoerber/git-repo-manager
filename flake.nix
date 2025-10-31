@@ -92,7 +92,20 @@
               zlib
               zlib.dev
             ];
-            meta.mainProgram = "grm";
+            meta = {
+              description = "A git tool to manage worktrees and integrate with GitHub and GitLab";
+              longDescription = ''
+                GRM helps you manage git repositories in a declarative way. Configure your repositories in a TOML or YAML file, GRM does the rest.
+
+                Also, GRM can be used to work with git worktrees in an opinionated, straightforward fashion.
+              '';
+
+              homepage = "https://hakoerber.github.io/git-repo-manager/";
+              license = lib.licenses.gpl3Plus;
+              mainProgram = "grm";
+              maintainers = with lib.maintainers; [ siriobalmelli ];
+              platforms = lib.platforms.all;
+            };
           };
         }
       );
