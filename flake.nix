@@ -8,10 +8,6 @@
     crane = {
       url = "github:ipetkov/crane";
     };
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -20,7 +16,6 @@
       nixpkgs,
       flake-utils,
       crane,
-      rust-overlay,
     }:
     {
       overlays = {
@@ -34,29 +29,9 @@
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [
-            rust-overlay.overlays.default
-          ];
         };
 
-        rustToolchain = pkgs.rust-bin.stable.latest.default;
-        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-
-        environment = with pkgs; {
-          pname = "grm"; # otherwise `nix run` looks for git-repo-manager
-          src = craneLib.cleanCargoSource (craneLib.path ./.);
-          buildInputs = [
-            # tools
-            pkg-config
-            rustToolchain
-            # deps
-            git
-            openssl
-            openssl.dev
-            zlib
-            zlib.dev
-          ];
-        };
+        craneLib = crane.mkLib pkgs;
       in
       {
         apps = {
@@ -73,32 +48,44 @@
         };
 
         devShells = {
-          default = pkgs.mkShell (
-            environment
-            // {
-              buildInputs =
-                environment.buildInputs
-                ++ (with pkgs; [
-                  black
-                  isort
-                  just
-                  mdbook
-                  nixfmt-classic # nix formatting
-                  python3
-                  ruff
-                  shellcheck
-                  shfmt
-                ]);
-            }
-          );
+          default = pkgs.mkShell {
+            buildInputs = [
+              self.packages.${pkgs.system}.default
+            ]
+            ++ (with pkgs; [
+              black
+              isort
+              just
+              mdbook
+              nixfmt-classic # nix formatting
+              python3
+              ruff
+              shellcheck
+              shfmt
+            ]);
+          };
         };
 
         packages = {
           default = self.packages.${system}.git-repo-manager;
 
-          git-repo-manager = craneLib.buildPackage (
-            environment // { cargoArtifacts = craneLib.buildDepsOnly environment; }
-          );
+          git-repo-manager = pkgs.rustPlatform.buildRustPackage {
+            name = "grm"; # otherwise `nix run` looks for git-repo-manager
+            src = craneLib.cleanCargoSource (craneLib.path ./.);
+
+            cargoLock.lockFile = ./Cargo.lock;
+
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = with pkgs; [
+              # deps
+              git
+              openssl
+              openssl.dev
+              zlib
+              zlib.dev
+            ];
+            meta.mainProgram = "grm";
+          };
         };
       }
     );
