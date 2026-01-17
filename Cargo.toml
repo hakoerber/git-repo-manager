@@ -65,6 +65,7 @@ features = ["derive"]
 [dependencies.git2]
 version = "=0.20.2"
 default-features = false
+features = ["https", "ssh"]
 
 [dependencies.shellexpand]
 version = "=3.1.1"
