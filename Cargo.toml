@@ -117,7 +117,7 @@ version = "=0.3.6"
 default-features = false
 
 [dev-dependencies.tempfile]
-version = "=3.17.0"
+version = "=3.27.0"
 default-features = false
 
 [features]
