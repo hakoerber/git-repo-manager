@@ -1,7 +1,6 @@
 [book]
 authors = ["Hannes Körber"]
 language = "en"
-multilingual = false
 src = "src"
 title = "Git Repo Manager"
 
