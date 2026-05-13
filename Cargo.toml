@@ -78,7 +78,7 @@ default-features = false
 features = ["std", "derive", "cargo", "color", "help", "usage", "error-context"]
 
 [dependencies.console]
-version = "=0.16.1"
+version = "=0.16.3"
 default-features = false
 features = ["std"]
 
