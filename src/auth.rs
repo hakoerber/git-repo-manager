@@ -7,22 +7,22 @@ pub struct AuthToken(String);
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("token command failed: {0}")]
+    #[error("Token command failed: {0}")]
     TokenCommandInvocationFailed(#[from] std::io::Error),
 
-    #[error("token command failed: {0}")]
+    #[error("Token command produced non-utf8 output: {0}")]
     TokenCommandInvocationInvalidUtf8(#[from] std::string::FromUtf8Error),
 
-    #[error("token command failed, stderr: {0}")]
+    #[error("Token command failed, stderr: {0}")]
     TokenCommandFailed(String),
 
-    #[error("token command produced stderr: {0}")]
+    #[error("Token command produced stderr: {0}")]
     TokenCommandStderr(String),
 
-    #[error("token command output empty")]
+    #[error("Token command output empty")]
     TokenCommandEmptyOutput,
 
-    #[error("token command output did not contain any newline")]
+    #[error("Token command output did not contain any newline")]
     TokenCommandNoNewlineInOutput,
 }
 

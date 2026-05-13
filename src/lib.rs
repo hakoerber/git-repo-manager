@@ -1,30 +1,37 @@
 #![forbid(unsafe_code)]
 
-use std::{
-    borrow::Cow,
-    fmt::{self, Display},
-    path::Path,
+use std::{fmt::Display, panic, sync::mpsc, thread};
+
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
+use thiserror::Error;
+
+use crate::{
+    config::{Config, ConfigProviderFilter, RemoteProvider, Root},
+    provider::{Filter, ProtocolConfig, Provider as _},
+    tree::Tree,
 };
 
-use thiserror::Error;
+pub use repo::{BranchName, RemoteName, RemoteUrl, SubmoduleName};
 
 pub mod auth;
 pub mod config;
-pub mod output;
 pub mod path;
 pub mod provider;
 pub mod repo;
 pub mod table;
 pub mod tree;
-pub mod worktree;
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
     Repo(#[from] repo::Error),
     #[error(transparent)]
+    Provider(#[from] provider::Error),
+    #[error(transparent)]
     Tree(#[from] tree::Error),
-    #[error("invalid regex: {}", .message)]
+    #[error(transparent)]
+    Auth(#[from] auth::Error),
+    #[error("Invalid regex: {message}")]
     InvalidRegex { message: String },
     #[error("Cannot detect root directory. Are you working in /?")]
     CannotDetectRootDirectory,
@@ -50,103 +57,44 @@ enum Repos {
     List(Vec<repo::Repo>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BranchName(String);
+pub fn exec_with_result_channel<'scope, Args, Func, ReportFunc, R, Ret>(
+    f: Func,
+    r: ReportFunc,
+    args: Args,
+) -> Ret
+where
+    Func: for<'a> FnOnce(Args, &'a mpsc::SyncSender<R>) -> Ret + Send + 'scope,
+    ReportFunc: for<'a> FnOnce(&'a mpsc::Receiver<R>) + Send + 'scope,
+    Ret: Send,
+    R: Send,
+    Args: Send,
+{
+    let (tx, rx) = mpsc::sync_channel::<R>(0);
 
-impl fmt::Display for BranchName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+    thread::scope(|s| {
+        let task = s.spawn(move || f(args, &tx));
 
-impl BranchName {
-    pub fn new(from: String) -> Self {
-        Self(from)
-    }
+        let reporter = s.spawn(move || r(&rx));
 
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn into_string(self) -> String {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RemoteName(Cow<'static, str>);
-
-impl fmt::Display for RemoteName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl RemoteName {
-    pub fn new(from: String) -> Self {
-        Self(Cow::Owned(from))
-    }
-
-    pub const fn new_static(from: &'static str) -> Self {
-        Self(Cow::Borrowed(from))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn into_string(self) -> String {
-        match self.0 {
-            Cow::Borrowed(s) => s.to_owned(),
-            Cow::Owned(s) => s,
+        if let Err(e) = reporter.join() {
+            panic::resume_unwind(e);
         }
-    }
+
+        match task.join() {
+            Ok(ret) => ret,
+            Err(e) => panic::resume_unwind(e),
+        }
+    })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RemoteUrl(String);
-
-impl fmt::Display for RemoteUrl {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl RemoteUrl {
-    pub fn new(from: String) -> Self {
-        Self(from)
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn into_string(self) -> String {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SubmoduleName(String);
-
-impl fmt::Display for SubmoduleName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl SubmoduleName {
-    pub fn new(from: String) -> Self {
-        Self(from)
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn into_string(self) -> String {
-        self.0
-    }
+pub fn send_msg<R>(sender: &mpsc::SyncSender<R>, message: R) {
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "this is a clear bug, cannot be recovered anyway"
+    )]
+    sender
+        .send(message)
+        .expect("receiving channel must be open until we are done");
 }
 
 /// Find all git repositories under root, recursively
@@ -158,30 +106,29 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
     for path in tree::find_repo_paths(root)? {
         if exclusion_pattern
             .as_ref()
-            .map(|regex| -> Result<bool, Error> {
-                Ok(regex.is_match(&path::path_as_string(&path)?))
-            })
+            .map(|regex| -> Result<bool, Error> { Ok(regex.is_match(path.as_str())) })
             .transpose()?
             .unwrap_or(false)
         {
-            warnings.push(Warning(format!(
-                "[skipped] {}",
-                &path::path_as_string(&path)?
-            )));
+            warnings.push(Warning(format!("[skipped] {path}")));
             continue;
         }
 
-        let is_worktree = repo::RepoHandle::detect_worktree(&path);
+        let worktree_setup = repo::WorktreeSetup::detect(&path);
         if path == root {
             repo_in_root = true;
         }
 
-        match repo::RepoHandle::open(&path, is_worktree) {
+        match repo::RepoHandle::open_with_worktree_setup(&path, worktree_setup) {
             Err(error) => {
                 warnings.push(Warning(format!(
                     "Error opening repo {}{}: {}",
-                    path.display(),
-                    if is_worktree { " as worktree" } else { "" },
+                    path,
+                    if worktree_setup.is_worktree() {
+                        " as worktree"
+                    } else {
+                        ""
+                    },
                     error
                 )));
             }
@@ -189,11 +136,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                 let remotes = match repo.remotes() {
                     Ok(remote) => remote,
                     Err(error) => {
-                        warnings.push(Warning(format!(
-                            "{}: Error getting remotes: {}",
-                            &path::path_as_string(&path)?,
-                            error
-                        )));
+                        warnings.push(Warning(format!("{path}: Error getting remotes: {error}")));
                         continue;
                     }
                 };
@@ -208,10 +151,7 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                                 Ok(t) => t,
                                 Err(e) => {
                                     warnings.push(Warning(format!(
-                                        "{}: Could not handle URL {}. Reason: {}",
-                                        &path::path_as_string(&path)?,
-                                        &url,
-                                        e
+                                        "{path}: Could not handle URL {url}. Reason: {e}"
                                     )));
                                     continue;
                                 }
@@ -224,11 +164,8 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                             });
                         }
                         None => {
-                            warnings.push(Warning(format!(
-                                "{}: Remote {} not found",
-                                &path::path_as_string(&path)?,
-                                remote_name
-                            )));
+                            warnings
+                                .push(Warning(format!("{path}: Remote {remote_name} not found")));
                         }
                     }
                 }
@@ -238,10 +175,10 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                     (
                         None,
                         if let Some(parent) = root.parent() {
-                            path::path_as_string(
-                                path.strip_prefix(parent)
-                                    .expect("checked for prefix explicitly above"),
-                            )?
+                            path.strip_prefix(parent)
+                                .expect("checked for prefix explicitly above")
+                                .to_owned()
+                                .to_string()
                         } else {
                             warnings.push(Warning(String::from("Getting name of the search root failed. Do you have a git repository in \"/\"?")));
                             continue;
@@ -254,19 +191,19 @@ fn find_repos(root: &Path, exclusion_pattern: Option<&regex::Regex>) -> Result<F
                     let namespace = name.parent().expect("path always has a parent");
                     (
                         if namespace != Path::new("") {
-                            Some(path::path_as_string(namespace)?.clone())
+                            Some(namespace.to_string())
                         } else {
                             None
                         },
-                        path::path_as_string(name)?,
+                        name.to_owned().to_string(),
                     )
                 };
 
                 repos.push(repo::Repo {
-                    name: repo::ProjectName::new(name),
-                    namespace: namespace.map(repo::ProjectNamespace::new),
+                    name: repo::RepoName::new(name),
+                    namespace: namespace.map(repo::RepoNamespace::new),
                     remotes,
-                    worktree_setup: is_worktree,
+                    worktree_setup,
                 });
             }
         }
@@ -315,4 +252,99 @@ pub fn find_in_tree(
         },
         warnings,
     ))
+}
+
+pub enum SyncTreesMessage {
+    SyncTreeMessage(Result<tree::SyncTreeMessage, (repo::RepoName, Error)>),
+    GetTreeWarning(Warning),
+}
+
+pub fn get_trees(
+    config: Config,
+    result_channel: &mpsc::SyncSender<SyncTreesMessage>,
+) -> Result<Vec<Tree>, Error> {
+    match config {
+        Config::ConfigTrees(config) => Ok(config.trees.into_iter().map(Into::into).collect()),
+        Config::ConfigProvider(config) => {
+            let token = auth::get_token_from_command(&config.token_command)?;
+
+            let filters = config.filters.unwrap_or(ConfigProviderFilter {
+                access: Some(false),
+                owner: Some(false),
+                users: Some(vec![]),
+                groups: Some(vec![]),
+            });
+
+            let filter = Filter::new(
+                filters
+                    .users
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                filters
+                    .groups
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                filters.owner.unwrap_or(false),
+                filters.access.unwrap_or(false),
+            );
+
+            if filter.empty() {
+                send_msg(
+                    result_channel,
+                    SyncTreesMessage::GetTreeWarning(Warning(
+                        "The configuration does not contain any filters, so no repos will match"
+                            .to_owned(),
+                    )),
+                );
+            }
+
+            let repos = match config.provider {
+                RemoteProvider::Github => {
+                    provider::Github::new(filter, token, config.api_url.map(provider::Url::new))?
+                        .get_repos(
+                            config.worktree.unwrap_or(false).into(),
+                            if config.force_ssh.unwrap_or(false) {
+                                ProtocolConfig::ForceSsh
+                            } else {
+                                ProtocolConfig::Default
+                            },
+                            config.remote_name.map(RemoteName::new),
+                        )?
+                }
+                RemoteProvider::Gitlab => {
+                    provider::Gitlab::new(filter, token, config.api_url.map(provider::Url::new))?
+                        .get_repos(
+                            config.worktree.unwrap_or(false).into(),
+                            if config.force_ssh.unwrap_or(false) {
+                                ProtocolConfig::ForceSsh
+                            } else {
+                                ProtocolConfig::Default
+                            },
+                            config.remote_name.map(RemoteName::new),
+                        )?
+                }
+            };
+
+            let mut trees = vec![];
+
+            #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
+            for (namespace, repos) in repos {
+                let tree = Tree {
+                    root: Root::from_path_buf(if let Some(namespace) = namespace {
+                        PathBuf::from(&config.root).join(namespace.as_str())
+                    } else {
+                        PathBuf::from(&config.root)
+                    })
+                    .into(),
+                    repos,
+                };
+                trees.push(tree);
+            }
+            Ok(trees)
+        }
+    }
 }

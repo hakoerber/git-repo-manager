@@ -1,37 +1,44 @@
-use std::{
-    fmt::{self, Write},
-    path::{Path, PathBuf},
-};
+use std::fmt::{self, Write};
 
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use comfy_table::{Cell, Table};
 use thiserror::Error;
 
-use super::{config, path, repo, repo::ProjectName, tree, worktree::WorktreeName};
+use super::{
+    config, path,
+    repo::{self, WorktreeName, WorktreeSetup},
+    repo::{RepoHandle, RepoName, WorktreeRepoHandle},
+    tree,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
+    Lib(#[from] crate::Error),
+    #[error(transparent)]
     Config(#[from] config::Error),
-    #[error("repo error: {0}")]
+    #[error("Repo error: {0}")]
     Repo(#[from] repo::Error),
+    #[error("Worktreeerror: {0}")]
+    Worktree(#[from] repo::WorktreeError),
     #[error("Directory is not a git directory")]
     NotAGitDirectory,
-    #[error("Worktree {:?} does not have a directory", .worktree)]
+    #[error("Worktree {worktree:?} does not have a directory")]
     WorktreeWithoutDirectory { worktree: WorktreeName },
     #[error(transparent)]
     Path(#[from] path::Error),
     #[error(transparent)]
     Fmt(#[from] fmt::Error),
-    #[error("Found {:?}, which is not a valid worktree directory!", .path)]
+    #[error("Found {path}, which is not a valid worktree directory!")]
     InvalidWorktreeDirectory { path: PathBuf },
-    #[error("{}: Repository does not exist. Run sync?", .name)]
-    RepoDoesNotExist { name: ProjectName },
-    #[error("{}: No git repository found. Run sync?", .name)]
-    RepoNotGit { name: ProjectName },
-    #[error("{}: Opening repository failed: {}", .name, .message)]
-    RepoOpenFailed { name: ProjectName, message: String },
-    #[error("{}: Couldn't add repo status: {}", .name, .message)]
-    RepoStatusFailed { name: ProjectName, message: String },
+    #[error("Repository \"{name}\" does not exist. Run sync?")]
+    RepoDoesNotExist { name: RepoName },
+    #[error("No git repository for \"{name}\" found. Run sync?")]
+    RepoNotGit { name: RepoName },
+    #[error("Opening repository \"{name}\" failed: {message}")]
+    RepoOpenFailed { name: RepoName, message: String },
+    #[error("Couldn't add repo status for \"{name}\": {message}")]
+    RepoStatusFailed { name: RepoName, message: String },
 }
 
 fn add_table_header(table: &mut Table) {
@@ -50,11 +57,11 @@ fn add_table_header(table: &mut Table) {
 
 fn add_repo_status(
     table: &mut Table,
-    repo_name: Option<&ProjectName>,
-    repo_handle: &repo::RepoHandle,
-    is_worktree: bool,
+    repo_name: Option<&RepoName>,
+    repo_handle: &RepoHandle,
+    worktree_setup: WorktreeSetup,
 ) -> Result<(), Error> {
-    let repo_status = repo_handle.status(is_worktree).map_err(Error::Repo)?;
+    let repo_status = repo_handle.status(worktree_setup).map_err(Error::Repo)?;
 
     let branch_info = {
         let mut acc = String::new();
@@ -98,8 +105,12 @@ fn add_repo_status(
             Some(name) => name.as_str(),
             None => "unknown",
         },
-        if is_worktree { "\u{2714}" } else { "" },
-        &if is_worktree {
+        if worktree_setup.is_worktree() {
+            "\u{2714}"
+        } else {
+            ""
+        },
+        &if worktree_setup.is_worktree() {
             String::new()
         } else {
             match repo_status.changes {
@@ -120,7 +131,7 @@ fn add_repo_status(
             }
         },
         &branch_info,
-        &if is_worktree {
+        &if worktree_setup.is_worktree() {
             String::new()
         } else {
             match repo_status.head {
@@ -136,10 +147,10 @@ fn add_repo_status(
 
 // Don't return table, return a type that implements Display(?)
 pub fn get_worktree_status_table(
-    repo: &repo::RepoHandle,
+    repo: &WorktreeRepoHandle,
     directory: &Path,
 ) -> Result<(impl std::fmt::Display, Vec<Error>), Error> {
-    let worktrees = repo.get_worktrees().map_err(Error::Repo)?;
+    let worktrees = repo.get_worktrees()?;
     let mut table = Table::new();
 
     let mut errors = Vec::new();
@@ -148,7 +159,7 @@ pub fn get_worktree_status_table(
     for worktree in &worktrees {
         let worktree_dir = &directory.join(worktree.name().as_str());
         if worktree_dir.exists() {
-            let repo = match repo::RepoHandle::open(worktree_dir, false) {
+            let repo = match RepoHandle::open(worktree_dir) {
                 Ok(repo) => repo,
                 Err(error) => {
                     errors.push(error.into());
@@ -164,19 +175,15 @@ pub fn get_worktree_status_table(
             });
         }
     }
-    for worktree in
-        repo::RepoHandle::find_unmanaged_worktrees(repo, directory).map_err(Error::Repo)?
-    {
+    for worktree in WorktreeRepoHandle::find_unmanaged_worktrees(repo, directory)? {
         errors.push(Error::InvalidWorktreeDirectory { path: worktree });
     }
     Ok((table, errors))
 }
 
-pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<Error>), Error> {
+pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error>), Error> {
     let mut errors = Vec::new();
     let mut tables = Vec::new();
-
-    let trees: Vec<tree::Tree> = config.get_trees()?.into_iter().map(Into::into).collect();
 
     for tree in trees {
         let repos = tree.repos;
@@ -196,12 +203,12 @@ pub fn get_status_table(config: config::Config) -> Result<(Vec<Table>, Vec<Error
                 continue;
             }
 
-            let repo_handle = repo::RepoHandle::open(&repo_path, repo.worktree_setup);
+            let repo_handle = RepoHandle::open_with_worktree_setup(&repo_path, repo.worktree_setup);
 
             let repo_handle = match repo_handle {
                 Ok(repo) => repo,
                 Err(error) => {
-                    if matches!(error, repo::Error::NotFound) {
+                    if matches!(error, repo::Error::RepoNotFound) {
                         errors.push(Error::RepoNotGit {
                             name: repo.name.clone(),
                         });
@@ -249,14 +256,16 @@ fn add_worktree_table_header(table: &mut Table) {
 fn add_worktree_status(
     table: &mut Table,
     worktree: &repo::Worktree,
-    repo: &repo::RepoHandle,
+    repo: &RepoHandle,
 ) -> Result<(), Error> {
-    let repo_status = repo.status(false).map_err(Error::Repo)?;
+    let repo_status = repo
+        .status(WorktreeSetup::NoWorktree)
+        .map_err(Error::Repo)?;
 
     let local_branch = repo.head_branch().map_err(Error::Repo)?;
 
-    let upstream_output = match local_branch.upstream() {
-        Ok(remote_branch) => {
+    let upstream_output = match local_branch.upstream()? {
+        Some(remote_branch) => {
             let remote_branch_name = remote_branch.name().map_err(Error::Repo)?;
 
             let (ahead, behind) = repo
@@ -274,7 +283,7 @@ fn add_worktree_status(
                 },
             )
         }
-        Err(_) => String::new(),
+        None => String::new(),
     };
 
     table.add_row([
@@ -308,13 +317,13 @@ pub fn show_single_repo_status(
     let mut table = Table::new();
     let mut warnings = Vec::new();
 
-    let is_worktree = repo::RepoHandle::detect_worktree(path);
+    let worktree_setup = WorktreeSetup::detect(path);
     add_table_header(&mut table);
 
-    let repo_handle = repo::RepoHandle::open(path, is_worktree);
+    let repo_handle = RepoHandle::open_with_worktree_setup(path, worktree_setup);
 
     if let Err(error) = repo_handle {
-        if matches!(error, repo::Error::NotFound) {
+        if matches!(error, repo::Error::RepoNotFound) {
             return Err(Error::NotAGitDirectory);
         } else {
             return Err(error.into());
@@ -324,24 +333,19 @@ pub fn show_single_repo_status(
     let repo_name = match path.file_name() {
         None => {
             warnings.push(format!(
-                "Cannot detect repo name for path {}. Are you working in /?",
-                &path.display()
+                "Cannot detect repo name for path {path}. Are you working in /?"
             ));
             None
         }
-        Some(file_name) => match file_name.to_str() {
-            None => {
-                warnings.push(format!(
-                    "Name of repo directory {} is not valid UTF-8",
-                    &path.display()
-                ));
-                None
-            }
-            Some(name) => Some(ProjectName::new(name.to_owned())),
-        },
+        Some(file_name) => Some(RepoName::new(file_name.to_owned())),
     };
 
-    add_repo_status(&mut table, repo_name.as_ref(), &repo_handle?, is_worktree)?;
+    add_repo_status(
+        &mut table,
+        repo_name.as_ref(),
+        &repo_handle?,
+        worktree_setup,
+    )?;
 
     Ok((table, warnings))
 }

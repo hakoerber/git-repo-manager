@@ -1,18 +1,8 @@
-use std::{
-    path::{Path, PathBuf},
-    process,
-};
-
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::{
-    RemoteName, auth,
-    output::{print_error, print_warning},
-    path, provider,
-    provider::{Filter, Provider},
-    repo, tree,
-};
+use super::{auth, path, provider, repo, tree};
 
 #[derive(Debug, Deserialize, Serialize, clap::ValueEnum, Clone)]
 pub enum RemoteProvider {
@@ -159,11 +149,11 @@ pub enum Error {
     Serialization(#[from] SerializationError),
     #[error(transparent)]
     Path(#[from] path::Error),
-    #[error("Error reading configuration file \"{:?}\": {}", .path, .message)]
+    #[error("Error reading configuration file \"{path}\": {message}")]
     ReadConfig { message: String, path: PathBuf },
-    #[error("Error parsing configuration file \"{:?}\": {}", .path, .message)]
+    #[error("Error parsing configuration file \"{path}\": {message}")]
     ParseConfig { message: String, path: PathBuf },
-    #[error("cannot strip prefix \"{:?}\" from \"{:?}\": {}", .prefix, .path, message)]
+    #[error("cannot strip prefix \"{prefix}\" from \"{path}\": {message}")]
     StripPrefix {
         path: PathBuf,
         prefix: PathBuf,
@@ -172,97 +162,6 @@ pub enum Error {
 }
 
 impl Config {
-    pub fn get_trees(self) -> Result<Vec<Tree>, Error> {
-        match self {
-            Self::ConfigTrees(config) => Ok(config.trees),
-            Self::ConfigProvider(config) => {
-                let token = auth::get_token_from_command(&config.token_command)?;
-
-                let filters = config.filters.unwrap_or(ConfigProviderFilter {
-                    access: Some(false),
-                    owner: Some(false),
-                    users: Some(vec![]),
-                    groups: Some(vec![]),
-                });
-
-                let filter = Filter::new(
-                    filters
-                        .users
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(Into::into)
-                        .collect(),
-                    filters
-                        .groups
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(Into::into)
-                        .collect(),
-                    filters.owner.unwrap_or(false),
-                    filters.access.unwrap_or(false),
-                );
-
-                if filter.empty() {
-                    print_warning(
-                        "The configuration does not contain any filters, so no repos will match",
-                    );
-                }
-
-                let repos = match config.provider {
-                    RemoteProvider::Github => match provider::Github::new(
-                        filter,
-                        token,
-                        config.api_url.map(provider::Url::new),
-                    ) {
-                        Ok(provider) => provider,
-                        Err(error) => {
-                            print_error(&format!("Error: {error}"));
-                            process::exit(1);
-                        }
-                    }
-                    .get_repos(
-                        config.worktree.unwrap_or(false),
-                        config.force_ssh.unwrap_or(false),
-                        config.remote_name.map(RemoteName::new),
-                    )?,
-                    RemoteProvider::Gitlab => match provider::Gitlab::new(
-                        filter,
-                        token,
-                        config.api_url.map(provider::Url::new),
-                    ) {
-                        Ok(provider) => provider,
-                        Err(error) => {
-                            print_error(&format!("Error: {error}"));
-                            process::exit(1);
-                        }
-                    }
-                    .get_repos(
-                        config.worktree.unwrap_or(false),
-                        config.force_ssh.unwrap_or(false),
-                        config.remote_name.map(RemoteName::new),
-                    )?,
-                };
-
-                let mut trees = vec![];
-
-                #[expect(clippy::iter_over_hash_type, reason = "fine in this case")]
-                for (namespace, namespace_repos) in repos {
-                    let repos = namespace_repos.into_iter().map(Into::into).collect();
-                    let tree = Tree {
-                        root: Root(if let Some(namespace) = namespace {
-                            PathBuf::from(&config.root).join(namespace.as_str())
-                        } else {
-                            PathBuf::from(&config.root)
-                        }),
-                        repos: Some(repos),
-                    };
-                    trees.push(tree);
-                }
-                Ok(trees)
-            }
-        }
-    }
-
     pub fn from_trees(trees: Vec<Tree>) -> Self {
         Self::ConfigTrees(ConfigTrees { trees })
     }
@@ -341,6 +240,10 @@ impl Root {
     pub fn into_path_buf(self) -> PathBuf {
         self.0
     }
+
+    pub fn from_path_buf(p: PathBuf) -> Self {
+        Self(p)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -368,11 +271,11 @@ impl Tree {
 
 #[derive(Debug, Error)]
 pub enum ReadConfigError {
-    #[error("Configuration file not found at `{:?}`", .path)]
+    #[error("Configuration file not found at `{path}`")]
     NotFound { path: PathBuf },
-    #[error("Error reading configuration file at `{:?}`: {}", .path, .message)]
+    #[error("Error reading configuration file at \"{path}\": {message}")]
     Generic { path: PathBuf, message: String },
-    #[error("Error parsing configuration file at `{:?}`: {}", .path, .message)]
+    #[error("Error parsing configuration file at \"{path}\": {message}")]
     Parse { path: PathBuf, message: String },
 }
 

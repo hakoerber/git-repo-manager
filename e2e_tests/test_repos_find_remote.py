@@ -18,13 +18,11 @@ def test_repos_find_remote_invalid_provider(use_config):
     if use_config:
         with tempfile.NamedTemporaryFile() as config:
             with open(config.name, "w") as f:
-                f.write(
-                    """
+                f.write("""
                 provider = "thisproviderdoesnotexist"
                 token_command = "true"
                 root = "/"
-                """
-                )
+                """)
             args = ["repos", "find", "config", "--config", config.name]
             cmd = grm(args, is_invalid=True)
     else:
@@ -100,15 +98,13 @@ def test_repos_find_remote_wrong_token(provider, use_config):
     if use_config:
         with tempfile.NamedTemporaryFile() as config:
             with open(config.name, "w") as f:
-                f.write(
-                    f"""
+                f.write(f"""
                 provider = "{provider}"
                 token_command = "echo wrongtoken"
                 root = "/myroot"
                 [filters]
                 access = true
-                """
-                )
+                """)
             args = ["repos", "find", "config", "--config", config.name]
             cmd = grm(args, is_invalid=True)
     else:
@@ -139,13 +135,11 @@ def test_repos_find_remote_no_filter(provider, configtype, default, use_config):
     if use_config:
         with tempfile.NamedTemporaryFile() as config:
             with open(config.name, "w") as f:
-                f.write(
-                    f"""
+                f.write(f"""
                 provider = "{provider}"
                 token_command = "echo secret-token:myauthtoken"
                 root = "/myroot"
-                """
-                )
+                """)
             args = ["repos", "find", "config", "--config", config.name]
             if not default:
                 args += ["--format", configtype]

@@ -7,15 +7,11 @@ use std::fmt::Display;
 
 use console::{Style, Term};
 
-pub fn print_repo_error(repo: &str, message: &str) {
+pub(super) fn print_repo_error(repo: &str, message: &str) {
     print_error(&format!("{repo}: {message}"));
 }
 
-#[expect(
-    clippy::missing_panics_doc,
-    reason = "failing to write to stderr may as well panic"
-)]
-pub fn print_error(message: &str) {
+pub(super) fn print_error(message: &str) {
     let stderr = Term::stderr();
     let mut style = Style::new().red();
     if stderr.is_term() {
@@ -26,15 +22,11 @@ pub fn print_error(message: &str) {
         .expect("failed writing to stderr");
 }
 
-pub fn print_repo_action(repo: &str, message: &str) {
+pub(super) fn print_repo_action(repo: &str, message: &str) {
     print_action(&format!("{repo}: {message}"));
 }
 
-#[expect(
-    clippy::missing_panics_doc,
-    reason = "failing to write to stderr may as well panic"
-)]
-pub fn print_action(message: &str) {
+pub(super) fn print_action(message: &str) {
     let stdout = Term::stdout();
     let mut style = Style::new().yellow();
     if stdout.is_term() {
@@ -45,11 +37,7 @@ pub fn print_action(message: &str) {
         .expect("failed writing to stderr");
 }
 
-#[expect(
-    clippy::missing_panics_doc,
-    reason = "failing to write to stderr may as well panic"
-)]
-pub fn print_warning(message: impl Display) {
+pub(super) fn print_warning(message: impl Display) {
     let stderr = Term::stderr();
     let mut style = Style::new().yellow();
     if stderr.is_term() {
@@ -60,15 +48,11 @@ pub fn print_warning(message: impl Display) {
         .expect("failed writing to stderr");
 }
 
-pub fn print_repo_success(repo: &str, message: &str) {
+pub(super) fn print_repo_success(repo: &str, message: &str) {
     print_success(&format!("{repo}: {message}"));
 }
 
-#[expect(
-    clippy::missing_panics_doc,
-    reason = "failing to write to stderr may as well panic"
-)]
-pub fn print_success(message: &str) {
+pub(super) fn print_success(message: &str) {
     let stdout = Term::stdout();
     let mut style = Style::new().green();
     if stdout.is_term() {
@@ -80,10 +64,10 @@ pub fn print_success(message: &str) {
         .expect("failed writing to stderr");
 }
 
-pub fn println(message: &str) {
+pub(super) fn println(message: &str) {
     println!("{message}");
 }
 
-pub fn print(message: &str) {
+pub(super) fn print(message: &str) {
     print!("{message}");
 }

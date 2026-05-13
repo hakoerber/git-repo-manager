@@ -1,66 +1,68 @@
-use std::{
-    fmt, iter,
-    path::{Path, PathBuf},
-};
+use std::fmt;
 
-use git2::Repository;
+use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use thiserror::Error;
 
-use super::{
-    BranchName, RemoteName, RemoteUrl, SubmoduleName, Warning, config,
-    output::{print_action, print_success},
-    path,
-    worktree::{self, WorktreeName},
+use super::{Warning, config, path};
+
+mod remote;
+mod worktree;
+
+pub use remote::{RemoteName, RemoteType, RemoteUrl};
+pub use worktree::{
+    CleanupWorktreeError, CleanupWorktreeWarningReason, Error as WorktreeError,
+    GIT_MAIN_WORKTREE_DIRECTORY, TrackingSelection, Worktree, WorktreeConversionError,
+    WorktreeName, WorktreeRemoveError, WorktreeRepoHandle, WorktreeRootConfig, WorktreeSetup,
+    WorktreeValidationError,
 };
 
 const GIT_CONFIG_BARE_KEY: GitConfigKey = GitConfigKey("core.bare");
 const GIT_CONFIG_PUSH_DEFAULT: &str = "push.default";
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum RemoteType {
-    Ssh,
-    Https,
-    File,
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BranchName(String);
 
-impl From<config::RemoteType> for RemoteType {
-    fn from(value: config::RemoteType) -> Self {
-        match value {
-            config::RemoteType::Ssh => Self::Ssh,
-            config::RemoteType::Https => Self::Https,
-            config::RemoteType::File => Self::File,
-        }
+impl fmt::Display for BranchName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
-impl From<RemoteType> for config::RemoteType {
-    fn from(value: RemoteType) -> Self {
-        match value {
-            RemoteType::Ssh => Self::Ssh,
-            RemoteType::Https => Self::Https,
-            RemoteType::File => Self::File,
-        }
+impl BranchName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
     }
 }
 
-#[derive(Debug, Error)]
-pub enum WorktreeRemoveFailureReason {
-    #[error("Changes found")]
-    Changes(String),
-    #[error("{}", .0)]
-    Error(String),
-    #[error("Worktree is not merged")]
-    NotMerged(String),
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubmoduleName(String);
+
+impl fmt::Display for SubmoduleName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
-#[derive(Debug, Error)]
-pub enum WorktreeConversionFailureReason {
-    #[error("Changes found")]
-    Changes,
-    #[error("Ignored files found")]
-    Ignored,
-    #[error("{}", .0)]
-    Error(String),
+impl SubmoduleName {
+    pub fn new(from: String) -> Self {
+        Self(from)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -85,9 +87,9 @@ impl fmt::Display for GitConfigKey {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Error reading configuration file \"{:?}\": {}", .path, .message)]
+    #[error("Error reading configuration file \"{path}\": {message}")]
     ReadConfig { message: String, path: PathBuf },
-    #[error("Error parsing configuration file \"{:?}\": {}", .path, .message)]
+    #[error("Error parsing configuration file \"{path}\": {message}")]
     ParseConfig { message: String, path: PathBuf },
     #[error(transparent)]
     Libgit(#[from] git2::Error),
@@ -95,11 +97,13 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
-    #[error("Repository not found")]
-    NotFound,
+    #[error("Branch not found")]
+    BranchNotFound,
+    #[error("Repo not found")]
+    RepoNotFound,
     #[error("Could not determine default branch")]
     NoDefaultBranch,
-    #[error("Failed getting default branch name: {}", .message)]
+    #[error("Failed getting default branch name: {message}")]
     ErrorDefaultBranch { message: String },
     #[error("Remotes using HTTP protocol are not supported")]
     UnsupportedHttpRemote,
@@ -111,23 +115,13 @@ pub enum Error {
     RefspecRenameFailed,
     #[error("No branch checked out")]
     NoBranchCheckedOut,
-    #[error("Could not set {key}: {error}", key = .key, error = .error)]
+    #[error("Could not set {key}: {error}")]
     GitConfigSetError { key: GitConfigKey, error: String },
-    #[error(transparent)]
-    WorktreeConversionFailure(WorktreeConversionFailureReason),
-    #[error(transparent)]
-    WorktreeRemovalFailure(WorktreeRemoveFailureReason),
     #[error("Cannot get changes as this is a bare worktree repository")]
     GettingChangesFromBareWorktree,
     #[error("Trying to push to a non-pushable remote")]
     NonPushableRemote,
-    #[error(
-        "Pushing {} to {} ({}) failed: {}",
-        .local_branch,
-        .remote_name,
-        .remote_url,
-        .message
-    )]
+    #[error("Pushing \"{local_branch}\" to \"{remote_name}\" ({remote_url}) failed: {message}")]
     PushFailed {
         local_branch: BranchName,
         remote_name: RemoteName,
@@ -142,8 +136,6 @@ pub enum Error {
     RemoteNameNotUtf8,
     #[error("Remote branch name is not valid utf-8")]
     RemoteBranchNameNotUtf8,
-    #[error("Worktree name is not valid utf-8")]
-    WorktreeNameNotUtf8,
     #[error("Submodule name is not valid utf-8")]
     SubmoduleNameNotUtf8,
     #[error("Submodule name is not valid utf-8")]
@@ -151,7 +143,7 @@ pub enum Error {
         #[source]
         inner: git2::Error,
     },
-    #[error("Remote HEAD ({}) pointer is invalid", .name)]
+    #[error("Remote HEAD ({name}) pointer is invalid")]
     InvalidRemoteHeadPointer { name: String },
     #[error("Remote HEAD does not point to a symbolic target")]
     RemoteHeadNoSymbolicTarget,
@@ -185,9 +177,9 @@ impl From<Remote> for config::Remote {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ProjectName(String);
+pub struct RepoName(String);
 
-impl ProjectName {
+impl RepoName {
     pub fn new(from: String) -> Self {
         Self(from)
     }
@@ -201,16 +193,16 @@ impl ProjectName {
     }
 }
 
-impl fmt::Display for ProjectName {
+impl fmt::Display for RepoName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 #[derive(Debug)]
-pub struct ProjectNamespace(String);
+pub struct RepoNamespace(String);
 
-impl ProjectNamespace {
+impl RepoNamespace {
     pub fn new(from: String) -> Self {
         Self(from)
     }
@@ -226,9 +218,9 @@ impl ProjectNamespace {
 
 #[derive(Debug)]
 pub struct Repo {
-    pub name: ProjectName,
-    pub namespace: Option<ProjectNamespace>,
-    pub worktree_setup: bool,
+    pub name: RepoName,
+    pub namespace: Option<RepoNamespace>,
+    pub worktree_setup: WorktreeSetup,
     pub remotes: Vec<Remote>,
 }
 
@@ -241,13 +233,12 @@ impl From<config::Repo> for Repo {
         };
 
         Self {
-            name: ProjectName::new(name),
-            namespace: namespace.map(ProjectNamespace::new),
-            worktree_setup: other.worktree_setup,
-            remotes: other
-                .remotes
-                .map(|remotes| remotes.into_iter().map(Into::into).collect())
-                .unwrap_or_else(|| Vec::new()),
+            name: RepoName::new(name),
+            namespace: namespace.map(RepoNamespace::new),
+            worktree_setup: other.worktree_setup.into(),
+            remotes: other.remotes.map_or_else(Vec::new, |remotes| {
+                remotes.into_iter().map(Into::into).collect()
+            }),
         }
     }
 }
@@ -256,19 +247,19 @@ impl From<Repo> for config::Repo {
     fn from(other: Repo) -> Self {
         Self {
             name: other.name.into_string(),
-            worktree_setup: other.worktree_setup,
+            worktree_setup: other.worktree_setup.is_worktree(),
             remotes: Some(other.remotes.into_iter().map(Into::into).collect()),
         }
     }
 }
 
 impl Repo {
-    pub fn fullname(&self) -> ProjectName {
+    pub fn fullname(&self) -> RepoName {
         match self.namespace {
             Some(ref namespace) => {
-                ProjectName(format!("{}/{}", namespace.as_str(), self.name.as_str()))
+                RepoName(format!("{}/{}", namespace.as_str(), self.name.as_str()))
             }
-            None => ProjectName(self.name.as_str().to_owned()),
+            None => RepoName(self.name.as_str().to_owned()),
         }
     }
 
@@ -277,42 +268,49 @@ impl Repo {
     }
 }
 
-pub struct TrackingConfig {
-    pub default: bool,
-    pub default_remote: RemoteName,
-    pub default_remote_prefix: Option<String>,
-}
-
-impl From<config::TrackingConfig> for TrackingConfig {
-    fn from(other: config::TrackingConfig) -> Self {
-        Self {
-            default: other.default,
-            default_remote: RemoteName::new(other.default_remote),
-            default_remote_prefix: other.default_remote_prefix,
-        }
-    }
-}
-
-pub struct WorktreeRootConfig {
-    pub persistent_branches: Option<Vec<BranchName>>,
-    pub track: Option<TrackingConfig>,
-}
-
-impl From<config::WorktreeRootConfig> for WorktreeRootConfig {
-    fn from(other: config::WorktreeRootConfig) -> Self {
-        Self {
-            persistent_branches: other
-                .persistent_branches
-                .map(|branches| branches.into_iter().map(BranchName::new).collect()),
-            track: other.track.map(Into::into),
-        }
-    }
-}
-
+#[derive(Debug, Clone, Copy)]
 pub struct RepoChanges {
     pub files_new: usize,
     pub files_modified: usize,
     pub files_deleted: usize,
+}
+
+impl fmt::Display for RepoChanges {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.files_new == 0 && self.files_modified == 0 && self.files_deleted == 0 {
+            write!(f, "no changes")
+        } else {
+            #[expect(
+                clippy::useless_let_if_seq,
+                reason = "Clearer to set started in the beginning and then modify it in each block"
+            )]
+            {
+                let mut started = false;
+
+                if self.files_new > 0 {
+                    write!(f, "{} new", self.files_new)?;
+                    started = true;
+                }
+
+                if self.files_modified > 0 {
+                    if started {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{} modified", self.files_modified)?;
+                    started = true;
+                }
+
+                if self.files_deleted > 0 {
+                    if started {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{} deleted", self.files_deleted)?;
+                }
+
+                Ok(())
+            }
+        }
+    }
 }
 
 pub enum SubmoduleStatus {
@@ -345,197 +343,6 @@ pub struct RepoStatus {
     pub submodules: Option<Vec<(SubmoduleName, SubmoduleStatus)>>,
 
     pub branches: Vec<(BranchName, Option<(BranchName, RemoteTrackingStatus)>)>,
-}
-
-pub struct Worktree {
-    name: WorktreeName,
-}
-
-impl Worktree {
-    pub fn new(name: &str) -> Self {
-        Self {
-            name: WorktreeName::new(name.to_owned()),
-        }
-    }
-
-    pub fn name(&self) -> &WorktreeName {
-        &self.name
-    }
-
-    pub fn forward_branch(&self, rebase: bool, stash: bool) -> Result<Option<Warning>, Error> {
-        let repo = RepoHandle::open(Path::new(&self.name.as_str()), false)?;
-
-        if let Ok(remote_branch) = repo
-            .find_local_branch(&BranchName::new(self.name.as_str().to_owned()))?
-            .ok_or(Error::NotFound)?
-            .upstream()
-        {
-            let status = repo.status(false)?;
-            let mut stashed_changes = false;
-
-            if !status.clean() {
-                if stash {
-                    repo.stash()?;
-                    stashed_changes = true;
-                } else {
-                    return Ok(Some(Warning(String::from("Worktree contains changes"))));
-                }
-            }
-
-            let unstash = || -> Result<(), Error> {
-                if stashed_changes {
-                    repo.stash_pop()?;
-                }
-                Ok(())
-            };
-
-            let remote_annotated_commit = repo
-                .0
-                .find_annotated_commit(remote_branch.commit()?.id().0)?;
-
-            if rebase {
-                let mut rebase = repo.0.rebase(
-                    None, // use HEAD
-                    Some(&remote_annotated_commit),
-                    None, // figure out the base yourself, libgit2!
-                    Some(&mut git2::RebaseOptions::new()),
-                )?;
-
-                while let Some(operation) = rebase.next() {
-                    let operation = operation?;
-
-                    // This is required to preserve the commiter of the rebased
-                    // commits, which is the expected behavior.
-                    let rebased_commit = repo.0.find_commit(operation.id())?;
-                    let committer = rebased_commit.committer();
-
-                    // This is effectively adding all files to the index explicitly.
-                    // Normal files are already staged, but changed submodules are not.
-                    let mut index = repo.0.index()?;
-                    index.add_all(iter::once("."), git2::IndexAddOption::CHECK_PATHSPEC, None)?;
-
-                    if let Err(error) = rebase.commit(None, &committer, None) {
-                        if error.code() == git2::ErrorCode::Applied {
-                            continue;
-                        }
-                        rebase.abort()?;
-                        unstash()?;
-                        return Err(error.into());
-                    }
-                }
-
-                rebase.finish(None)?;
-            } else {
-                let (analysis, _preference) = repo.0.merge_analysis(&[&remote_annotated_commit])?;
-
-                if analysis.is_up_to_date() {
-                    unstash()?;
-                    return Ok(None);
-                }
-                if !analysis.is_fast_forward() {
-                    unstash()?;
-                    return Ok(Some(Warning(String::from(
-                        "Worktree cannot be fast forwarded",
-                    ))));
-                }
-
-                repo.0.reset(
-                    remote_branch.commit()?.0.as_object(),
-                    git2::ResetType::Hard,
-                    Some(git2::build::CheckoutBuilder::new().safe()),
-                )?;
-            }
-            unstash()?;
-        } else {
-            return Ok(Some(Warning(String::from(
-                "No remote branch to rebase onto",
-            ))));
-        }
-
-        Ok(None)
-    }
-
-    pub fn rebase_onto_default(
-        &self,
-        config: &Option<WorktreeRootConfig>,
-        stash: bool,
-    ) -> Result<Option<Warning>, Error> {
-        let repo = RepoHandle::open(Path::new(&self.name.as_str()), false)?;
-
-        let guess_default_branch = || repo.default_branch()?.name();
-
-        let default_branch_name = match *config {
-            None => guess_default_branch()?,
-            Some(ref config) => match config.persistent_branches {
-                None => guess_default_branch()?,
-                Some(ref persistent_branches) => {
-                    if let Some(branch) = persistent_branches.first() {
-                        branch.clone()
-                    } else {
-                        guess_default_branch()?
-                    }
-                }
-            },
-        };
-
-        let status = repo.status(false)?;
-        let mut stashed_changes = false;
-
-        if !status.clean() {
-            if stash {
-                repo.stash()?;
-                stashed_changes = true;
-            } else {
-                return Ok(Some(Warning("Worktree contains changes".to_owned())));
-            }
-        }
-
-        let unstash = || -> Result<(), Error> {
-            if stashed_changes {
-                repo.stash_pop()?;
-            }
-            Ok(())
-        };
-
-        let base_branch = repo
-            .find_local_branch(&default_branch_name)?
-            .ok_or(Error::NotFound)?;
-        let base_annotated_commit = repo.0.find_annotated_commit(base_branch.commit()?.id().0)?;
-
-        let mut rebase = repo.0.rebase(
-            None, // use HEAD
-            Some(&base_annotated_commit),
-            None, // figure out the base yourself, libgit2!
-            Some(&mut git2::RebaseOptions::new()),
-        )?;
-
-        while let Some(operation) = rebase.next() {
-            let operation = operation?;
-
-            // This is required to preserve the commiter of the rebased
-            // commits, which is the expected behavior.
-            let rebased_commit = repo.0.find_commit(operation.id())?;
-            let committer = rebased_commit.committer();
-
-            // This is effectively adding all files to the index explicitly.
-            // Normal files are already staged, but changed submodules are not.
-            let mut index = repo.0.index()?;
-            index.add_all(iter::once("."), git2::IndexAddOption::CHECK_PATHSPEC, None)?;
-
-            if let Err(error) = rebase.commit(None, &committer, None) {
-                if error.code() == git2::ErrorCode::Applied {
-                    continue;
-                }
-                rebase.abort()?;
-                unstash()?;
-                return Err(error.into());
-            }
-        }
-
-        rebase.finish(None)?;
-        unstash()?;
-        Ok(None)
-    }
 }
 
 impl RepoStatus {
@@ -583,13 +390,20 @@ pub struct RepoHandle(git2::Repository);
 pub struct Branch<'a>(git2::Branch<'a>);
 
 impl RepoHandle {
-    pub fn open(path: &Path, is_worktree: bool) -> Result<Self, Error> {
-        let open_func = if is_worktree {
-            Repository::open_bare
+    pub fn open(path: &Path) -> Result<Self, Error> {
+        Self::open_with_worktree_setup(path, WorktreeSetup::NoWorktree)
+    }
+
+    pub fn open_with_worktree_setup(
+        path: &Path,
+        worktree_setup: WorktreeSetup,
+    ) -> Result<Self, Error> {
+        let open_func = if worktree_setup.is_worktree() {
+            git2::Repository::open_bare
         } else {
-            Repository::open
+            git2::Repository::open
         };
-        let path = if is_worktree {
+        let path = if worktree_setup.is_worktree() {
             path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
         } else {
             path.to_path_buf()
@@ -597,10 +411,18 @@ impl RepoHandle {
         match open_func(path) {
             Ok(r) => Ok(Self(r)),
             Err(e) => match e.code() {
-                git2::ErrorCode::NotFound => Err(Error::NotFound),
+                git2::ErrorCode::NotFound => Err(Error::RepoNotFound),
                 _ => Err(Error::Libgit(e)),
             },
         }
+    }
+
+    pub fn path(&self) -> Result<&Path, Error> {
+        Ok(path::from_std_path(self.0.path())?)
+    }
+
+    pub fn commondir(&self) -> Result<&Path, Error> {
+        Ok(path::from_std_path(self.0.commondir())?)
     }
 
     pub fn stash(&self) -> Result<(), Error> {
@@ -614,14 +436,14 @@ impl RepoHandle {
         // struct. I'm really not sure how to best solve this. Right now, we
         // just open the repo AGAIN. It is safe, as we are only accessing the stash
         // with the second reference, so there are no cross effects. But it just smells.
-        let mut repo = Self::open(self.0.path(), false)?;
+        let mut repo = Self::open(self.path()?)?;
         repo.0
             .stash_save2(&author, None, Some(git2::StashFlags::INCLUDE_UNTRACKED))?;
         Ok(())
     }
 
     pub fn stash_pop(&self) -> Result<(), Error> {
-        let mut repo = Self::open(self.0.path(), false)?;
+        let mut repo = Self::open(self.path()?)?;
         repo.0.stash_pop(
             0,
             Some(git2::StashApplyOptions::new().reinstantiate_index()),
@@ -663,7 +485,7 @@ impl RepoHandle {
             .find_local_branch(&BranchName::new(
                 head.shorthand().ok_or(Error::BranchNameNotUtf8)?.to_owned(),
             ))?
-            .ok_or(Error::NotFound)?;
+            .ok_or(Error::BranchNotFound)?;
         Ok(branch)
     }
 
@@ -681,20 +503,6 @@ impl RepoHandle {
 
     pub fn is_bare(&self) -> bool {
         self.0.is_bare()
-    }
-
-    pub fn new_worktree(
-        &self,
-        name: &str,
-        directory: &Path,
-        target_branch: &Branch,
-    ) -> Result<(), Error> {
-        self.0.worktree(
-            name,
-            directory,
-            Some(git2::WorktreeAddOptions::new().reference(Some(target_branch.as_reference()))),
-        )?;
-        Ok(())
     }
 
     pub fn remotes(&self) -> Result<Vec<RemoteName>, Error> {
@@ -750,16 +558,16 @@ impl RepoHandle {
         Ok(())
     }
 
-    pub fn init(path: &Path, is_worktree: bool) -> Result<Self, Error> {
-        let repo = if is_worktree {
-            Repository::init_bare(path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY))?
+    pub fn init(path: &Path, worktree_setup: WorktreeSetup) -> Result<Self, Error> {
+        let repo = if worktree_setup.is_worktree() {
+            git2::Repository::init_bare(path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY))?
         } else {
-            Repository::init(path)?
+            git2::Repository::init(path)?
         };
 
         let repo = Self(repo);
 
-        if is_worktree {
+        if worktree_setup.is_worktree() {
             repo.set_config_push(GitPushDefaultSetting::Upstream)?;
         }
 
@@ -768,11 +576,6 @@ impl RepoHandle {
 
     pub fn config(&self) -> Result<git2::Config, Error> {
         Ok(self.0.config()?)
-    }
-
-    pub fn find_worktree(&self, name: &WorktreeName) -> Result<(), Error> {
-        self.0.find_worktree(name.as_str())?;
-        Ok(())
     }
 
     pub fn prune_worktree(&self, name: &WorktreeName) -> Result<(), Error> {
@@ -785,11 +588,17 @@ impl RepoHandle {
         &self,
         remote_name: &RemoteName,
         branch_name: &BranchName,
-    ) -> Result<Branch<'_>, Error> {
-        Ok(Branch(self.0.find_branch(
+    ) -> Result<Option<Branch<'_>>, Error> {
+        match self.0.find_branch(
             &format!("{}/{}", remote_name.as_str(), branch_name.as_str()),
             git2::BranchType::Remote,
-        )?))
+        ) {
+            Ok(branch) => Ok(Some(Branch(branch))),
+            Err(e) => match e.code() {
+                git2::ErrorCode::NotFound => Ok(None),
+                _ => Err(e.into()),
+            },
+        }
     }
 
     pub fn find_local_branch(&self, name: &BranchName) -> Result<Option<Branch<'_>>, Error> {
@@ -817,103 +626,72 @@ impl RepoHandle {
             })
     }
 
-    pub fn convert_to_worktree(&self, root_dir: &Path) -> Result<(), Error> {
-        if self
-            .status(false)
-            .map_err(|e| {
-                Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(
-                    e.to_string(),
-                ))
-            })?
+    /// Converting works like this:
+    /// * Check whether there are uncommitted/unpushed changes
+    /// * Move the contents of .git dir to the worktree directory
+    /// * Remove all files
+    /// * Set `core.bare` to `true`
+    pub fn convert_to_worktree(&self, root_dir: &Path) -> Result<(), WorktreeConversionError> {
+        if let Some(changes) = self
+            .status(WorktreeSetup::NoWorktree)
+            .map_err(|e| WorktreeConversionError::RepoError(e))?
             .changes
-            .is_some()
         {
-            return Err(Error::WorktreeConversionFailure(
-                WorktreeConversionFailureReason::Changes,
-            ));
+            return Err(WorktreeConversionError::Changes(changes));
         }
 
-        if self.has_untracked_files(false).map_err(|e| {
-            Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(e.to_string()))
-        })? {
-            return Err(Error::WorktreeConversionFailure(
-                WorktreeConversionFailureReason::Ignored,
-            ));
+        if self
+            .has_untracked_files(WorktreeSetup::NoWorktree)
+            .map_err(|e| WorktreeConversionError::RepoError(e))?
+        {
+            return Err(WorktreeConversionError::Ignored);
         }
 
         std::fs::rename(".git", worktree::GIT_MAIN_WORKTREE_DIRECTORY).map_err(|error| {
-            Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(format!(
-                "Error moving .git directory: {error}"
-            )))
+            WorktreeConversionError::RenameError(format!("Error moving .git directory: {error}"))
         })?;
 
-        for entry in match std::fs::read_dir(root_dir) {
-            Ok(iterator) => iterator,
-            Err(error) => {
-                return Err(Error::WorktreeConversionFailure(
-                    WorktreeConversionFailureReason::Error(format!(
-                        "Opening directory failed: {error}"
-                    )),
-                ));
-            }
-        } {
+        for entry in root_dir
+            .read_dir_utf8()
+            .map_err(|err| WorktreeConversionError::OpenDirectoryError(err))?
+        {
             match entry {
                 Ok(entry) => {
-                    let path = entry.path();
-                    #[expect(
-                        clippy::missing_panics_doc,
-                        reason = "the path will ALWAYS have a file component"
-                    )]
-                    if path.file_name().expect("path has a file name component")
-                        == worktree::GIT_MAIN_WORKTREE_DIRECTORY
-                    {
+                    if entry.file_name() == worktree::GIT_MAIN_WORKTREE_DIRECTORY {
                         continue;
                     }
-                    if path.is_file() || path.is_symlink() {
-                        if let Err(error) = std::fs::remove_file(&path) {
-                            return Err(Error::WorktreeConversionFailure(
-                                WorktreeConversionFailureReason::Error(format!(
-                                    "Failed removing {error}"
-                                )),
-                            ));
+                    if entry.path().is_file() || entry.path().is_symlink() {
+                        if let Err(error) = std::fs::remove_file(entry.path()) {
+                            return Err(WorktreeConversionError::RemoveError {
+                                path: entry.into_path(),
+                                error,
+                            });
                         }
-                    } else if let Err(error) = std::fs::remove_dir_all(&path) {
-                        return Err(Error::WorktreeConversionFailure(
-                            WorktreeConversionFailureReason::Error(format!(
-                                "Failed removing {error}"
-                            )),
-                        ));
+                    } else if let Err(error) = std::fs::remove_dir_all(entry.path()) {
+                        return Err(WorktreeConversionError::RemoveError {
+                            path: entry.into_path(),
+                            error,
+                        });
                     }
                 }
                 Err(error) => {
-                    return Err(Error::WorktreeConversionFailure(
-                        WorktreeConversionFailureReason::Error(format!(
-                            "Error getting directory entry: {error}"
-                        )),
-                    ));
+                    return Err(WorktreeConversionError::ReadDirectoryError(error));
                 }
             }
         }
 
-        let worktree_repo = Self::open(root_dir, true).map_err(|error| {
-            Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(format!(
-                "Opening newly converted repository failed: {error}"
-            )))
-        })?;
-
-        worktree_repo.make_bare(true).map_err(|error| {
-            Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(format!(
-                "Error: {error}"
-            )))
-        })?;
+        let worktree_repo = WorktreeRepoHandle::open(root_dir)
+            .map_err(|error| WorktreeConversionError::RepoError(error))?;
 
         worktree_repo
+            .as_repo()
+            .make_bare(true)
+            .map_err(|error| WorktreeConversionError::RepoError(error))?;
+
+        worktree_repo
+            .as_repo()
             .set_config_push(GitPushDefaultSetting::Upstream)
-            .map_err(|error| {
-                Error::WorktreeConversionFailure(WorktreeConversionFailureReason::Error(format!(
-                    "Error: {error}"
-                )))
-            })?;
+            .map_err(|error| WorktreeConversionError::RepoError(error))?;
 
         Ok(())
     }
@@ -934,8 +712,8 @@ impl RepoHandle {
             })
     }
 
-    pub fn has_untracked_files(&self, is_worktree: bool) -> Result<bool, Error> {
-        if is_worktree {
+    pub fn has_untracked_files(&self, worktree_setup: WorktreeSetup) -> Result<bool, Error> {
+        if worktree_setup.is_worktree() {
             Err(Error::GettingChangesFromBareWorktree)
         } else {
             let statuses = self
@@ -953,7 +731,7 @@ impl RepoHandle {
         }
     }
 
-    pub fn status(&self, is_worktree: bool) -> Result<RepoStatus, Error> {
+    pub fn status(&self, worktree_setup: WorktreeSetup) -> Result<RepoStatus, Error> {
         let operation = match self.0.state() {
             git2::RepositoryState::Clean => None,
             state => Some(state),
@@ -967,18 +745,18 @@ impl RepoHandle {
             .iter()
             .map(|repo_name| {
                 repo_name
-                    .ok_or(Error::WorktreeNameNotUtf8)
+                    .ok_or(Error::RemoteNameNotUtf8)
                     .map(|s| RemoteName::new(s.to_owned()))
             })
             .collect::<Result<Vec<RemoteName>, Error>>()?;
 
-        let head = if is_worktree || empty {
+        let head = if worktree_setup.is_worktree() || empty {
             None
         } else {
             Some(self.head_branch()?.name()?)
         };
 
-        let changes = if is_worktree {
+        let changes = if worktree_setup.is_worktree() {
             None
         } else {
             let statuses = self.0.statuses(Some(
@@ -1032,7 +810,7 @@ impl RepoHandle {
 
         let worktrees = self.0.worktrees()?.len();
 
-        let submodules = if is_worktree {
+        let submodules = if worktree_setup.is_worktree() {
             None
         } else {
             let mut submodules = Vec::new();
@@ -1131,7 +909,7 @@ impl RepoHandle {
                 if let Ok(remote_default_branch) = remote.default_branch() {
                     return Ok(Some(
                         self.find_local_branch(&remote_default_branch)?
-                            .ok_or(Error::NotFound)?,
+                            .ok_or(Error::BranchNotFound)?,
                     ));
                 }
             }
@@ -1139,27 +917,27 @@ impl RepoHandle {
 
         // Note that <remote>/HEAD only exists after a normal clone, there is no way to
         // get the remote HEAD afterwards. So this is a "best effort" approach.
-        if let Ok(remote_head) =
-            self.find_remote_branch(remote_name, &BranchName::new("HEAD".to_owned()))
-        {
-            if let Some(pointer_name) = remote_head.as_reference().symbolic_target() {
-                if let Some(local_branch_name) =
-                    pointer_name.strip_prefix(&format!("refs/remotes/{remote_name}/"))
-                {
-                    return Ok(Some(
-                        self.find_local_branch(&BranchName(local_branch_name.to_owned()))?
-                            .ok_or(Error::NotFound)?,
-                    ));
+        match self.find_remote_branch(remote_name, &BranchName::new("HEAD".to_owned()))? {
+            Some(remote_head) => {
+                if let Some(pointer_name) = remote_head.as_reference().symbolic_target() {
+                    if let Some(local_branch_name) =
+                        pointer_name.strip_prefix(&format!("refs/remotes/{remote_name}/"))
+                    {
+                        Ok(Some(
+                            self.find_local_branch(&BranchName(local_branch_name.to_owned()))?
+                                .ok_or(Error::BranchNotFound)?,
+                        ))
+                    } else {
+                        Err(Error::InvalidRemoteHeadPointer {
+                            name: pointer_name.to_owned(),
+                        })
+                    }
                 } else {
-                    return Err(Error::InvalidRemoteHeadPointer {
-                        name: pointer_name.to_owned(),
-                    });
+                    Err(Error::RemoteHeadNoSymbolicTarget)
                 }
-            } else {
-                return Err(Error::RemoteHeadNoSymbolicTarget);
             }
+            None => Ok(None),
         }
-        Ok(None)
     }
 
     pub fn default_branch(&self) -> Result<Branch<'_>, Error> {
@@ -1242,331 +1020,6 @@ impl RepoHandle {
             self.0.find_remote(remote_name.as_str())?,
         )))
     }
-
-    pub fn get_worktrees(&self) -> Result<Vec<Worktree>, Error> {
-        Ok(self
-            .0
-            .worktrees()?
-            .iter()
-            .map(|remote| remote.ok_or(Error::WorktreeNameNotUtf8))
-            .collect::<Result<Vec<_>, Error>>()?
-            .into_iter()
-            .map(Worktree::new)
-            .collect())
-    }
-
-    pub fn remove_worktree(
-        &self,
-        base_dir: &Path,
-        worktree_name: &WorktreeName,
-        worktree_dir: &Path,
-        force: bool,
-        worktree_config: Option<&WorktreeRootConfig>,
-    ) -> Result<(), Error> {
-        let fullpath = base_dir.join(worktree_dir);
-
-        if !fullpath.exists() {
-            return Err(Error::WorktreeRemovalFailure(
-                WorktreeRemoveFailureReason::Error(format!("{worktree_name} does not exist")),
-            ));
-        }
-        let worktree_repo = Self::open(&fullpath, false).map_err(|error| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(format!(
-                "Error opening repo: {error}"
-            )))
-        })?;
-
-        let local_branch = worktree_repo.head_branch().map_err(|error| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(format!(
-                "Failed getting head branch: {error}"
-            )))
-        })?;
-
-        let branch_name = local_branch.name().map_err(|error| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(format!(
-                "Failed getting name of branch: {error}"
-            )))
-        })?;
-
-        if branch_name.as_str() != worktree_name.as_str() {
-            return Err(Error::WorktreeRemovalFailure(
-                WorktreeRemoveFailureReason::Error(format!(
-                    "Branch \"{}\" is checked out in worktree \"{}\", this does not look correct",
-                    &branch_name,
-                    &worktree_dir.display(),
-                )),
-            ));
-        }
-
-        let branch = worktree_repo
-            .find_local_branch(&branch_name)
-            .map_err(|e| {
-                Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
-            })?
-            .ok_or(Error::NotFound)?;
-
-        if !force {
-            let status = worktree_repo.status(false).map_err(|e| {
-                Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
-            })?;
-            if status.changes.is_some() {
-                return Err(Error::WorktreeRemovalFailure(
-                    WorktreeRemoveFailureReason::Changes(String::from("Changes found in worktree")),
-                ));
-            }
-
-            let mut is_merged_into_persistent_branch = false;
-            let mut has_persistent_branches = false;
-            if let Some(config) = worktree_config {
-                if let Some(branches) = config.persistent_branches.as_ref() {
-                    has_persistent_branches = true;
-                    for persistent_branch in branches {
-                        let persistent_branch = worktree_repo
-                            .find_local_branch(persistent_branch)
-                            .map_err(|e| {
-                                Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(
-                                    e.to_string(),
-                                ))
-                            })?
-                            .ok_or(Error::NotFound)?;
-
-                        let (ahead, _behind) =
-                            worktree_repo.graph_ahead_behind(&branch, &persistent_branch)?;
-
-                        if ahead == 0 {
-                            is_merged_into_persistent_branch = true;
-                        }
-                    }
-                }
-            }
-
-            if has_persistent_branches && !is_merged_into_persistent_branch {
-                return Err(Error::WorktreeRemovalFailure(
-                    WorktreeRemoveFailureReason::NotMerged(format!(
-                        "Branch {worktree_name} is not merged into any persistent branches"
-                    )),
-                ));
-            }
-
-            if !has_persistent_branches {
-                match branch.upstream() {
-                    Ok(remote_branch) => {
-                        let (ahead, behind) =
-                            worktree_repo.graph_ahead_behind(&branch, &remote_branch)?;
-
-                        if (ahead, behind) != (0, 0) {
-                            return Err(Error::WorktreeRemovalFailure(
-                                WorktreeRemoveFailureReason::Changes(format!(
-                                    "Branch {worktree_name} is not in line with remote branch"
-                                )),
-                            ));
-                        }
-                    }
-                    Err(_) => {
-                        return Err(Error::WorktreeRemovalFailure(
-                            WorktreeRemoveFailureReason::Changes(format!(
-                                "No remote tracking branch for branch {worktree_name} found"
-                            )),
-                        ));
-                    }
-                }
-            }
-        }
-
-        // worktree_dir is a relative path, starting from base_dir. We walk it
-        // upwards (from subdirectory to parent directories) and remove each
-        // component, in case it is empty. Only the leaf directory can be
-        // removed unconditionally (as it contains the worktree itself).
-        if let Err(e) = std::fs::remove_dir_all(&fullpath) {
-            return Err(Error::WorktreeRemovalFailure(
-                WorktreeRemoveFailureReason::Error(format!(
-                    "Error deleting {}: {}",
-                    &worktree_dir.display(),
-                    e
-                )),
-            ));
-        }
-
-        if let Some(current_dir) = worktree_dir.parent() {
-            for current_dir in current_dir.ancestors() {
-                let current_dir = base_dir.join(current_dir);
-                if current_dir
-                    .read_dir()
-                    .map_err(|error| {
-                        Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(format!(
-                            "Error reading {}: {}",
-                            &current_dir.display(),
-                            error
-                        )))
-                    })?
-                    .next()
-                    .is_none()
-                {
-                    if let Err(e) = std::fs::remove_dir(&current_dir) {
-                        return Err(Error::WorktreeRemovalFailure(
-                            WorktreeRemoveFailureReason::Error(format!(
-                                "Error deleting {}: {}",
-                                &worktree_dir.display(),
-                                e
-                            )),
-                        ));
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-
-        self.prune_worktree(worktree_name).map_err(|e| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
-        })?;
-        branch.delete().map_err(|e| {
-            Error::WorktreeRemovalFailure(WorktreeRemoveFailureReason::Error(e.to_string()))
-        })?;
-
-        Ok(())
-    }
-
-    pub fn cleanup_worktrees(&self, directory: &Path) -> Result<Vec<Warning>, Error> {
-        let mut warnings = Vec::new();
-
-        let worktrees = self.get_worktrees()?;
-
-        let config: Option<WorktreeRootConfig> =
-            config::read_worktree_root_config(directory)?.map(Into::into);
-
-        let guess_default_branch = || self.default_branch()?.name();
-
-        let default_branch_name = match config {
-            None => guess_default_branch()?,
-            Some(ref config) => match config.persistent_branches.as_ref() {
-                None => guess_default_branch()?,
-                Some(persistent_branches) => {
-                    if let Some(branch) = persistent_branches.first() {
-                        branch.clone()
-                    } else {
-                        guess_default_branch()?
-                    }
-                }
-            },
-        };
-
-        for worktree in worktrees
-            .iter()
-            .filter(|worktree| worktree.name().as_str() != default_branch_name.as_str())
-            .filter(|worktree| match config {
-                None => true,
-                Some(ref config) => match config.persistent_branches.as_ref() {
-                    None => true,
-                    Some(branches) => !branches
-                        .iter()
-                        .any(|branch| branch.as_str() == worktree.name().as_str()),
-                },
-            })
-        {
-            let repo_dir = &directory.join(worktree.name().as_str());
-            if repo_dir.exists() {
-                match self.remove_worktree(
-                    directory,
-                    worktree.name(),
-                    Path::new(worktree.name().as_str()),
-                    false,
-                    config.as_ref(),
-                ) {
-                    Ok(()) => print_success(&format!("Worktree {} deleted", &worktree.name())),
-                    Err(error) => match error {
-                        Error::WorktreeRemovalFailure(ref removal_error) => match *removal_error {
-                            WorktreeRemoveFailureReason::Changes(ref changes) => {
-                                warnings.push(Warning(format!(
-                                    "Changes found in {}: {}, skipping",
-                                    &worktree.name(),
-                                    &changes
-                                )));
-                            }
-                            WorktreeRemoveFailureReason::NotMerged(ref message) => {
-                                warnings.push(Warning(message.clone()));
-                            }
-                            WorktreeRemoveFailureReason::Error(_) => {
-                                return Err(error);
-                            }
-                        },
-                        _ => return Err(error),
-                    },
-                }
-            } else {
-                warnings.push(Warning(format!(
-                    "Worktree {} does not have a directory",
-                    &worktree.name()
-                )));
-            }
-        }
-        Ok(warnings)
-    }
-
-    pub fn find_unmanaged_worktrees(&self, directory: &Path) -> Result<Vec<PathBuf>, Error> {
-        let worktrees = self.get_worktrees()?;
-
-        let mut unmanaged_worktrees = Vec::new();
-        for entry in std::fs::read_dir(directory)? {
-            #[expect(clippy::missing_panics_doc, reason = "see expect() message")]
-            let dirname = path::path_as_string(
-                entry?
-                    .path()
-                    .strip_prefix(directory)
-                    // that unwrap() is safe as each entry is
-                    // guaranteed to be a subentry of &directory
-                    .expect("each entry is guaranteed to have the prefix"),
-            )?;
-
-            let config: Option<WorktreeRootConfig> =
-                config::read_worktree_root_config(directory)?.map(Into::into);
-
-            let guess_default_branch = || {
-                self.default_branch()
-                    .map_err(|error| format!("Failed getting default branch: {error}"))?
-                    .name()
-                    .map_err(|error| format!("Failed getting default branch name: {error}"))
-            };
-
-            let default_branch_name = match config {
-                None => guess_default_branch().ok(),
-                Some(ref config) => match config.persistent_branches.as_ref() {
-                    None => guess_default_branch().ok(),
-                    Some(persistent_branches) => {
-                        if let Some(branch) = persistent_branches.first() {
-                            Some(branch.clone())
-                        } else {
-                            guess_default_branch().ok()
-                        }
-                    }
-                },
-            };
-
-            if dirname == worktree::GIT_MAIN_WORKTREE_DIRECTORY {
-                continue;
-            }
-
-            if dirname == config::WORKTREE_CONFIG_FILE_NAME {
-                continue;
-            }
-            if let Some(default_branch_name) = default_branch_name {
-                if dirname == default_branch_name.as_str() {
-                    continue;
-                }
-            }
-            if !&worktrees
-                .iter()
-                .any(|worktree| worktree.name().as_str() == dirname)
-            {
-                unmanaged_worktrees.push(PathBuf::from(dirname));
-            }
-        }
-        Ok(unmanaged_worktrees)
-    }
-
-    pub fn detect_worktree(path: &Path) -> bool {
-        path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY).exists()
-    }
 }
 
 pub struct RemoteHandle<'a>(git2::Remote<'a>);
@@ -1593,9 +1046,7 @@ impl<'a> Branch<'a> {
     pub fn to_commit(self) -> Result<Commit<'a>, Error> {
         Ok(Commit(self.0.into_reference().peel_to_commit()?))
     }
-}
 
-impl<'a> Branch<'a> {
     pub fn commit(&self) -> Result<Commit<'_>, Error> {
         Ok(Commit(self.0.get().peel_to_commit()?))
     }
@@ -1623,8 +1074,13 @@ impl<'a> Branch<'a> {
         ))
     }
 
-    pub fn upstream(&self) -> Result<Branch<'_>, Error> {
-        Ok(Branch(self.0.upstream()?))
+    pub fn upstream(&self) -> Result<Option<Branch<'_>>, Error> {
+        let branch = self.0.upstream();
+        match branch {
+            Ok(branch) => Ok(Some(Branch(branch))),
+            Err(err) if err.code() == git2::ErrorCode::NotFound => Ok(None),
+            Err(err) => Err(err.into()),
+        }
     }
 
     pub fn delete(mut self) -> Result<(), Error> {
@@ -1743,45 +1199,40 @@ impl RemoteHandle<'_> {
 pub fn clone_repo(
     remote: &Remote,
     path: &Path,
-    is_worktree: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let clone_target = if is_worktree {
+    worktree_setup: WorktreeSetup,
+) -> Result<(), Error> {
+    let clone_target = if worktree_setup.is_worktree() {
         path.join(worktree::GIT_MAIN_WORKTREE_DIRECTORY)
     } else {
         path.to_path_buf()
     };
 
-    print_action(&format!(
-        "Cloning into \"{}\" from \"{}\"",
-        &clone_target.display(),
-        &remote.url
-    ));
     match remote.remote_type {
         RemoteType::Https | RemoteType::File => {
             let mut builder = git2::build::RepoBuilder::new();
 
             let fetchopts = git2::FetchOptions::new();
 
-            builder.bare(is_worktree);
+            builder.bare(worktree_setup.is_worktree());
             builder.fetch_options(fetchopts);
 
-            builder.clone(remote.url.as_str(), &clone_target)?;
+            builder.clone(remote.url.as_str(), clone_target.as_std_path())?;
         }
         RemoteType::Ssh => {
             let mut fo = git2::FetchOptions::new();
             fo.remote_callbacks(get_remote_callbacks());
 
             let mut builder = git2::build::RepoBuilder::new();
-            builder.bare(is_worktree);
+            builder.bare(worktree_setup.is_worktree());
             builder.fetch_options(fo);
 
-            builder.clone(remote.url.as_str(), &clone_target)?;
+            builder.clone(remote.url.as_str(), clone_target.as_std_path())?;
         }
     }
 
-    let repo = RepoHandle::open(&clone_target, false)?;
+    let repo = RepoHandle::open(&clone_target)?;
 
-    if is_worktree {
+    if worktree_setup.is_worktree() {
         repo.set_config_push(GitPushDefaultSetting::Upstream)?;
     }
 
@@ -1902,26 +1353,26 @@ mod tests {
     #[test]
     fn repo_check_fullname() {
         let with_namespace = Repo {
-            name: ProjectName::new("name".to_owned()),
-            namespace: Some(ProjectNamespace::new("namespace".to_owned())),
-            worktree_setup: false,
+            name: RepoName::new("name".to_owned()),
+            namespace: Some(RepoNamespace::new("namespace".to_owned())),
+            worktree_setup: WorktreeSetup::NoWorktree,
             remotes: Vec::new(),
         };
 
         let without_namespace = Repo {
-            name: ProjectName::new("name".to_owned()),
+            name: RepoName::new("name".to_owned()),
             namespace: None,
-            worktree_setup: false,
+            worktree_setup: WorktreeSetup::NoWorktree,
             remotes: Vec::new(),
         };
 
         assert_eq!(
             with_namespace.fullname(),
-            ProjectName::new("namespace/name".to_owned())
+            RepoName::new("namespace/name".to_owned())
         );
         assert_eq!(
             without_namespace.fullname(),
-            ProjectName::new("name".to_owned())
+            RepoName::new("name".to_owned())
         );
     }
 }

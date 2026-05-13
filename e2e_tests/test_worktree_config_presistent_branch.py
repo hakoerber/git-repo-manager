@@ -9,13 +9,11 @@ from helpers import TempGitRepositoryWorktree, checksum_directory, funcname, grm
 def test_worktree_never_clean_persistent_branches():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
-            f.write(
-                """
+            f.write("""
             persistent_branches = [
                 "mybranch",
             ]
-            """
-            )
+            """)
 
         cmd = grm(["wt", "add", "mybranch", "--track", "origin/master"], cwd=base_dir)
         assert cmd.returncode == 0
@@ -36,35 +34,30 @@ def test_worktree_never_clean_persistent_branches():
 def test_worktree_clean_branch_merged_into_persistent():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
-            f.write(
-                """
+            f.write("""
             persistent_branches = [
                 "master",
             ]
-            """
-            )
+            """)
 
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}/test
             touch change1
             git add change1
             git commit -m "commit1"
-            """
-        )
+            git push
+            """)
 
         cmd = grm(["wt", "add", "master"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}/master
             git merge --no-ff test
-            """
-        )
+            """)
 
         cmd = grm(["wt", "clean"], cwd=base_dir)
         assert cmd.returncode == 0
@@ -75,32 +68,28 @@ def test_worktree_clean_branch_merged_into_persistent():
 def test_worktree_no_clean_unmerged_branch():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
-            f.write(
-                """
+            f.write("""
             persistent_branches = [
                 "master",
             ]
-            """
-            )
+            """)
 
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}/test
             touch change1
             git add change1
             git commit -m "commit1"
             git push origin test
-            """
-        )
+            """)
 
         cmd = grm(["wt", "add", "master"], cwd=base_dir)
         assert cmd.returncode == 0
 
         cmd = grm(["wt", "clean"], cwd=base_dir)
-        assert cmd.returncode == 0
+        assert cmd.returncode == 2
 
         assert "test" in os.listdir(base_dir)
 
@@ -108,35 +97,30 @@ def test_worktree_no_clean_unmerged_branch():
 def test_worktree_delete_branch_merged_into_persistent():
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         with open(os.path.join(base_dir, "grm.toml"), "w") as f:
-            f.write(
-                """
+            f.write("""
             persistent_branches = [
                 "master",
             ]
-            """
-            )
+            """)
 
         cmd = grm(["wt", "add", "test", "--track", "origin/test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}/test
             touch change1
             git add change1
             git commit -m "commit1"
-            """
-        )
+            git push
+            """)
 
         cmd = grm(["wt", "add", "master"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}/master
             git merge --no-ff test
-            """
-        )
+            """)
 
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
         assert cmd.returncode == 0

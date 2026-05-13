@@ -25,8 +25,7 @@ def test_worktree_rebase(pull, rebase, ffable, has_changes, stash):
             cwd=base_dir,
         )
 
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}/mybasebranch
             echo change > mychange-root
             git add mychange-root
@@ -35,27 +34,23 @@ def test_worktree_rebase(pull, rebase, ffable, has_changes, stash):
             git add mychange-base-local
             git commit -m "commit-in-base-local"
             git push origin mybasebranch
-        """
-        )
+        """)
 
         grm(
             ["wt", "add", "myfeatbranch", "--track", "origin/myfeatbranch"],
             cwd=base_dir,
         )
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}/myfeatbranch
             git reset --hard mybasebranch^ # root
             echo change > mychange-feat-local
             git add mychange-feat-local
             git commit -m "commit-in-feat-local"
             git push origin HEAD:myfeatbranch
-        """
-        )
+        """)
 
         grm(["wt", "add", "tmp"], cwd=base_dir)
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}/tmp
             git reset --hard mybasebranch
             echo change > mychange-base-remote
@@ -68,12 +63,10 @@ def test_worktree_rebase(pull, rebase, ffable, has_changes, stash):
             git add mychange-feat-remote
             git commit -m "commit-in-feat-remote"
             git push origin HEAD:myfeatbranch
-        """
-        )
+        """)
 
         if not ffable:
-            shell(
-                f"""
+            shell(f"""
                 cd {base_dir}/mybasebranch
                 echo change > mychange-base-no-ff
                 git add mychange-base-no-ff
@@ -83,16 +76,13 @@ def test_worktree_rebase(pull, rebase, ffable, has_changes, stash):
                 echo change > mychange-feat-no-ff
                 git add mychange-feat-no-ff
                 git commit -m "commit-in-feat-local-no-ff"
-            """
-            )
+            """)
 
         if has_changes:
-            shell(
-                f"""
+            shell(f"""
                 cd {base_dir}/myfeatbranch
                 echo uncommitedchange > uncommitedchange
-            """
-            )
+            """)
 
         grm(["wt", "delete", "--force", "tmp"], cwd=base_dir)
 

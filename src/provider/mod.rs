@@ -9,6 +9,18 @@ use thiserror::Error;
 
 use super::{RemoteName, RemoteUrl, auth, config, repo};
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ProtocolConfig {
+    Default,
+    ForceSsh,
+}
+
+impl ProtocolConfig {
+    pub fn force_ssh(&self) -> bool {
+        *self == Self::ForceSsh
+    }
+}
+
 pub struct Url(Cow<'static, str>);
 
 impl Url {
@@ -70,9 +82,9 @@ const DEFAULT_REMOTE_NAME: RemoteName = RemoteName::new_static("origin");
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("response error: {0}")]
+    #[error("Response error: {0}")]
     Response(String),
-    #[error("provider error: {0}")]
+    #[error("Provider error: {0}")]
     Provider(String),
 }
 
@@ -108,13 +120,13 @@ impl ProjectName {
     }
 }
 
-impl From<repo::ProjectName> for ProjectName {
-    fn from(other: repo::ProjectName) -> Self {
+impl From<repo::RepoName> for ProjectName {
+    fn from(other: repo::RepoName) -> Self {
         Self(other.into_string())
     }
 }
 
-impl From<ProjectName> for repo::ProjectName {
+impl From<ProjectName> for repo::RepoName {
     fn from(other: ProjectName) -> Self {
         Self::new(other.into_string())
     }
@@ -137,13 +149,13 @@ impl ProjectNamespace {
     }
 }
 
-impl From<repo::ProjectNamespace> for ProjectNamespace {
-    fn from(other: repo::ProjectNamespace) -> Self {
+impl From<repo::RepoNamespace> for ProjectNamespace {
+    fn from(other: repo::RepoNamespace) -> Self {
         Self(other.into_string())
     }
 }
 
-impl From<ProjectNamespace> for repo::ProjectNamespace {
+impl From<ProjectNamespace> for repo::RepoNamespace {
     fn from(other: ProjectNamespace) -> Self {
         Self::new(other.into_string())
     }
@@ -153,8 +165,8 @@ pub trait Project {
     fn into_repo_config(
         self,
         remote_name: &RemoteName,
-        worktree_setup: bool,
-        force_ssh: bool,
+        worktree_setup: repo::WorktreeSetup,
+        protocol_config: ProtocolConfig,
     ) -> repo::Repo
     where
         Self: Sized,
@@ -165,12 +177,12 @@ pub trait Project {
             worktree_setup,
             remotes: vec![repo::Remote {
                 name: remote_name.clone(),
-                url: if force_ssh || self.private() {
+                url: if protocol_config.force_ssh() || self.private() {
                     self.ssh_url()
                 } else {
                     self.http_url()
                 },
-                remote_type: if force_ssh || self.private() {
+                remote_type: if protocol_config.force_ssh() || self.private() {
                     repo::RemoteType::Ssh
                 } else {
                     repo::RemoteType::Https
@@ -282,8 +294,6 @@ pub trait Provider {
         uri: &Url,
         accept_header: Option<&str>,
     ) -> Result<Vec<Self::Project>, ApiError<Self::Error>> {
-        let mut results = vec![];
-
         match ureq::get(uri.as_str())
             .config()
             .http_status_as_error(false)
@@ -299,16 +309,12 @@ pub trait Provider {
             )
             .call()
         {
-            Err(ureq::Error::Http(error)) => return Err(format!("http error: {error}").into()),
-            Err(e) => return Err(format!("unknown error: {e}").into()),
+            Err(ureq::Error::Http(error)) => Err(format!("http error: {error}").into()),
+            Err(e) => Err(format!("unknown error: {e}").into()),
             Ok(mut response) => {
-                if !response.status().is_success() {
-                    let result: Self::Error = response
-                        .body_mut()
-                        .read_json()
-                        .map_err(|error| format!("Failed deserializing error response: {error}"))?;
-                    return Err(ApiError::Json(result));
-                } else {
+                if response.status().is_success() {
+                    let mut projects = vec![];
+
                     if let Some(link_header) = response.headers().get("link") {
                         let link_header = parse_link_header::parse(link_header.to_str()?)
                             .map_err(|error| error.to_string())?;
@@ -318,7 +324,7 @@ pub trait Provider {
                         if let Some(page) = next_page {
                             let following_repos =
                                 self.call_list(&Url::new(page.raw_uri.clone()), accept_header)?;
-                            results.extend(following_repos);
+                            projects.extend(following_repos);
                         }
                     }
 
@@ -327,18 +333,21 @@ pub trait Provider {
                         .read_json()
                         .map_err(|error| format!("Failed deserializing response: {error}"))?;
 
-                    results.extend(result);
+                    projects.extend(result);
+                    Ok(projects)
+                } else {
+                    Err(ApiError::Json(response.body_mut().read_json().map_err(
+                        |error| format!("Failed deserializing error response: {error}"),
+                    )?))
                 }
             }
         }
-
-        Ok(results)
     }
 
     fn get_repos(
         &self,
-        worktree_setup: bool,
-        force_ssh: bool,
+        worktree_setup: repo::WorktreeSetup,
+        protocol_config: ProtocolConfig,
         remote_name: Option<RemoteName>,
     ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, Error> {
         let mut repos = vec![];
@@ -432,7 +441,7 @@ pub trait Provider {
         for repo in repos {
             let namespace = repo.namespace();
 
-            let mut repo = repo.into_repo_config(&remote_name, worktree_setup, force_ssh);
+            let mut repo = repo.into_repo_config(&remote_name, worktree_setup, protocol_config);
 
             // Namespace is already part of the hashmap key. I'm not too happy
             // about the data exchange format here.
@@ -455,7 +464,7 @@ where
     T: serde::de::DeserializeOwned,
     U: serde::de::DeserializeOwned + JsonError,
 {
-    let response = match ureq::get(uri)
+    match ureq::get(uri)
         .header("accept", accept_header.unwrap_or("application/json"))
         .header(
             "authorization",
@@ -463,23 +472,19 @@ where
         )
         .call()
     {
-        Err(ureq::Error::Http(error)) => return Err(format!("http error: {error}").into()),
-        Err(e) => return Err(format!("unknown error: {e}").into()),
+        Err(ureq::Error::Http(error)) => Err(format!("http error: {error}").into()),
+        Err(e) => Err(format!("unknown error: {e}").into()),
         Ok(mut response) => {
-            if !response.status().is_success() {
-                let result: U = response
+            if response.status().is_success() {
+                Ok(response
                     .body_mut()
                     .read_json()
-                    .map_err(|error| format!("Failed deserializing error response: {error}"))?;
-                return Err(ApiError::Json(result));
+                    .map_err(|error| format!("Failed deserializing response: {error}"))?)
             } else {
-                response
-                    .body_mut()
-                    .read_json()
-                    .map_err(|error| format!("Failed deserializing response: {error}"))?
+                Err(ApiError::Json(response.body_mut().read_json().map_err(
+                    |error| format!("Failed deserializing error response: {error}"),
+                )?))
             }
         }
-    };
-
-    Ok(response)
+    }
 }

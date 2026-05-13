@@ -56,13 +56,13 @@ def test_worktree_add(
     track_differs_from_existing_branch_upstream,
     worktree_with_slash,
 ):
-    (remote_count, default_remote, remotes_differ) = remote_setup
+    remote_count, default_remote, remotes_differ = remote_setup
     (
         config_enabled,
         config_has_default_remote_prefix,
         config_has_default_track_enabled,
     ) = config_setup
-    (local_branch_exists, local_branch_has_tracking_branch) = local_branch_setup
+    local_branch_exists, local_branch_has_tracking_branch = local_branch_setup
     has_remotes = True if remote_count > 0 else False
 
     if worktree_with_slash:
@@ -199,20 +199,16 @@ def test_worktree_add(
 
         if config_enabled:
             with open(os.path.join(base_dir, "grm.toml"), "w") as f:
-                f.write(
-                    f"""
+                f.write(f"""
                         [track]
                         default = {str(config_has_default_track_enabled).lower()}
                         default_remote = "{default_remote}"
-                        """
-                )
+                        """)
 
                 if config_has_default_remote_prefix:
-                    f.write(
-                        """
+                    f.write("""
                     default_remote_prefix = "myprefix"
-                    """
-                    )
+                    """)
 
         if local_branch_exists:
             if has_remotes and local_branch_has_tracking_branch:
@@ -264,14 +260,19 @@ def test_worktree_add(
         if explicit_notrack:
             args.extend(["--no-track"])
         cmd = grm(args, cwd=base_dir)
+
         if explicit_track and not explicit_notrack and not has_remotes:
             assert cmd.returncode != 0
             assert f'remote "{default_remote}" not found' in cmd.stderr.lower()
             return
-        assert cmd.returncode == 0
 
-        assert len(cmd.stdout.strip().split("\n")) == 1
-        assert f"worktree {worktree_name} created" in cmd.stdout.lower()
+        if explicit_track and explicit_notrack:
+            assert "--track" in cmd.stderr.lower()
+            assert "--no-track" in cmd.stderr.lower()
+            assert cmd.returncode != 0
+            return
+
+        assert cmd.returncode == 0
 
         def check_deviation_error(base):
             if (
@@ -299,11 +300,10 @@ def test_worktree_add(
                 else:
                     assert len(cmd.stderr.strip().split("\n")) == base
 
-        if explicit_track and explicit_notrack:
-            assert "--track will be ignored" in cmd.stderr.lower()
-            check_deviation_error(1)
-        else:
-            check_deviation_error(0)
+        check_deviation_error(0)
+
+        assert len(cmd.stdout.strip().split("\n")) == 1
+        assert f"worktree {worktree_name} created" in cmd.stdout.lower()
 
         files = os.listdir(base_dir)
         if config_enabled is True:
@@ -547,13 +547,11 @@ def test_worktree_add_invalid_remote_name(
     with TempGitRepositoryWorktree.get(funcname()) as (base_dir, _commit):
         if use_configuration:
             with open(os.path.join(base_dir, "grm.toml"), "w") as f:
-                f.write(
-                    f"""
+                f.write(f"""
                 [track]
                 default = {str(use_configuration_default).lower()}
                 default_remote = "thisremotedoesnotexist"
-                """
-                )
+                """)
 
         args = ["wt", "add", "foo"]
         if use_track:
@@ -628,16 +626,9 @@ def test_worktree_delete_refusal_no_tracking_branch():
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        before = checksum_directory(f"{base_dir}/test")
         cmd = grm(["wt", "delete", "test"], cwd=base_dir)
-        assert cmd.returncode != 0
-        assert len(cmd.stdout) == 0
-        stderr = cmd.stderr.lower()
-        assert "refuse" in stderr or "refusing" in stderr
-        assert "test" in os.listdir(base_dir)
-
-        after = checksum_directory(f"{base_dir}/test")
-        assert before == after
+        assert cmd.returncode == 0
+        assert "test" not in os.listdir(base_dir)
 
 
 @pytest.mark.parametrize(

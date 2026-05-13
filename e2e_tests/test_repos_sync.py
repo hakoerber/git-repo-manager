@@ -46,8 +46,7 @@ templates = {
             url = "file://{remote}"
             type = "file"
         """,
-        "yaml": textwrap.dedent(
-            """
+        "yaml": textwrap.dedent("""
             trees:
             - root: "{root}"
               repos:
@@ -56,8 +55,7 @@ templates = {
                 - name: "{remotename}"
                   url: "file://{remote}"
                   type: "file"
-        """
-        ),
+        """),
     },
     "repo_with_two_remotes": {
         "toml": """
@@ -77,8 +75,7 @@ templates = {
             url = "file://{remote2}"
             type = "file"
         """,
-        "yaml": textwrap.dedent(
-            """
+        "yaml": textwrap.dedent("""
             trees:
             - root: "{root}"
               repos:
@@ -90,8 +87,7 @@ templates = {
                 - name: "origin2"
                   url: "file://{remote2}"
                   type: "file"
-        """
-        ),
+        """),
     },
     "worktree_repo_simple": {
         "toml": """
@@ -102,15 +98,13 @@ templates = {
             name = "test"
             worktree_setup = true
         """,
-        "yaml": textwrap.dedent(
-            """
+        "yaml": textwrap.dedent("""
             trees:
             - root: "{root}"
               repos:
               - name: test
                 worktree_setup: true
-        """
-        ),
+        """),
     },
     "worktree_repo_with_remote": {
         "toml": """
@@ -126,8 +120,7 @@ templates = {
             url = "file://{remote}"
             type = "file"
         """,
-        "yaml": textwrap.dedent(
-            """
+        "yaml": textwrap.dedent("""
             trees:
             - root: "{root}"
               repos:
@@ -137,8 +130,7 @@ templates = {
                 - name: origin
                   url: "file://{remote}"
                   type: "file"
-        """
-        ),
+        """),
     },
     "repo_in_subdirectory": {
         "toml": """
@@ -153,8 +145,7 @@ templates = {
             url = "file://{remote}"
             type = "file"
         """,
-        "yaml": textwrap.dedent(
-            """
+        "yaml": textwrap.dedent("""
             trees:
             - root: "{root}"
               repos:
@@ -163,8 +154,7 @@ templates = {
                 - name: origin
                   url: "file://{remote}"
                   type: "file"
-        """
-        ),
+        """),
     },
     "nested_trees": {
         "toml": """
@@ -190,8 +180,7 @@ templates = {
             url = "file://{remote2}"
             type = "file"
         """,
-        "yaml": textwrap.dedent(
-            """
+        "yaml": textwrap.dedent("""
             trees:
             - root: "{root}"
               repos:
@@ -207,8 +196,7 @@ templates = {
                 - name: origin
                   url: "file://{remote2}"
                   type: "file"
-        """
-        ),
+        """),
     },
 }
 
@@ -728,20 +716,16 @@ def test_repos_sync_invalid_syntax(configtype):
     with tempfile.NamedTemporaryFile() as config:
         with open(config.name, "w") as f:
             if configtype == "toml":
-                f.write(
-                    """
+                f.write("""
                     [[trees]]
                     root = invalid as there are no quotes ;)
-                """
-                )
+                """)
             elif configtype == "yaml":
-                f.write(
-                    """
+                f.write("""
                     trees:
                     wrong:
                     indentation:
-                """
-                )
+                """)
             else:
                 raise NotImplementedError()
             cmd = grm(["repos", "sync", "config", "--config", config.name])

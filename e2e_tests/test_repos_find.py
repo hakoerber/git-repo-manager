@@ -46,16 +46,14 @@ def test_repos_find_invalid_format():
 
 def test_repos_find_non_git_repos():
     with tempfile.TemporaryDirectory() as tmpdir:
-        shell(
-            f"""
+        shell(f"""
             cd {tmpdir}
             mkdir non_git
             (
                 cd ./non_git
                 echo test > test
             )
-        """
-        )
+        """)
 
         cmd = grm(["repos", "find", "local", tmpdir])
 
@@ -69,8 +67,7 @@ def test_repos_find_non_git_repos():
 @pytest.mark.parametrize("exclude", [None, "^.*/repo2$", "^not_matching$"])
 def test_repos_find(configtype, exclude, default_format):
     with tempfile.TemporaryDirectory() as tmpdir:
-        shell(
-            f"""
+        shell(f"""
             cd {tmpdir}
             mkdir repo1
             (
@@ -97,8 +94,7 @@ def test_repos_find(configtype, exclude, default_format):
                 cd non_git
                 echo test > test
             )
-        """
-        )
+        """)
 
         args = ["repos", "find", "local", tmpdir]
         if not default_format:
@@ -207,8 +203,7 @@ def test_repos_find_in_root(configtype, default_format):
 @pytest.mark.parametrize("default_format", [True, False])
 def test_repos_find_with_invalid_repo(configtype, default_format):
     with tempfile.TemporaryDirectory() as tmpdir:
-        shell(
-            f"""
+        shell(f"""
             cd {tmpdir}
             mkdir repo1
             (
@@ -235,8 +230,7 @@ def test_repos_find_with_invalid_repo(configtype, default_format):
                 cd broken_repo
                 echo "broken" > .git
             )
-        """
-        )
+        """)
 
         args = ["repos", "find", "local", tmpdir]
         if not default_format:
