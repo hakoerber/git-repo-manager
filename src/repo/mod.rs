@@ -1046,9 +1046,7 @@ impl<'a> Branch<'a> {
     pub fn to_commit(self) -> Result<Commit<'a>, Error> {
         Ok(Commit(self.0.into_reference().peel_to_commit()?))
     }
-}
 
-impl<'a> Branch<'a> {
     pub fn commit(&self) -> Result<Commit<'_>, Error> {
         Ok(Commit(self.0.get().peel_to_commit()?))
     }

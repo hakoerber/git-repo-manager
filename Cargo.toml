@@ -145,6 +145,8 @@ missing_errors_doc = "allow"
 if_not_else = "allow"
 similar_names = "allow"
 redundant_else = "allow"
+redundant_closure_for_method_calls = "allow"
+collapsible_else_if = "allow"
 
 # nursery overrides
 missing_const_for_fn = "allow"
