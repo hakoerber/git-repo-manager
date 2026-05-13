@@ -83,7 +83,7 @@ default-features = false
 features = ["std"]
 
 [dependencies.regex]
-version = "=1.11.2"
+version = "=1.12.3"
 default-features = false
 
 [dependencies.comfy-table]
