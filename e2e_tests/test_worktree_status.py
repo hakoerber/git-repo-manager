@@ -62,12 +62,10 @@ def test_worktree_status_warn_with_non_worktree_dir():
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}
             mkdir not_a_worktree
-            """
-        )
+            """)
 
         cmd = grm(["wt", "status"], cwd=base_dir)
 

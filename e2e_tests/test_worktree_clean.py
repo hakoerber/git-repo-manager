@@ -157,25 +157,20 @@ def test_worktree_clean_configured_default_branch(
         if configure_default_branch:
             with open(os.path.join(base_dir, "grm.toml"), "w") as f:
                 if branch_list_empty:
-                    f.write(
-                        """
+                    f.write("""
                         persistent_branches = []
-                    """
-                    )
+                    """)
                 else:
-                    f.write(
-                        """
+                    f.write("""
                         persistent_branches = [
                             "mybranch"
                         ]
-                    """
-                    )
+                    """)
 
         cmd = grm(["wt", "add", "test"], cwd=base_dir)
         assert cmd.returncode == 0
 
-        shell(
-            f"""
+        shell(f"""
             cd {base_dir}
             (
                 cd ./test
@@ -190,8 +185,7 @@ def test_worktree_clean_configured_default_branch(
                 git merge --no-ff test
             )
             git --git-dir ./.git-main-working-tree worktree remove mybranch
-        """
-        )
+        """)
 
         cmd = grm(["wt", "clean"], cwd=base_dir)
         if configure_default_branch and not branch_list_empty:
