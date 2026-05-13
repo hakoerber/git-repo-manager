@@ -13,21 +13,20 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" id="highlight-css" href="highlight.css">
-        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
-        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -39,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex.js";
+            window.path_to_searchindex_js = "searchindex-4fb9877e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc.js"></script>
+        <script src="toc-47196751.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -56,7 +55,7 @@
             </div>
         </div>
     </div>
-    <div id="body-container">
+    <div id="mdbook-body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -85,12 +84,12 @@
             html.classList.add("js");
         </script>
 
-        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
             let sidebar = null;
-            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
@@ -105,39 +104,39 @@
             }
         </script>
 
-        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
                 <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
             </noscript>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <div id="page-wrapper" class="page-wrapper">
+        <div id="mdbook-page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
-                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
                         </label>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
                         </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
                         </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
                         </button>
                     </div>
 
@@ -145,38 +144,38 @@
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
                         </a>
 
                     </div>
                 </div>
 
-                <div id="search-wrapper" class="hidden">
-                    <form id="searchbar-outer" class="searchbar-outer">
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
                         <div class="search-wrapper">
-                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
                             <div class="spinner-wrapper">
-                                <i class="fa fa-spinner fa-spin"></i>
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
                             </div>
                         </div>
                     </form>
-                    <div id="searchresults-outer" class="searchresults-outer hidden">
-                        <div id="searchresults-header" class="searchresults-header"></div>
-                        <ul id="searchresults">
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
                         </ul>
                     </div>
                 </div>
 
                 <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
                 <script>
-                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
-                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
                         link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
                     });
                 </script>
 
-                <div id="content" class="content">
+                <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="overview"><a class="header" href="#overview">Overview</a></h1>
 <p>Welcome! This is the documentation for <a href="https://github.com/hakoerber/git-repo-manager/">Git Repo
@@ -186,12 +185,12 @@ that helps you manage git repositories in a declarative way.</p>
 repositories in a TOML or YAML file, GRM does the rest. Take a look at <a href="https://github.com/hakoerber/git-repo-manager/blob/master/example.config.toml">the
 example
 configuration</a>
-to get a feel for the way you configure your repositories. See the <a href="./repos.html">repository
+to get a feel for the way you configure your repositories. See the <a href="#managing-repositories">repository
 tree chapter</a> for details.</p>
 <p>GRM also provides some tooling to work with single git repositories using
-<code>git-worktree</code>. See <a href="./worktrees.html">the worktree chapter</a> for more details.</p>
+<code>git-worktree</code>. See <a href="#git-worktrees">the worktree chapter</a> for more details.</p>
 <h2 id="why-use-grm"><a class="header" href="#why-use-grm">Why use GRM?</a></h2>
-<p>If you're working with a lot of git repositories, GRM can help you to manage
+<p>If you’re working with a lot of git repositories, GRM can help you to manage
 them in an easy way:</p>
 <ul>
 <li>You want to easily clone many repositories to a new machine.</li>
@@ -201,14 +200,15 @@ domain changed).</li>
 you forgot to commit or push something.</li>
 </ul>
 <p>If you want to work with <a href="https://git-scm.com/docs/git-worktree">git worktrees</a>
-in a streamlined, easy way, GRM provides you with an opinionated workflow. It's
+in a streamlined, easy way, GRM provides you with an opinionated workflow. It’s
 especially helpful when the following describes you:</p>
 <ul>
-<li>You're juggling a lot of git branches, switching between them a lot.</li>
-<li>When switching branches, you'd like to just leave your work as-is, without
+<li>You’re juggling a lot of git branches, switching between them a lot.</li>
+<li>When switching branches, you’d like to just leave your work as-is, without
 using the stash or temporary commits.</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
 <h2 id="installation-1"><a class="header" href="#installation-1">Installation</a></h2>
 <p>Building GRM requires the Rust toolchain to be installed. The easiest way is
 using <a href="https://rustup.rs/"><code>rustup</code></a>. Make sure that rustup is properly
@@ -217,25 +217,37 @@ installed.</p>
 <pre><code class="language-bash">$ rustup toolchain install stable
 </code></pre>
 <p>Then, install the build dependencies:</p>
-<div class="table-wrapper"><table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Distribution</th><th>Command</th></tr>
+</thead>
+<tbody>
 <tr><td>Arch Linux</td><td><code>pacman -S --needed gcc openssl pkg-config</code></td></tr>
 <tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends pkg-config gcc libssl-dev zlib1g-dev</code></td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
-<p>Then, it's a simple command to install the latest stable version:</p>
+<p>Then, it’s a simple command to install the latest stable version:</p>
 <pre><code class="language-bash">$ cargo install git-repo-manager
 </code></pre>
-<p>If you're brave, you can also run the development build:</p>
+<p>If you’re brave, you can also run the development build:</p>
 <pre><code class="language-bash">$ cargo install --git https://github.com/hakoerber/git-repo-manager.git --branch develop
 </code></pre>
 <h2 id="static-build"><a class="header" href="#static-build">Static build</a></h2>
 <p>Note that by default, you will get a  dynamically linked executable.
 Alternatively, you can also build a statically linked binary. For this, you will
 need <code>musl</code> and a few other build dependencies installed installed:</p>
-<div class="table-wrapper"><table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Distribution</th><th>Command</th></tr>
+</thead>
+<tbody>
 <tr><td>Arch Linux</td><td><code>pacman -S --needed gcc musl perl make</code></td></tr>
 <tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends gcc musl-tools libc-dev perl make</code></td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <p>(<code>perl</code> and <code>make</code> are required for the OpenSSL build script)</p>
 <p>The, add the musl target via <code>rustup</code>:</p>
@@ -273,10 +285,11 @@ git-repo-manager 0.7.15
   };
 }
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="tutorial"><a class="header" href="#tutorial">Tutorial</a></h1>
-<p>Here, you'll find a quick overview over the most common functionality of GRM.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tutorial"><a class="header" href="#tutorial">Tutorial</a></h1>
+<p>Here, you’ll find a quick overview over the most common functionality of GRM.</p>
 <h2 id="managing-existing-repositories"><a class="header" href="#managing-existing-repositories">Managing existing repositories</a></h2>
-<p>Let's say you have your git repositories at <code>~/code</code>. To start managing them via
+<p>Let’s say you have your git repositories at <code>~/code</code>. To start managing them via
 GRM, first create a configuration:</p>
 <pre><code class="language-bash">grm repos find local ~/code --format yaml &gt; ~/code/config.yml
 </code></pre>
@@ -298,7 +311,7 @@ the following:</p>
 [✔] git-repo-manager: OK
 </code></pre>
 <p>Well, obiously there are no changes. To check how changes would be applied,
-let's change the name of the remote (currently <code>origin</code>):</p>
+let’s change the name of the remote (currently <code>origin</code>):</p>
 <pre><code class="language-bash">$ sed -i 's/name: origin/name: github/' ~/code/config.yml
 $ grm repos sync config --config ~/code/config.yml
 [⚙] git-repo-manager: Setting up new remote "github" to "https://github.com/hakoerber/git-repo-manager.git"
@@ -307,26 +320,26 @@ $ grm repos sync config --config ~/code/config.yml
 </code></pre>
 <p>GRM replaced the <code>origin</code> remote with <code>github</code>.</p>
 <p>The configuration (<code>~/code/config.yml</code> in this example) would usually be
-something you'd track in git or synchronize between machines via some other
+something you’d track in git or synchronize between machines via some other
 means. Then, on every machine, all your repositories are a single <code>grm repos sync</code> away!</p>
 <h2 id="getting-repositories-from-a-forge"><a class="header" href="#getting-repositories-from-a-forge">Getting repositories from a forge</a></h2>
-<p>Let's say you have a bunch of repositories on GitHub and you'd like to clone
+<p>Let’s say you have a bunch of repositories on GitHub and you’d like to clone
 them all to your local machine.</p>
-<p>To authenticate, you'll need to get a personal access token, as described in
-<a href="./forge_integration.html#github">the forge documentation</a>. Let's assume you put
-your token into <code>~/.github_token</code> (please don't if you're doing this "for
-real"!)</p>
-<p>Let's first see what kind of repos we can find:</p>
+<p>To authenticate, you’ll need to get a personal access token, as described in
+<a href="#github">the forge documentation</a>. Let’s assume you put
+your token into <code>~/.github_token</code> (please don’t if you’re doing this “for
+real”!)</p>
+<p>Let’s first see what kind of repos we can find:</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/ --format yaml
 ---
 trees: []
 $
 </code></pre>
 <p>Ummm, ok? No repos? This is because you have to <em>tell</em> GRM what to look for (if
-you don't, GRM will just relax, as it's lazy).</p>
-<p>There are different filters (see <a href="./forge_integration.html#filters">the forge
+you don’t, GRM will just relax, as it’s lazy).</p>
+<p>There are different filters (see <a href="#filters">the forge
 documentation</a> for more info). In our case,
-we'll just use the <code>--owner</code> filter to get all repos that belong to us:</p>
+we’ll just use the <code>--owner</code> filter to get all repos that belong to us:</p>
 <pre><code class="language-bash">$ grm repos find remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/ --format yaml
 ---
 trees:
@@ -347,15 +360,15 @@ above. But there is an even easier way: We can directly clone the repositories!<
 [✔] git-repo-manager: Repository successfully cloned
 [✔] git-repo-manager: OK
 </code></pre>
-<p>Nice! Just to make sure, let's run the same command again:</p>
+<p>Nice! Just to make sure, let’s run the same command again:</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --token-command "cat ~/.github_token" --root ~/code/github.com/
 [✔] git-repo-manager: OK
 </code></pre>
-<p>GRM saw that the repository is already there and did nothing (remember, it's
+<p>GRM saw that the repository is already there and did nothing (remember, it’s
 lazy).</p>
 <h2 id="using-worktrees"><a class="header" href="#using-worktrees">Using worktrees</a></h2>
 <p>Worktrees are something that make it easier to work with multiple branches at
-the same time in a repository.  Let's say we wanted to hack on the codebase of
+the same time in a repository.  Let’s say we wanted to hack on the codebase of
 GRM:</p>
 <pre><code class="language-bash">$ cd ~/code/github.com/git-repo-manager
 $ ls
@@ -363,7 +376,7 @@ $ ls
 Cargo.toml
 ...
 </code></pre>
-<p>Well, this is just a normal git repository. But let's try worktrees! First, we
+<p>Well, this is just a normal git repository. But let’s try worktrees! First, we
 have to convert the existing repository to use the special worktree setup. For
 all worktree operations, we will use <code>grm worktree</code> (or <code>grm wt</code> for short):</p>
 <pre><code class="language-bash">$ grm wt convert
@@ -372,7 +385,7 @@ $ ls
 $
 </code></pre>
 <p>So, the code is gone? Not really, there is just no active worktree right now. So
-let's add one for <code>master</code>:</p>
+let’s add one for <code>master</code>:</p>
 <pre><code class="language-bash">$ grm wt add master --track origin/master
 [✔] Conversion done
 $ ls
@@ -382,7 +395,7 @@ On branch master
 nothing to commit, working tree clean
 </code></pre>
 <p>Now, a single worktree is kind of pointless (if we only have one, we could also
-just use the normal setup, without worktrees). So let's another one for
+just use the normal setup, without worktrees). So let’s another one for
 <code>develop</code>:</p>
 <pre><code class="language-bash">$ grm wt add develop --track origin/develop
 [✔] Conversion done
@@ -393,19 +406,20 @@ $ (cd ./develop &amp;&amp; git status)
 On branch develop
 nothing to commit, working tree clean
 </code></pre>
-<p>What's the point? The cool thing is that we can now start working in the
-<code>develop</code> worktree, without affecting the <code>master</code> worktree at all. If you're
+<p>What’s the point? The cool thing is that we can now start working in the
+<code>develop</code> worktree, without affecting the <code>master</code> worktree at all. If you’re
 working on <code>develop</code> and want to quickly see what a certain file looks like in
-<code>master</code>, just look inside <code>./master</code>, it's all there!</p>
+<code>master</code>, just look inside <code>./master</code>, it’s all there!</p>
 <p>This becomes especially interesting when you have many feature branches and are
 working on multiple features at the same time.</p>
 <p>There are a lot of options that influence how worktrees are handled. Maybe you
 want to automatically track <code>origin/master</code> when you add a worktree called
-<code>master</code>?  Maybe you want your feature branches to have a prefix, so when you're
+<code>master</code>?  Maybe you want your feature branches to have a prefix, so when you’re
 working on the <code>feature1</code> worktree, the remote branch will be
-<code>origin/awesomefeatures/feature1</code>? Check out <a href="./worktrees.html">the chapter on
+<code>origin/awesomefeatures/feature1</code>? Check out <a href="#git-worktrees">the chapter on
 worktrees</a> for all the things that are possible.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="managing-repositories"><a class="header" href="#managing-repositories">Managing Repositories</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="managing-repositories"><a class="header" href="#managing-repositories">Managing Repositories</a></h1>
 <p>GRM helps you manage a bunch of git repositories easily. There are generally two
 ways to go about that:</p>
 <p>You can either manage a list of repositories in a TOML or YAML file, and use GRM
@@ -414,17 +428,18 @@ to sync the configuration with the state of the repository.</p>
 clone the repositories.</p>
 <p>There are also hybrid modes where you pull information from a forge and create a
 configuration file that you can use later.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="local-configuration"><a class="header" href="#local-configuration">Local Configuration</a></h1>
-<p>When managing multiple git repositories with GRM, you'll generally have a
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="local-configuration"><a class="header" href="#local-configuration">Local Configuration</a></h1>
+<p>When managing multiple git repositories with GRM, you’ll generally have a
 configuration file containing information about all the repos you have. GRM then
-makes sure that you repositories match that configuration. If they don't exist
+makes sure that you repositories match that configuration. If they don’t exist
 yet, it will clone them. It will also make sure that all remotes are configured
 properly.</p>
-<p>Let's try it out:</p>
+<p>Let’s try it out:</p>
 <h2 id="get-the-example-configuration"><a class="header" href="#get-the-example-configuration">Get the example configuration</a></h2>
 <pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSfO https://raw.githubusercontent.com/hakoerber/git-repo-manager/master/example.config.toml
 </code></pre>
-<p>Then, you're ready to run the first sync. This will clone all configured
+<p>Then, you’re ready to run the first sync. This will clone all configured
 repositories and set up the remotes.</p>
 <pre><code class="language-bash">$ grm repos sync config --config example.config.toml
 [⚙] Cloning into "/home/me/projects/git-repo-manager" from "https://code.hkoerber.de/hannes/git-repo-manager.git"
@@ -462,7 +477,7 @@ a regex that will be test against the path of each discovered repository:</p>
 │ dotfiles         ┆          ┆ ✔      ┆                   ┆ Empty  ┆ origin  │
 ╰──────────────────┴──────────┴────────┴───────────────────┴────────┴─────────╯
 </code></pre>
-<p>You can also use <code>status</code> without <code>--config</code> to check the repository you're
+<p>You can also use <code>status</code> without <code>--config</code> to check the repository you’re
 currently in:</p>
 <pre><code class="language-bash">$ cd ~/example-projects/dotfiles
 $ grm repos status
@@ -476,7 +491,8 @@ $ grm repos status
 <p>By default, the repo configuration uses TOML. If you prefer YAML, just give it a
 YAML file instead (file ending does not matter, <code>grm</code> will figure out the
 format). For generating a configuration, pass <code>--format yaml</code> to <code>grm repo find</code> which generates a YAML configuration instead of a TOML configuration.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="forge-integrations"><a class="header" href="#forge-integrations">Forge Integrations</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="forge-integrations"><a class="header" href="#forge-integrations">Forge Integrations</a></h1>
 <p>In addition to managing repositories locally, <code>grm</code> also integrates with source
 code hosting platforms. Right now, the following platforms are supported:</p>
 <ul>
@@ -495,7 +511,7 @@ token.</p>
 <h3 id="github"><a class="header" href="#github">GitHub</a></h3>
 <p>See the GitHub documentation for personal access tokens:
 <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token">Link</a>.</p>
-<p>When using a fine-grained access token, only "Read" access for the "Metadata" permissions are required (cloning will use
+<p>When using a fine-grained access token, only “Read” access for the “Metadata” permissions are required (cloning will use
 unauthorized HTTPS for public repos or SSH for private repos, not the personal access token!)</p>
 <h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
 <p>See the GitLab documentation for personal access tokens:
@@ -507,12 +523,12 @@ authenticated user name for the <code>--owner</code> filter.</li>
 <li>A scope that allows reading private repositories. (<code>read_repository</code> is just
 for <em>cloning</em> private repos). This unfortunately does not exist.</li>
 </ul>
-<p>So currently, you'll need to select the <code>read_api</code> scope.</p>
+<p>So currently, you’ll need to select the <code>read_api</code> scope.</p>
 <h2 id="filters"><a class="header" href="#filters">Filters</a></h2>
 <p>By default, <code>grm</code> will sync <strong>nothing</strong>. This is quite boring, so you have to
 tell the command what repositories to include. They are all inclusive (i.e. act
 as a logical OR), so you can easily chain many filters to clone a bunch of
-repositories. It's quite simple:</p>
+repositories. It’s quite simple:</p>
 <ul>
 <li><code>--user &lt;USER&gt;</code> syncs all repositories of that remote user</li>
 <li><code>--group &lt;GROUP&gt;</code> syncs all repositories of that remote group/organization</li>
@@ -523,13 +539,13 @@ This is effectively a shortcut for <code>--user $YOUR_USER</code></li>
 <p>Easiest to see in an example:</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --user torvals --owner --group zalando [...]
 </code></pre>
-<p>This would sync all of Torvald's repositories, all of my own repositories and
-all (public) repositories in the "zalando" group.</p>
+<p>This would sync all of Torvald’s repositories, all of my own repositories and
+all (public) repositories in the “zalando” group.</p>
 <h2 id="strategies"><a class="header" href="#strategies">Strategies</a></h2>
 <p>There are generally three ways how you can use <code>grm</code> with forges:</p>
 <h3 id="ad-hoc-cloning"><a class="header" href="#ad-hoc-cloning">Ad-hoc cloning</a></h3>
 <p>This is the easiest, there are no local files involved. You just run the
-command, <code>grm</code> clones the repos, that's it. If you run the command again, <code>grm</code>
+command, <code>grm</code> clones the repos, that’s it. If you run the command again, <code>grm</code>
 will figure out the differences between local and remote repositories and
 resolve them locally.</p>
 <h3 id="create-a-file"><a class="header" href="#create-a-file">Create a file</a></h3>
@@ -554,7 +570,7 @@ groups = [
 ]
 </code></pre>
 <p>The options in the file map to the command line options of the <code>grm repos sync remote</code> command.</p>
-<p>You'd then run the <code>grm repos sync</code> command the same way as with a list of
+<p>You’d then run the <code>grm repos sync</code> command the same way as with a list of
 repositories in a configuration:</p>
 <pre><code class="language-bash">$ grm repos sync --config example.config.toml
 </code></pre>
@@ -590,7 +606,7 @@ and return the token as the first line of stdout.</p>
 <p>This will clone all repositories into
 <code>~/github_projects/{your_github_username}</code>.</p>
 <p>If instead you want to clone <strong>all</strong> repositories you have access to (e.g. via
-organizations or other users' private repos you have access to), just change the
+organizations or other users’ private repos you have access to), just change the
 filter a little bit:</p>
 <pre><code class="language-bash">$ grm repos sync remote --provider github --access --root ~/github_projects --token-command "pass show github_grm_access_token"
 </code></pre>
@@ -602,7 +618,7 @@ repositories for a certain user
 only returns public repositories).</p>
 <p>Therefore, using <code>--user {user}</code> will only show public repositories for GitHub.
 Note that this does not apply to <code>--access</code>: If you have access to another
-user's private repository, it will be listed.</p>
+user’s private repository, it will be listed.</p>
 <h2 id="adding-integrations"><a class="header" href="#adding-integrations">Adding integrations</a></h2>
 <p>Adding a new integration involves writing some Rust code. Most of the logic is
 generic, so you will not have to reinvent the wheel. Generally, you will need to
@@ -624,40 +640,41 @@ repositories)</li>
 <li>A flag that marks the repository as private</li>
 </ul>
 <p>If you plan to implement another forge, please first open an issue so we can go
-through the required setup. I'm happy to help!</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="git-worktrees"><a class="header" href="#git-worktrees">Git Worktrees</a></h1>
+through the required setup. I’m happy to help!</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="git-worktrees"><a class="header" href="#git-worktrees">Git Worktrees</a></h1>
 <h2 id="why"><a class="header" href="#why">Why?</a></h2>
 <p>The default workflow when using git is having your repository in a single
 directory.  Then, you can check out a certain reference (usually a branch),
 which will update the files in the directory to match the state of that
 reference. Most of the time, this is exactly what you need and works perfectly.
-But especially when you're working with branches a lot, you may notice that
+But especially when you’re working with branches a lot, you may notice that
 there is a lot of work required to make everything run smoothly.</p>
-<p>Maybe you have experienced the following: You're working on a feature branch.
+<p>Maybe you have experienced the following: You’re working on a feature branch.
 Then, for some reason, you have to change branches (maybe to investigate some
 issue).  But you get the following:</p>
 <pre><code>error: Your local changes to the following files would be overwritten by checkout
 </code></pre>
 <p>Now you can create a temporary commit or stash your changes. In any case, you
 have some mental overhead before you can work on something else. Especially with
-stashes, you'll have to remember to do a <code>git stash pop</code> before resuming your
-work (I cannot count the number of times where I "rediscovered" some code hidden
+stashes, you’ll have to remember to do a <code>git stash pop</code> before resuming your
+work (I cannot count the number of times where I “rediscovered” some code hidden
 in some old stash I forgot about). Also, conflicts on a <code>git stash pop</code> are just
 horrible.</p>
-<p>And even worse: If you're currently in the process of resolving merge conflicts
-or an interactive rebase, there is just no way to "pause" this work to check out
+<p>And even worse: If you’re currently in the process of resolving merge conflicts
+or an interactive rebase, there is just no way to “pause” this work to check out
 a different branch.</p>
-<p>Sometimes, it's crucial to have an unchanging state of your repository until
-some long-running process finishes. I'm thinking of Ansible and Terraform runs.
-I'd rather not change to a different branch while ansible or Terraform are
-running as I have no idea how those tools would behave (and I'm not too eager to
+<p>Sometimes, it’s crucial to have an unchanging state of your repository until
+some long-running process finishes. I’m thinking of Ansible and Terraform runs.
+I’d rather not change to a different branch while ansible or Terraform are
+running as I have no idea how those tools would behave (and I’m not too eager to
 find out).</p>
 <p>In any case, Git Worktrees are here for the rescue:</p>
 <h2 id="what-are-git-worktrees"><a class="header" href="#what-are-git-worktrees">What are git worktrees?</a></h2>
 <p><a href="https://git-scm.com/docs/git-worktree">Git Worktrees</a> allow you to have
 multiple independent checkouts of your repository on different directories. You
 can have multiple directories that correspond to different references in your
-repository.  Each worktree has it's independent working tree (duh) and index, so
+repository.  Each worktree has it’s independent working tree (duh) and index, so
 there is no way to run into conflicts. Changing to a different branch is just a
 <code>cd</code> away (if the worktree is already set up).</p>
 <h2 id="worktrees-in-grm"><a class="header" href="#worktrees-in-grm">Worktrees in GRM</a></h2>
@@ -666,10 +683,10 @@ Opinionated, because there is a single invariant that makes reasoning about your
 worktree setup quite easy:</p>
 <p><strong>The branch inside the worktree is always the same as the directory name of the
 worktree.</strong></p>
-<p>In other words: If you're checking out branch <code>mybranch</code> into a new worktree,
+<p>In other words: If you’re checking out branch <code>mybranch</code> into a new worktree,
 the worktree directory will be named <code>mybranch</code>.</p>
-<p>GRM can be used with both "normal" and worktree-enabled repositories. But note
-that a single repository can be either the former or the latter. You'll have to
+<p>GRM can be used with both “normal” and worktree-enabled repositories. But note
+that a single repository can be either the former or the latter. You’ll have to
 decide during the initial setup which way you want to go for that repository.</p>
 <p>If you want to clone your repository in a worktree-enabled way, specify
 <code>worktree_setup = true</code> for the repository in your <code>config.toml</code>:</p>
@@ -677,15 +694,15 @@ decide during the initial setup which way you want to go for that repository.</p
 name = "git-repo-manager"
 worktree_setup = true
 </code></pre>
-<p>Now, when you run a <code>grm sync</code>, you'll notice that the directory of the
+<p>Now, when you run a <code>grm sync</code>, you’ll notice that the directory of the
 repository is empty! Well, not totally, there is a hidden directory called
-<code>.git-main-working-tree</code>.  This is where the repository actually "lives" (it's a
+<code>.git-main-working-tree</code>.  This is where the repository actually “lives” (it’s a
 bare checkout).</p>
 <p>Note that there are few specific things you can configure for a certain
 workspace.  This is all done in an optional <code>grm.toml</code> file right in the root of
 the worktree. More on that later.</p>
 <h2 id="manual-access"><a class="header" href="#manual-access">Manual access</a></h2>
-<p>GRM isn't doing any magic, it's just git under the hood. If you need to have
+<p>GRM isn’t doing any magic, it’s just git under the hood. If you need to have
 access to the underlying git repository, you can always do this:</p>
 <pre><code>$ git --git-dir ./.git-main-working-tree [...]
 </code></pre>
@@ -693,36 +710,37 @@ access to the underlying git repository, you can always do this:</p>
 this a bug in GRM and open an
 <a href="https://github.com/hakoerber/git-repo-manager/issues/new">issue</a>, but it may
 help in a pinch.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="working-with-worktrees"><a class="header" href="#working-with-worktrees">Working with Worktrees</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="working-with-worktrees"><a class="header" href="#working-with-worktrees">Working with Worktrees</a></h1>
 <h2 id="creating-a-new-worktree"><a class="header" href="#creating-a-new-worktree">Creating a new worktree</a></h2>
-<p>To actually work, you'll first have to create a new worktree checkout. All
+<p>To actually work, you’ll first have to create a new worktree checkout. All
 worktree-related commands are available as subcommands of <code>grm worktree</code> (or
 <code>grm wt</code> for short):</p>
 <pre><code>$ grm wt add mybranch
 [✔] Worktree mybranch created
 </code></pre>
-<p>You'll see that there is now a directory called <code>mybranch</code> that contains a
+<p>You’ll see that there is now a directory called <code>mybranch</code> that contains a
 checkout of your repository, using the branch <code>mybranch</code></p>
 <pre><code class="language-bash">$ cd ./mybranch &amp;&amp; git status
 On branch mybranch
 nothing to commit, working tree clean
 </code></pre>
 <p>You can work in this repository as usual. Make changes, commit them, revert
-them, whatever you're up to :)</p>
+them, whatever you’re up to :)</p>
 <p>Just note that you <em>should</em> not change the branch inside the worktree directory.
-There is nothing preventing you from doing so, but you will notice that you'll
+There is nothing preventing you from doing so, but you will notice that you’ll
 run into problems when trying to remove a worktree (more on that later). It may
 also lead to confusing behavior, as there can be no two worktrees that have the
 same branch checked out. So if you decide to use the worktree setup, go all in,
 let <code>grm</code> manage your branches and bury <code>git branch</code> (and <code>git checkout -b</code>).</p>
 <p>You will notice that there is no tracking branch set up for the new branch. You
 can of course set up one manually after creating the worktree, but there is an
-easier way, using the <code>--track</code> flag during creation. Let's create another
+easier way, using the <code>--track</code> flag during creation. Let’s create another
 worktree. Go back to the root of the repository, and run:</p>
 <pre><code class="language-bash">$ grm wt add mybranch2 --track origin/mybranch2
 [✔] Worktree mybranch2 created
 </code></pre>
-<p>You'll see that this branch is now tracking <code>mybranch</code> on the <code>origin</code> remote:</p>
+<p>You’ll see that this branch is now tracking <code>mybranch</code> on the <code>origin</code> remote:</p>
 <pre><code class="language-bash">$ cd ./mybranch2 &amp;&amp; git status
 On branch mybranch
 
@@ -738,7 +756,7 @@ local branch.</li>
 new remote tracking branch, using the default branch (either <code>main</code> or
 <code>master</code>) as the base</li>
 </ul>
-<p>Often, you'll have a workflow that uses tracking branches by default. It would
+<p>Often, you’ll have a workflow that uses tracking branches by default. It would
 be quite tedious to add <code>--track</code> every single time. Luckily, the <code>grm.toml</code>
 file supports defaults for the tracking behavior. See this for an example:</p>
 <pre><code class="language-toml">[track]
@@ -771,12 +789,12 @@ the following in the root of your repository:</p>
 │ mybranch2 ┆ ✔      ┆ mybranch ┆ origin/mybranch2 │
 ╰───────────┴────────┴──────────┴──────────────────╯
 </code></pre>
-<p>The "Status" column would show any uncommitted changes (new / modified / deleted
-files) and the "Remote branch" would show differences to the remote branch (e.g.
+<p>The “Status” column would show any uncommitted changes (new / modified / deleted
+files) and the “Remote branch” would show differences to the remote branch (e.g.
 if there are new pushes to the remote branch that are not yet incorporated into
 your local branch).</p>
 <h2 id="deleting-worktrees"><a class="header" href="#deleting-worktrees">Deleting worktrees</a></h2>
-<p>If you're done with your worktrees, use <code>grm wt delete</code> to delete them. Let's
+<p>If you’re done with your worktrees, use <code>grm wt delete</code> to delete them. Let’s
 start with <code>mybranch2</code>:</p>
 <pre><code>$ grm wt delete mybranch2
 [✔] Worktree mybranch2 deleted
@@ -786,14 +804,14 @@ start with <code>mybranch2</code>:</p>
 [!] Changes in worktree: No remote tracking branch for branch mybranch found. Refusing to delete
 </code></pre>
 <p>Hmmm. <code>grm</code> tells you:</p>
-<p>"Hey, there is no remote branch that you could have pushed your changes to. I'd
-rather not delete work that you cannot recover."</p>
+<p>“Hey, there is no remote branch that you could have pushed your changes to. I’d
+rather not delete work that you cannot recover.”</p>
 <p>Note that <code>grm</code> is very cautious here. As your repository will not be deleted,
 you could still recover the commits via
 <a href="https://git-scm.com/docs/git-reflog"><code>git-reflog</code></a>.  But better safe than
-sorry! Note that you'd get a similar error message if your worktree had any
+sorry! Note that you’d get a similar error message if your worktree had any
 uncommitted files, for the same reason. Now you can either commit &amp; push your
-changes, or your tell <code>grm</code> that you know what you're doing:</p>
+changes, or your tell <code>grm</code> that you know what you’re doing:</p>
 <pre><code>$ grm wt delete mybranch --force
 [✔] Worktree mybranch deleted
 </code></pre>
@@ -813,7 +831,8 @@ to convert:</p>
 Commit them and try again!</p>
 <p>Afterwards, the directory is empty, as there are no worktrees checked out yet.
 Now you can use the usual commands to set up worktrees.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="worktrees-and-remotes"><a class="header" href="#worktrees-and-remotes">Worktrees and Remotes</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="worktrees-and-remotes"><a class="header" href="#worktrees-and-remotes">Worktrees and Remotes</a></h1>
 <p>To fetch all remote references from all remotes in a worktree setup, you can use
 the following command:</p>
 <pre><code>$ grm wt fetch
@@ -852,9 +871,9 @@ on non-fast-forwards:</p>
 [✔] master: Done
 [✔] my-cool-branch: Done
 </code></pre>
-<p>"So, what's the difference between <code>pull --rebase</code> and <code>rebase --pull</code>? Why the
-hell is there a <code>--rebase</code> flag in the <code>rebase</code> command?"</p>
-<p>Yes, it's kind of weird. Remember that <code>pull</code> only ever updates each worktree to
+<p>“So, what’s the difference between <code>pull --rebase</code> and <code>rebase --pull</code>? Why the
+hell is there a <code>--rebase</code> flag in the <code>rebase</code> command?”</p>
+<p>Yes, it’s kind of weird. Remember that <code>pull</code> only ever updates each worktree to
 their remote branch, if possible. <code>rebase</code> rebases onto the <strong>default</strong> branch
 instead. The switches to <code>rebase</code> are just convenience, so you do not have to
 run two commands.</p>
@@ -867,7 +886,8 @@ improvement, please let me know (e.g. via an GitHub issue)!</p>
 <p>As with <code>pull</code>, <code>rebase</code> will also refuse to run when there are changes in your
 worktree. And you can also use the <code>--stash</code> option to stash/unstash changes
 automatically.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="behavior-details"><a class="header" href="#behavior-details">Behavior Details</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="behavior-details"><a class="header" href="#behavior-details">Behavior Details</a></h1>
 <p>When working with worktrees and GRM, there is a lot going on under the hood.
 Each time you create a new worktree, GRM has to figure out what commit to set
 your new branch to and how to configure any potential remote branches.</p>
@@ -889,13 +909,15 @@ branch</li>
 little surprising as possible.</p>
 <p>In 99% of the cases, you will not have to care about the details, as the normal
 workflows are covered by the rules above. In case you want to know the exact
-behavior "specification", take a look at the <a href="https://docs.rs/git-repo-manager/latest/grm/worktree/index.html">module documentation for
+behavior “specification”, take a look at the <a href="https://docs.rs/git-repo-manager/latest/grm/worktree/index.html">module documentation for
 <code>grm::worktree</code></a>.</p>
 <p>If you think existing behavior is super-duper confusing and you have a better
 idea, do not hesitate to open a GitHub issue to discuss this!</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="faq"><a class="header" href="#faq">FAQ</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="faq"><a class="header" href="#faq">FAQ</a></h1>
 <p>Currently empty, as there are no questions that are asked frequently :D</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="overview-1"><a class="header" href="#overview-1">Overview</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="overview-1"><a class="header" href="#overview-1">Overview</a></h1>
 <p>GRM is still in very early development. I started GRM mainly to scratch my own
 itches (and am heavily dogfooding it). If you have a new use case for GRM, go
 for it!</p>
@@ -908,7 +930,7 @@ discuss it.</p>
 <p>The branching strategy is a simplified
 <a href="https://nvie.com/posts/a-successful-git-branching-model/">git-flow</a>.</p>
 <ul>
-<li><code>master</code> is the "production" branch. Each commit is a new release.</li>
+<li><code>master</code> is the “production” branch. Each commit is a new release.</li>
 <li><code>develop</code> is the branch where new stuff is coming in.</li>
 <li>feature branches branch off of <code>develop</code> and merge back into it.</li>
 </ul>
@@ -921,7 +943,7 @@ discuss it.</p>
 <li>Python3</li>
 <li><a href="https://github.com/casey/just"><code>just</code></a>, a command runner like <code>make</code>. See
 <a href="https://github.com/casey/just#installation">here</a> for installation
-instructions (it's most likely just a simple <code>cargo install just</code>).</li>
+instructions (it’s most likely just a simple <code>cargo install just</code>).</li>
 <li>Podman &amp; podman-compose for the e2e tests</li>
 <li><code>isort</code>, <code>black</code> and <code>shfmt</code> for formatting.</li>
 <li><code>ruff</code> and <code>shellcheck</code> for linting.</li>
@@ -929,15 +951,21 @@ instructions (it's most likely just a simple <code>cargo install just</code>).</
 <li><code>mdbook</code> for the documentation</li>
 </ul>
 <p>Here are the tools:</p>
-<div class="table-wrapper"><table><thead><tr><th>Distribution</th><th>Command</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Distribution</th><th>Command</th></tr>
+</thead>
+<tbody>
 <tr><td>Arch Linux</td><td><code>pacman -S --needed python3 rustup just podman podman-compose python-black shfmt shellcheck mdbook python-tomlkit</code></td></tr>
 <tr><td>Ubuntu/Debian</td><td><code>apt-get install --no-install-recommends python3 podman podman-compose black shellcheck python3-tomlkit</code></td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <p>Note that you will have to install <code>just</code> and <code>mdbook</code> manually on Ubuntu (e.g.
 via <code>cargo install just mdbook</code> if your rust build environment is set up
 correctly). Same for <code>shfmt</code>, which may just be a <code>go install mvdan.cc/sh/v3/cmd/shfmt@latest</code>, depending on your go build environment.</p>
-<p>For details about rustup and the toolchains, see <a href="./installation.html">the installation
+<p>For details about rustup and the toolchains, see <a href="#installation">the installation
 section</a>.</p>
 <h2 id="development-environment-with-nix"><a class="header" href="#development-environment-with-nix">Development Environment with <a href="https://nixos.org">Nix</a></a></h2>
 <p>Enter a development shell with all tools and dependencies:</p>
@@ -970,7 +998,8 @@ section</a>.</p>
 <h3 id="developing-nix"><a class="header" href="#developing-nix">Developing Nix</a></h3>
 <p>The crate is built using <a href="https://github.com/ipetkov/crane">Crane</a>.</p>
 <p>Format code with <a href="https://github.com/kamadorueda/alejandra">alejandra</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="testing"><a class="header" href="#testing">Testing</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="testing"><a class="header" href="#testing">Testing</a></h1>
 <p>There are two distinct test suites: One for unit test (<code>just test-unit</code>) and
 integration tests (<code>just test-integration</code>) that is part of the rust crate, and
 a separate e2e test suite in python (<code>just test-e2e</code>).</p>
@@ -994,13 +1023,13 @@ files)</li>
 <li>Run <code>grm</code></li>
 <li>Check that everything is according to expected behavior (e.g. that <code>grm</code> had
 certain output and exit code, that the target repositories have certain
-branches, heads and remotes, ...)</li>
+branches, heads and remotes, …)</li>
 </ul>
 <p>As there are many different scenarios, the tests make heavy use of the
 <a href="https://docs.pytest.org/en/stable/how-to/parametrize.html#pytest-mark-parametrize"><code>@pytest.mark.parametrize</code></a>
 decorator to get all permutations of input parameters (e.g. whether a
 configuration exists, what a config value is set to, how the repository looks
-like, ...)</p>
+like, …)</p>
 <p>Whenever you write a new test, think about the different circumstances that can
 happen. What are the failure modes? What affects the behavior? Parametrize each
 of these behaviors.</p>
@@ -1010,8 +1039,8 @@ of these behaviors.</p>
 run. As a general rule, comprehensiveness is more important than test suite
 runtime (so if in doubt, better to add another parameter to catch every edge
 case). But try to keep the total runtime sane. Currently, the whole <code>just test-e2e</code>
-target runs ~8'000 tests and takes around 5 minutes on my machine, exlucding
-binary and podman build time. I'd say that keeping it under 10 minutes is a good
+target runs ~8’000 tests and takes around 5 minutes on my machine, exlucding
+binary and podman build time. I’d say that keeping it under 10 minutes is a good
 idea.</p>
 <p>To optimize tests, look out for two patterns: Dependency and Orthogonality</p>
 <h4 id="dependency"><a class="header" href="#dependency">Dependency</a></h4>
@@ -1061,7 +1090,8 @@ def test_param2(...):
 <p>The tests are running in podman via podman-compose. This is mainly needed to
 test networking functionality like GitLab integration, with the GitLab API being
 mocked by a simple flask container.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="dependency-updates"><a class="header" href="#dependency-updates">Dependency updates</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="dependency-updates"><a class="header" href="#dependency-updates">Dependency updates</a></h1>
 <p>Rust has the same problem as the node ecosystem, just a few magnitudes smaller:
 Dependency sprawl. GRM has a dozen direct dependencies, but over 150 transitive
 ones.</p>
@@ -1069,7 +1099,8 @@ ones.</p>
 <code>update-cargo-dependencies.py</code>. It updates direct dependencies to the
 latest stable version and updates transitive dependencies where possible. To run
 it, use <code>just update-dependencies</code>, which will create commits for each update.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="releases"><a class="header" href="#releases">Releases</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="releases"><a class="header" href="#releases">Releases</a></h1>
 <p>To make a release, make sure you are on a clean <code>develop</code> branch, sync your
 remotes and then run <code>./release (major|minor|patch)</code>. It will handle a
 git-flow-y release, meaning that it will perform a merge from <code>develop</code> to
@@ -1079,26 +1110,27 @@ broken.</p>
 <p>As GRM is still <code>v0.x</code>, there is not much consideration for backwards
 compatibility. Generally, update the patch version for small stuff and the minor
 version for bigger / backwards incompatible changes.</p>
-<p>Generally, it's good to regularly release a new patch release with <a href="./dependency_updates.html">updated
+<p>Generally, it’s good to regularly release a new patch release with <a href="#dependency-updates">updated
 dependencies</a>. As <code>./release.sh patch</code> is exposed as a
-Justfile target (<code>release-patch</code>), it's possible to do both in one step:</p>
+Justfile target (<code>release-patch</code>), it’s possible to do both in one step:</p>
 <pre><code class="language-bash">$ just update-dependencies check release-patch
 </code></pre>
 <h2 id="release-notes"><a class="header" href="#release-notes">Release notes</a></h2>
 <p>There are currently no release notes. Things are changing quite quickly and
 there is simply no need for a record of changes (except the git history of
 course).</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="formatting--style"><a class="header" href="#formatting--style">Formatting &amp; Style</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="formatting--style"><a class="header" href="#formatting--style">Formatting &amp; Style</a></h1>
 <h2 id="code-formatting"><a class="header" href="#code-formatting">Code formatting</a></h2>
-<p>I'm allergic to discussions about formatting. I'd rather make the computer do it
+<p>I’m allergic to discussions about formatting. I’d rather make the computer do it
 for me.</p>
 <p>For Rust, just use <code>cargo fmt</code>. For Python, use
-<a href="https://github.com/psf/black">black</a>. I'd rather not spend any effort in
+<a href="https://github.com/psf/black">black</a>. I’d rather not spend any effort in
 configuring the formatters (not possible for black anyway). For shell scripts,
 use <a href="https://github.com/mvdan/sh"><code>shfmt</code></a>.</p>
 <p>To autoformat all code, use <code>just fmt</code></p>
 <h2 id="style"><a class="header" href="#style">Style</a></h2>
-<p>Honestly, no idea about style. I'm still learning Rust, so I'm trying to find a
+<p>Honestly, no idea about style. I’m still learning Rust, so I’m trying to find a
 good style. Just try to keep it consistent when you add code.</p>
 <h2 id="linting"><a class="header" href="#linting">Linting</a></h2>
 <p>You can use <code>just lint</code> to run all lints.</p>
@@ -1119,7 +1151,8 @@ too important.</p>
 <p>Any <code>unsafe</code> code is forbidden for now globally via <code>#![forbid(unsafe_code)]</code>.
 I cannot think of any reason GRM may need <code>unsafe</code>. If it comes up, it needs to
 be discussed.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="documentation"><a class="header" href="#documentation">Documentation</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="documentation"><a class="header" href="#documentation">Documentation</a></h1>
 <p>The documentation lives in the <code>docs</code> folder and uses
 <a href="https://github.com/rust-lang/mdBook">mdBook</a>. Please document new user-facing
 features here!</p>
@@ -1145,6 +1178,11 @@ homepage</a> via GitHub pages. See
 
         </div>
 
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
 
 
 
@@ -1153,13 +1191,13 @@ homepage</a> via GitHub pages. See
         </script>
 
 
-        <script src="elasticlunr.min.js"></script>
-        <script src="mark.min.js"></script>
-        <script src="searcher.js"></script>
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
 
-        <script src="clipboard.min.js"></script>
-        <script src="highlight.js"></script>
-        <script src="book.js"></script>
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
 
