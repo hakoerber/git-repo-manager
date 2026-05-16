@@ -22,7 +22,7 @@ repository = "https://github.com/hakoerber/git-repo-manager"
 
 readme = "README.md"
 
-rust-version = "1.85.1"
+rust-version = "1.88.0"
 
 license = "GPL-3.0-only"
 
