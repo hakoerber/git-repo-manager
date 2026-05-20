@@ -20,6 +20,9 @@ pub enum GitlabVisibility {
 }
 
 #[derive(Deserialize)]
+pub struct ParentProject;
+
+#[derive(Deserialize)]
 pub struct GitlabProject {
     #[serde(rename = "path")]
     pub name: String,
@@ -27,6 +30,7 @@ pub struct GitlabProject {
     pub http_url_to_repo: String,
     pub ssh_url_to_repo: String,
     pub visibility: GitlabVisibility,
+    pub forked_from_project: Option<ParentProject>,
 }
 
 #[derive(Deserialize)]
@@ -57,6 +61,10 @@ impl Project for GitlabProject {
 
     fn private(&self) -> bool {
         !matches!(self.visibility, GitlabVisibility::Public)
+    }
+
+    fn is_fork(&self) -> bool {
+        self.forked_from_project.is_some()
     }
 }
 

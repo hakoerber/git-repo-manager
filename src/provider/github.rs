@@ -18,6 +18,8 @@ pub struct GithubProject {
     pub clone_url: String,
     pub ssh_url: String,
     pub private: bool,
+    #[serde(rename = "fork")]
+    pub is_fork: bool,
 }
 
 #[derive(Deserialize)]
@@ -49,6 +51,10 @@ impl Project for GithubProject {
 
     fn private(&self) -> bool {
         self.private
+    }
+
+    fn is_fork(&self) -> bool {
+        self.is_fork
     }
 }
 

@@ -64,6 +64,7 @@ pub struct ConfigProviderFilter {
     pub owner: Option<bool>,
     pub users: Option<Vec<User>>,
     pub groups: Option<Vec<Group>>,
+    pub fork: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
