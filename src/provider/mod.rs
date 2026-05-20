@@ -1,8 +1,10 @@
+pub mod gitea;
 pub mod github;
 pub mod gitlab;
 
 use std::{borrow::Cow, collections::HashMap, fmt};
 
+pub use gitea::Gitea;
 pub use github::Github;
 pub use gitlab::Gitlab;
 use thiserror::Error;
@@ -86,12 +88,15 @@ pub enum Error {
     Response(String),
     #[error("Provider error: {0}")]
     Provider(String),
+    #[error("Provider usage error: {0}")]
+    Usage(String),
 }
 
 #[derive(Debug, clap::ValueEnum, Clone)]
 pub enum RemoteProvider {
     Github,
     Gitlab,
+    Gitea,
 }
 
 impl From<config::RemoteProvider> for RemoteProvider {
@@ -99,6 +104,7 @@ impl From<config::RemoteProvider> for RemoteProvider {
         match other {
             config::RemoteProvider::Github => Self::Github,
             config::RemoteProvider::Gitlab => Self::Gitlab,
+            config::RemoteProvider::Gitea => Self::Gitea,
         }
     }
 }
@@ -265,17 +271,13 @@ pub trait Provider {
     type Project: serde::de::DeserializeOwned + Project;
     type Error: serde::de::DeserializeOwned + JsonError;
 
-    fn new(
-        filter: Filter,
-        secret_token: auth::AuthToken,
-        api_url_override: Option<Url>,
-    ) -> Result<Self, Error>
+    const AUTH_HEADER_KEY: &'static str;
+
+    fn new(secret_token: auth::AuthToken, api_url_override: Option<Url>) -> Result<Self, Error>
     where
         Self: Sized;
 
-    fn filter(&self) -> &Filter;
     fn secret_token(&self) -> &auth::AuthToken;
-    fn auth_header_key() -> &'static str;
 
     fn get_user_projects(&self, user: &User) -> Result<Vec<Self::Project>, ApiError<Self::Error>>;
 
@@ -312,7 +314,7 @@ pub trait Provider {
                 "authorization",
                 &format!(
                     "{} {}",
-                    Self::auth_header_key(),
+                    Self::AUTH_HEADER_KEY,
                     &self.secret_token().access()
                 ),
             )
@@ -353,15 +355,16 @@ pub trait Provider {
         }
     }
 
-    fn get_repos(
+    fn get_repo_configs(
         &self,
+        filter: Filter,
         worktree_setup: repo::WorktreeSetup,
         protocol_config: ProtocolConfig,
         remote_name: Option<RemoteName>,
     ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, Error> {
         let mut repos = vec![];
 
-        if self.filter().owner {
+        if filter.owner {
             repos.extend(self.get_own_projects().map_err(|error| {
                 Error::Response(match error {
                     ApiError::Json(x) => x.to_string(),
@@ -370,7 +373,7 @@ pub trait Provider {
             })?);
         }
 
-        if self.filter().access {
+        if filter.access {
             let accessible_projects = self.get_accessible_projects().map_err(|error| {
                 Error::Response(match error {
                     ApiError::Json(x) => x.to_string(),
@@ -393,8 +396,8 @@ pub trait Provider {
             }
         }
 
-        for user in &self.filter().users {
-            let user_projects = self.get_user_projects(user).map_err(|error| {
+        for user in filter.users {
+            let user_projects = self.get_user_projects(&user).map_err(|error| {
                 Error::Response(match error {
                     ApiError::Json(x) => x.to_string(),
                     ApiError::String(s) => s,
@@ -416,8 +419,8 @@ pub trait Provider {
             }
         }
 
-        for group in &self.filter().groups {
-            let group_projects = self.get_group_projects(group).map_err(|error| {
+        for group in filter.groups {
+            let group_projects = self.get_group_projects(&group).map_err(|error| {
                 Error::Response(format!(
                     "group \"{}\": {}",
                     group,
@@ -448,7 +451,7 @@ pub trait Provider {
         let remote_name = remote_name.unwrap_or(DEFAULT_REMOTE_NAME);
 
         for repo in repos {
-            if !self.filter().fork && repo.is_fork() {
+            if filter.fork && repo.is_fork() {
                 continue;
             }
 
