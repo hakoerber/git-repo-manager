@@ -63,7 +63,7 @@ default-features = false
 features = ["derive"]
 
 [dependencies.git2]
-version = "=0.20.4"
+version = "=0.21.0"
 default-features = false
 features = ["https", "ssh"]
 
