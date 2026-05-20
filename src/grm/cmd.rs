@@ -164,6 +164,17 @@ pub struct FindRemoteArgs {
     )]
     pub worktree: bool,
 
+    #[clap(
+        long,
+        help = "Get repositories that are forks",
+        value_parser = ["true", "false"],
+        default_value = "true",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        value_parser = str::parse::<bool>,
+    )]
+    pub forks: bool,
+
     #[clap(long, help = "Base URL for the API")]
     pub api_url: Option<String>,
 }
@@ -240,6 +251,7 @@ pub struct SyncRemoteArgs {
         default_value = "false",
         default_missing_value = "true",
         num_args = 0..=1,
+        value_parser = str::parse::<bool>,
     )]
     pub worktree: bool,
 
@@ -253,8 +265,20 @@ pub struct SyncRemoteArgs {
         default_value = "true",
         default_missing_value = "true",
         num_args = 0..=1,
+        value_parser = str::parse::<bool>,
     )]
     pub init_worktree: bool,
+
+    #[clap(
+        long,
+        help = "Get repositories that are forks",
+        value_parser = ["true", "false"],
+        default_value = "true",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        value_parser = str::parse::<bool>,
+    )]
+    pub forks: bool,
 }
 
 #[derive(Parser)]

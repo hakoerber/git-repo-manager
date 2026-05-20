@@ -273,6 +273,7 @@ pub fn get_trees(
                 owner: Some(false),
                 users: Some(vec![]),
                 groups: Some(vec![]),
+                fork: Some(true),
             });
 
             let filter = Filter::new(
@@ -290,6 +291,7 @@ pub fn get_trees(
                     .collect(),
                 filters.owner.unwrap_or(false),
                 filters.access.unwrap_or(false),
+                filters.fork.unwrap_or(true),
             );
 
             if filter.empty() {

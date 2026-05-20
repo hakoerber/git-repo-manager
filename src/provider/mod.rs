@@ -196,6 +196,7 @@ pub trait Project {
     fn ssh_url(&self) -> RemoteUrl;
     fn http_url(&self) -> RemoteUrl;
     fn private(&self) -> bool;
+    fn is_fork(&self) -> bool;
 }
 
 #[derive(Clone)]
@@ -204,15 +205,23 @@ pub struct Filter {
     groups: Vec<Group>,
     owner: bool,
     access: bool,
+    fork: bool,
 }
 
 impl Filter {
-    pub fn new(users: Vec<User>, groups: Vec<Group>, owner: bool, access: bool) -> Self {
+    pub fn new(
+        users: Vec<User>,
+        groups: Vec<Group>,
+        owner: bool,
+        access: bool,
+        fork: bool,
+    ) -> Self {
         Self {
             users,
             groups,
             owner,
             access,
+            fork,
         }
     }
 
@@ -439,6 +448,10 @@ pub trait Provider {
         let remote_name = remote_name.unwrap_or(DEFAULT_REMOTE_NAME);
 
         for repo in repos {
+            if !self.filter().fork && repo.is_fork() {
+                continue;
+            }
+
             let namespace = repo.namespace();
 
             let mut repo = repo.into_repo_config(&remote_name, worktree_setup, protocol_config);

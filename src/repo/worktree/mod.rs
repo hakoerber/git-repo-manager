@@ -1079,7 +1079,11 @@ impl WorktreeRepoHandle {
             .0
             .worktrees()?
             .iter()
-            .map(|remote| remote.ok_or(Error::WorktreeNameNotUtf8))
+            .map(|remote| {
+                remote
+                    .map_err(|_err| Error::WorktreeNameNotUtf8)
+                    .and_then(|name| name.ok_or(Error::WorktreeNameEmpty))
+            })
             .collect::<Result<Vec<_>, Error>>()?
             .into_iter()
             .map(Worktree::new)

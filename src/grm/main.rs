@@ -350,6 +350,7 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
         args.groups.into_iter().map(provider::Group::new).collect(),
         args.owner,
         args.access,
+        args.forks,
     );
 
     if filter.empty() {
@@ -498,6 +499,7 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
         owner: Some(false),
         users: Some(vec![]),
         groups: Some(vec![]),
+        fork: Some(true),
     });
 
     let filter = provider::Filter::new(
@@ -515,6 +517,7 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
             .collect(),
         filters.owner.unwrap_or(false),
         filters.access.unwrap_or(false),
+        filters.fork.unwrap_or(true),
     );
 
     if filter.empty() {
@@ -572,6 +575,7 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
         args.groups.into_iter().map(provider::Group::new).collect(),
         args.owner,
         args.access,
+        args.forks,
     );
 
     if filter.empty() {

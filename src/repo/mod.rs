@@ -134,6 +134,8 @@ pub enum Error {
     BranchNameNotUtf8,
     #[error("Remote name is not valid utf-8")]
     RemoteNameNotUtf8,
+    #[error("Remote name is empty")]
+    RemoteNameEmpty,
     #[error("Remote branch name is not valid utf-8")]
     RemoteBranchNameNotUtf8,
     #[error("Submodule name is not valid utf-8")]
@@ -147,6 +149,8 @@ pub enum Error {
     InvalidRemoteHeadPointer { name: String },
     #[error("Remote HEAD does not point to a symbolic target")]
     RemoteHeadNoSymbolicTarget,
+    #[error("Remote HEAD is not valid utf-8")]
+    RemoteHeadNotUtf8,
 }
 
 #[derive(Debug)]
@@ -483,7 +487,9 @@ impl RepoHandle {
         // name exists
         let branch = self
             .find_local_branch(&BranchName::new(
-                head.shorthand().ok_or(Error::BranchNameNotUtf8)?.to_owned(),
+                head.shorthand()
+                    .map_err(|_err| Error::BranchNameNotUtf8)?
+                    .to_owned(),
             ))?
             .ok_or(Error::BranchNotFound)?;
         Ok(branch)
@@ -510,8 +516,11 @@ impl RepoHandle {
             .remotes()?
             .iter()
             .map(|name| {
-                name.ok_or(Error::RemoteNameNotUtf8)
-                    .map(|s| RemoteName::new(s.to_owned()))
+                name.map_err(|_err| Error::RemoteNameNotUtf8)
+                    .and_then(|name| {
+                        name.ok_or(Error::RemoteNameEmpty)
+                            .map(|s| RemoteName::new(s.to_owned()))
+                    })
             })
             .collect()
     }
@@ -550,7 +559,9 @@ impl RepoHandle {
 
         for refspec in &remote.fetch_refspecs()? {
             remote.fetch(
-                &[refspec.ok_or(Error::RemoteNameNotUtf8)?],
+                &[refspec
+                    .map_err(|_err| Error::RemoteNameNotUtf8)?
+                    .ok_or(Error::RemoteNameEmpty)?],
                 Some(&mut fetch_options),
                 None,
             )?;
@@ -745,8 +756,11 @@ impl RepoHandle {
             .iter()
             .map(|repo_name| {
                 repo_name
-                    .ok_or(Error::RemoteNameNotUtf8)
-                    .map(|s| RemoteName::new(s.to_owned()))
+                    .map_err(|_err| Error::RemoteNameNotUtf8)
+                    .and_then(|s| {
+                        s.ok_or(Error::RemoteNameEmpty)
+                            .map(|s| RemoteName::new(s.to_owned()))
+                    })
             })
             .collect::<Result<Vec<RemoteName>, Error>>()?;
 
@@ -818,7 +832,7 @@ impl RepoHandle {
                 let submodule_name = SubmoduleName::new(
                     submodule
                         .name()
-                        .ok_or(Error::SubmoduleNameNotUtf8)?
+                        .map_err(|_err| Error::SubmoduleNameNotUtf8)?
                         .to_owned(),
                 );
 
@@ -919,7 +933,11 @@ impl RepoHandle {
         // get the remote HEAD afterwards. So this is a "best effort" approach.
         match self.find_remote_branch(remote_name, &BranchName::new("HEAD".to_owned()))? {
             Some(remote_head) => {
-                if let Some(pointer_name) = remote_head.as_reference().symbolic_target() {
+                if let Some(pointer_name) = remote_head
+                    .as_reference()
+                    .symbolic_target()
+                    .map_err(|_err| Error::RemoteHeadNotUtf8)?
+                {
                     if let Some(local_branch_name) =
                         pointer_name.strip_prefix(&format!("refs/remotes/{remote_name}/"))
                     {
@@ -1008,7 +1026,11 @@ impl RepoHandle {
 
         if !remotes
             .iter()
-            .map(|remote| remote.ok_or(Error::RemoteNameNotUtf8))
+            .map(|remote| {
+                remote
+                    .map_err(|_err| Error::RemoteNameNotUtf8)
+                    .and_then(|name| name.ok_or(Error::RemoteNameEmpty))
+            })
             .collect::<Result<Vec<_>, Error>>()?
             .into_iter()
             .any(|remote| remote == remote_name.as_str())
@@ -1129,13 +1151,20 @@ fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
 impl RemoteHandle<'_> {
     pub fn url(&self) -> Result<RemoteUrl, Error> {
         Ok(RemoteUrl::new(
-            self.0.url().ok_or(Error::RemoteNameNotUtf8)?.to_owned(),
+            self.0
+                .url()
+                .map_err(|_err| Error::RemoteNameNotUtf8)?
+                .to_owned(),
         ))
     }
 
     pub fn name(&self) -> Result<RemoteName, Error> {
         Ok(RemoteName::new(
-            self.0.name().ok_or(Error::RemoteNameNotUtf8)?.to_owned(),
+            self.0
+                .name()
+                .map_err(|_err| Error::RemoteNameNotUtf8)?
+                .ok_or(Error::RemoteNameEmpty)?
+                .to_owned(),
         ))
     }
 
@@ -1148,14 +1177,17 @@ impl RemoteHandle<'_> {
             self.0
                 .default_branch()?
                 .as_str()
-                .ok_or(Error::RemoteBranchNameNotUtf8)?
+                .map_err(|_err| Error::RemoteBranchNameNotUtf8)?
                 .to_owned(),
         ))
     }
 
     pub fn is_pushable(&self) -> Result<bool, Error> {
         let remote_type = detect_remote_type(&RemoteUrl::new(
-            self.0.url().ok_or(Error::RemoteNameNotUtf8)?.to_owned(),
+            self.0
+                .url()
+                .map_err(|_err| Error::RemoteNameNotUtf8)?
+                .to_owned(),
         ))?;
         Ok(matches!(remote_type, RemoteType::Ssh | RemoteType::File))
     }

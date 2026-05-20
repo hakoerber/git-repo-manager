@@ -1,6 +1,6 @@
 [package]
 name = "git-repo-manager"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 
 authors = [
@@ -63,7 +63,7 @@ default-features = false
 features = ["derive"]
 
 [dependencies.git2]
-version = "=0.20.4"
+version = "=0.21.0"
 default-features = false
 features = ["https", "ssh"]
 
@@ -101,7 +101,7 @@ default-features = false
 [dependencies.ureq]
 version = "=3.3.0"
 default-features = false
-features = ["json"]
+features = ["json", "rustls"]
 
 [dependencies.parse_link_header]
 version = "=0.4.1"

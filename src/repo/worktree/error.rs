@@ -29,6 +29,8 @@ pub enum Error {
     BranchNotFound(BranchName),
     #[error("Worktree name is not valid utf-8")]
     WorktreeNameNotUtf8,
+    #[error("Worktree name is empty")]
+    WorktreeNameEmpty,
     #[error(transparent)]
     Path(#[from] path::Error),
     #[error("Could not determine base directory from \"{git_dir}\"")]
