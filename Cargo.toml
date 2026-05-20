@@ -101,7 +101,7 @@ default-features = false
 [dependencies.ureq]
 version = "=3.3.0"
 default-features = false
-features = ["json"]
+features = ["json", "rustls"]
 
 [dependencies.parse_link_header]
 version = "=0.4.1"
