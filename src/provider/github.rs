@@ -1,8 +1,8 @@
 use serde::Deserialize;
 
 use super::{
-    ApiError, Error, Filter, JsonError, Project, ProjectName, ProjectNamespace, Provider,
-    RemoteUrl, Url, auth, escape,
+    ApiError, Error, JsonError, Project, ProjectName, ProjectNamespace, Provider, RemoteUrl, Url,
+    auth, escape,
 };
 
 const ACCEPT_HEADER_JSON: &str = "application/vnd.github.v3+json";
@@ -70,7 +70,6 @@ impl JsonError for GithubApiErrorResponse {
 }
 
 pub struct Github {
-    filter: Filter,
     secret_token: auth::AuthToken,
     api_url_override: Option<Url>,
 }
@@ -92,28 +91,17 @@ impl Provider for Github {
     type Error = GithubApiErrorResponse;
     type Project = GithubProject;
 
-    fn new(
-        filter: Filter,
-        secret_token: auth::AuthToken,
-        api_url_override: Option<Url>,
-    ) -> Result<Self, Error> {
+    const AUTH_HEADER_KEY: &'static str = "token";
+
+    fn new(secret_token: auth::AuthToken, api_url_override: Option<Url>) -> Result<Self, Error> {
         Ok(Self {
-            filter,
             secret_token,
             api_url_override,
         })
     }
 
-    fn filter(&self) -> &Filter {
-        &self.filter
-    }
-
     fn secret_token(&self) -> &auth::AuthToken {
         &self.secret_token
-    }
-
-    fn auth_header_key() -> &'static str {
-        "token"
     }
 
     fn get_user_projects(
@@ -157,7 +145,7 @@ impl Provider for Github {
         Ok(super::User(
             super::call::<GithubUser, GithubApiErrorResponse>(
                 &format!("{}/user", self.api_url().as_str()),
-                Self::auth_header_key(),
+                Self::AUTH_HEADER_KEY,
                 self.secret_token(),
                 Some(ACCEPT_HEADER_JSON),
             )?

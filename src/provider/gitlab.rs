@@ -81,7 +81,6 @@ impl JsonError for GitlabApiErrorResponse {
 }
 
 pub struct Gitlab {
-    filter: Filter,
     secret_token: auth::AuthToken,
     api_url_override: Option<Url>,
 }
@@ -103,28 +102,17 @@ impl Provider for Gitlab {
     type Error = GitlabApiErrorResponse;
     type Project = GitlabProject;
 
-    fn new(
-        filter: Filter,
-        secret_token: auth::AuthToken,
-        api_url_override: Option<Url>,
-    ) -> Result<Self, Error> {
+    const AUTH_HEADER_KEY: &'static str = "bearer";
+
+    fn new(secret_token: auth::AuthToken, api_url_override: Option<Url>) -> Result<Self, Error> {
         Ok(Self {
-            filter,
             secret_token,
             api_url_override,
         })
     }
 
-    fn filter(&self) -> &Filter {
-        &self.filter
-    }
-
     fn secret_token(&self) -> &auth::AuthToken {
         &self.secret_token
-    }
-
-    fn auth_header_key() -> &'static str {
-        "bearer"
     }
 
     fn get_user_projects(
@@ -168,7 +156,7 @@ impl Provider for Gitlab {
         Ok(super::User(
             super::call::<GitlabUser, GitlabApiErrorResponse>(
                 &format!("{}/api/v4/user", self.api_url().as_str()),
-                Self::auth_header_key(),
+                Self::AUTH_HEADER_KEY,
                 self.secret_token(),
                 Some(ACCEPT_HEADER_JSON),
             )?

@@ -306,8 +306,9 @@ pub fn get_trees(
 
             let repos = match config.provider {
                 RemoteProvider::Github => {
-                    provider::Github::new(filter, token, config.api_url.map(provider::Url::new))?
-                        .get_repos(
+                    provider::Github::new(token, config.api_url.map(provider::Url::new))?
+                        .get_repo_configs(
+                            filter,
                             config.worktree.unwrap_or(false).into(),
                             if config.force_ssh.unwrap_or(false) {
                                 ProtocolConfig::ForceSsh
@@ -318,8 +319,9 @@ pub fn get_trees(
                         )?
                 }
                 RemoteProvider::Gitlab => {
-                    provider::Gitlab::new(filter, token, config.api_url.map(provider::Url::new))?
-                        .get_repos(
+                    provider::Gitlab::new(token, config.api_url.map(provider::Url::new))?
+                        .get_repo_configs(
+                            filter,
                             config.worktree.unwrap_or(false).into(),
                             if config.force_ssh.unwrap_or(false) {
                                 ProtocolConfig::ForceSsh
@@ -329,6 +331,7 @@ pub fn get_trees(
                             config.remote_name.map(RemoteName::new),
                         )?
                 }
+                RemoteProvider::Gitea => unimplemented!(),
             };
 
             let mut trees = vec![];
