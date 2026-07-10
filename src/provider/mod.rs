@@ -1,13 +1,25 @@
 pub mod github;
 pub mod gitlab;
 
-use std::{borrow::Cow, collections::HashMap, fmt};
+use std::{borrow::Cow, collections::HashMap, fmt, sync::OnceLock};
 
 pub use github::Github;
 pub use gitlab::Gitlab;
 use thiserror::Error;
+use ureq::tls::{RootCerts, TlsConfig};
 
 use super::{RemoteName, RemoteUrl, auth, config, repo};
+
+fn agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| {
+        ureq::Agent::new_with_config(
+            ureq::config::Config::builder()
+                .tls_config(TlsConfig::builder().root_certs(RootCerts::PlatformVerifier).build())
+                .build(),
+        )
+    })
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ProtocolConfig {
@@ -303,7 +315,8 @@ pub trait Provider {
         uri: &Url,
         accept_header: Option<&str>,
     ) -> Result<Vec<Self::Project>, ApiError<Self::Error>> {
-        match ureq::get(uri.as_str())
+        match agent()
+            .get(uri.as_str())
             .config()
             .http_status_as_error(false)
             .build()
@@ -477,7 +490,8 @@ where
     T: serde::de::DeserializeOwned,
     U: serde::de::DeserializeOwned + JsonError,
 {
-    match ureq::get(uri)
+    match agent()
+        .get(uri)
         .header("accept", accept_header.unwrap_or("application/json"))
         .header(
             "authorization",
