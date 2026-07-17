@@ -20,7 +20,10 @@ pub enum GitlabVisibility {
 }
 
 #[derive(Deserialize)]
-pub struct ParentProject;
+pub struct ParentProject {
+    #[serde(flatten)]
+    _rest: std::collections::HashMap<String, serde_json::Value>,
+}
 
 #[derive(Deserialize)]
 pub struct GitlabProject {
