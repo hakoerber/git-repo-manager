@@ -337,11 +337,18 @@ class RepoTree:
                 [[trees.repos]]
                 name = "test_worktree"
                 worktree_setup = true
+
+                [[trees.repos]]
+                name = "test_namespace/test_nested"
             """)
 
         cmd = grm(["repos", "sync", "config", "--config", self.config.name])
         assert cmd.returncode == 0
-        return (self.root.name, self.config.name, ["test", "test_worktree"])
+        return (
+            self.root.name,
+            self.config.name,
+            ["test", "test_worktree", "test_namespace/test_nested"],
+        )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         del self.root
