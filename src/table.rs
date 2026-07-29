@@ -194,12 +194,11 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
         add_table_header(&mut table);
 
         for repo in &repos {
-            let repo_path = root_path.join(repo.name.as_str());
+            let repo_name = repo.fullname();
+            let repo_path = root_path.join(repo_name.as_str());
 
             if !repo_path.exists() {
-                errors.push(Error::RepoDoesNotExist {
-                    name: repo.name.clone(),
-                });
+                errors.push(Error::RepoDoesNotExist { name: repo_name });
                 continue;
             }
 
@@ -209,12 +208,10 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
                 Ok(repo) => repo,
                 Err(error) => {
                     if matches!(error, repo::Error::RepoNotFound) {
-                        errors.push(Error::RepoNotGit {
-                            name: repo.name.clone(),
-                        });
+                        errors.push(Error::RepoNotGit { name: repo_name });
                     } else {
                         errors.push(Error::RepoOpenFailed {
-                            name: repo.name.clone(),
+                            name: repo_name,
                             message: error.to_string(),
                         });
                     }
@@ -224,12 +221,12 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
 
             if let Err(err) = add_repo_status(
                 &mut table,
-                Some(&repo.name),
+                Some(&repo_name),
                 &repo_handle,
                 repo.worktree_setup,
             ) {
                 errors.push(Error::RepoStatusFailed {
-                    name: repo.name.clone(),
+                    name: repo_name,
                     message: err.to_string(),
                 });
             }
