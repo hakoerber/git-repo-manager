@@ -394,7 +394,9 @@ fn handle_repos_sync(sync: cmd::SyncAction) -> HandlerResult {
     })
 }
 
-fn handle_repos_status(args: cmd::OptionalConfig) -> HandlerResult {
+fn handle_repos_status(args: cmd::ReposStatusArgs) -> HandlerResult {
+    let dirty_only = args.dirty;
+
     if let Some(config_path) = args.config {
         exec_with_result_channel(
             |config_path, tx| -> Result<(), MainError> {
@@ -403,8 +405,8 @@ fn handle_repos_status(args: cmd::OptionalConfig) -> HandlerResult {
                 let trees: Vec<tree::Tree> =
                     get_trees(config, tx).map_err(|e| MainError::GetTree(e))?;
 
-                let (tables, errors) =
-                    table::get_status_table(trees).map_err(|e| MainError::RepoStatus(e))?;
+                let (tables, errors) = table::get_status_table(trees, dirty_only)
+                    .map_err(|e| MainError::RepoStatus(e))?;
 
                 for table in tables {
                     println(&format!("{table}"));
@@ -428,8 +430,8 @@ fn handle_repos_status(args: cmd::OptionalConfig) -> HandlerResult {
     } else {
         let dir = path::current_dir()?;
 
-        let (table, warnings) =
-            table::show_single_repo_status(&dir).map_err(|e| MainError::RepoStatus(e))?;
+        let (table, warnings) = table::show_single_repo_status(&dir, dirty_only)
+            .map_err(|e| MainError::RepoStatus(e))?;
 
         println(&format!("{table}"));
         for warning in warnings {

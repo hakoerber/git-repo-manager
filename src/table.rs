@@ -57,11 +57,9 @@ fn add_table_header(table: &mut Table) {
 fn add_repo_status(
     table: &mut Table,
     repo_name: Option<&RepoName>,
-    repo_handle: &RepoHandle,
+    repo_status: repo::RepoStatus,
     worktree_setup: WorktreeSetup,
 ) -> Result<(), Error> {
-    let repo_status = repo_handle.status(worktree_setup).map_err(Error::Repo)?;
-
     let branch_info = {
         let mut acc = String::new();
         for (branch_name, remote_branch) in repo_status.branches {
@@ -180,7 +178,10 @@ pub fn get_worktree_status_table(
     Ok((table, errors))
 }
 
-pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error>), Error> {
+pub fn get_status_table(
+    trees: Vec<tree::Tree>,
+    dirty_only: bool,
+) -> Result<(Vec<Table>, Vec<Error>), Error> {
     let mut errors = Vec::new();
     let mut tables = Vec::new();
 
@@ -191,6 +192,7 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
 
         let mut table = Table::new();
         add_table_header(&mut table);
+        let mut rows: usize = 0;
 
         for repo in &repos {
             let repo_name = repo.fullname();
@@ -218,20 +220,40 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
                 }
             };
 
-            if let Err(err) = add_repo_status(
+            let repo_status = match repo_handle.status(repo.worktree_setup) {
+                Ok(repo_status) => repo_status,
+                Err(error) => {
+                    errors.push(Error::RepoStatusFailed {
+                        name: repo_name,
+                        message: error.to_string(),
+                    });
+                    continue;
+                }
+            };
+
+            if dirty_only && !repo_status.dirty() {
+                continue;
+            }
+
+            match add_repo_status(
                 &mut table,
                 Some(&repo_name),
-                &repo_handle,
+                repo_status,
                 repo.worktree_setup,
             ) {
-                errors.push(Error::RepoStatusFailed {
+                Ok(()) => rows = rows.saturating_add(1),
+                Err(err) => errors.push(Error::RepoStatusFailed {
                     name: repo_name,
                     message: err.to_string(),
-                });
+                }),
             }
         }
 
-        tables.push(table);
+        // Without any rows, the table would just be a header without any
+        // information, so skip it altogether when filtering.
+        if !dirty_only || rows > 0 {
+            tables.push(table);
+        }
     }
 
     Ok((tables, errors))
@@ -308,6 +330,7 @@ fn add_worktree_status(
 
 pub fn show_single_repo_status(
     path: &Path,
+    dirty_only: bool,
 ) -> Result<(impl std::fmt::Display, Vec<String>), Error> {
     let mut table = Table::new();
     let mut warnings = Vec::new();
@@ -335,12 +358,11 @@ pub fn show_single_repo_status(
         Some(file_name) => Some(RepoName::new(file_name.to_owned())),
     };
 
-    add_repo_status(
-        &mut table,
-        repo_name.as_ref(),
-        &repo_handle?,
-        worktree_setup,
-    )?;
+    let repo_status = repo_handle?.status(worktree_setup).map_err(Error::Repo)?;
+
+    if !dirty_only || repo_status.dirty() {
+        add_repo_status(&mut table, repo_name.as_ref(), repo_status, worktree_setup)?;
+    }
 
     Ok((table, warnings))
 }

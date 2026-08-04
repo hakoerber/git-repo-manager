@@ -350,6 +350,7 @@ pub struct RepoStatus {
 }
 
 impl RepoStatus {
+    /// Whether the working tree has no uncommitted changes.
     fn clean(&self) -> bool {
         match self.changes {
             None => true,
@@ -357,6 +358,21 @@ impl RepoStatus {
                 changes.files_new == 0 && changes.files_deleted == 0 && changes.files_modified == 0
             }
         }
+    }
+
+    /// Whether the repository holds any state that only exists locally, namely
+    /// uncommitted changes in the working tree or branches that are not up to
+    /// date with their remote tracking branch. Branches without a remote
+    /// tracking branch count as not up to date, as they only exist locally.
+    ///
+    /// Note that this is not the negation of [`Self::clean()`], which only
+    /// looks at the working tree.
+    pub fn dirty(&self) -> bool {
+        !self.clean()
+            || self
+                .branches
+                .iter()
+                .any(|branch| !matches!(branch.1, Some((_, RemoteTrackingStatus::UpToDate))))
     }
 }
 
