@@ -109,7 +109,7 @@ features = ["http"]
 default-features = false
 
 [dependencies.url-escape]
-version = "=0.1.1"
+version = "=0.1.2"
 default-features = false
 
 [dev-dependencies.temp-env]
