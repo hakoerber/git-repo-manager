@@ -43,8 +43,7 @@ pub enum Error {
 
 fn add_table_header(table: &mut Table) {
     table
-        .load_preset(comfy_table::presets::UTF8_FULL)
-        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .load_style(comfy_table::presets::UTF8_FULL.with_rounded_corners())
         .set_header([
             Cell::new("Repo"),
             Cell::new("Worktree"),
@@ -240,8 +239,7 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
 
 fn add_worktree_table_header(table: &mut Table) {
     table
-        .load_preset(comfy_table::presets::UTF8_FULL)
-        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .load_style(comfy_table::presets::UTF8_FULL.with_rounded_corners())
         .set_header([
             Cell::new("Worktree"),
             Cell::new("Status"),
