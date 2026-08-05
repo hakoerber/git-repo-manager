@@ -95,7 +95,7 @@ version = "=0.9.34"
 default-features = false
 
 [dependencies.serde_json]
-version = "=1.0.149"
+version = "=1.0.151"
 default-features = false
 
 [dependencies.ureq]
