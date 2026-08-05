@@ -15,7 +15,11 @@ fn agent() -> &'static ureq::Agent {
     AGENT.get_or_init(|| {
         ureq::Agent::new_with_config(
             ureq::config::Config::builder()
-                .tls_config(TlsConfig::builder().root_certs(RootCerts::PlatformVerifier).build())
+                .tls_config(
+                    TlsConfig::builder()
+                        .root_certs(RootCerts::PlatformVerifier)
+                        .build(),
+                )
                 .build(),
         )
     })
