@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import re
 import subprocess
@@ -217,7 +215,7 @@ def test_repos_sync_config_is_valid_symlink(configtype):
                             )
                         )
 
-                    subprocess.run(["cat", config.name])
+                    subprocess.run(["cat", config.name], check=True)
 
                     cmd = grm(["repos", "sync", "config", "--config", config_symlink])
                     assert cmd.returncode == 0
@@ -227,7 +225,7 @@ def test_repos_sync_config_is_valid_symlink(configtype):
                     with git.Repo(git_dir) as repo:
                         assert not repo.bare
                         assert not repo.is_dirty()
-                        assert set([str(r) for r in repo.remotes]) == {"origin"}
+                        assert {str(r) for r in repo.remotes} == {"origin"}
                         assert str(repo.active_branch) == "master"
                         assert str(repo.head.commit) == head_commit_sha
 
@@ -260,7 +258,8 @@ def test_repos_sync_config_is_directory():
 def test_repos_sync_config_is_unreadable():
     with tempfile.TemporaryDirectory() as config_dir:
         config_path = os.path.join(config_dir, "cfg")
-        open(config_path, "w")
+        with open(config_path, "w"):
+            pass
         os.chmod(config_path, 0o0000)
         cmd = grm(["repos", "sync", "config", "--config", config_path])
 
@@ -287,7 +286,7 @@ def test_repos_sync_unmanaged_repos(configtype):
                 unmanaged_repo_name = os.path.relpath(unmanaged_repo, root)
                 regex = f".*unmanaged.*{unmanaged_repo_name}"
                 assert any(
-                    [re.match(regex, line) for line in cmd.stderr.lower().split("\n")]
+                    re.match(regex, line) for line in cmd.stderr.lower().split("\n")
                 )
 
 
@@ -307,7 +306,7 @@ def test_repos_sync_root_is_file(configtype):
 def test_repos_sync_normal_clone(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
-            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+            with TempGitFileRemote() as (remote2, _remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
@@ -324,7 +323,7 @@ def test_repos_sync_normal_clone(configtype):
                     with git.Repo(git_dir) as repo:
                         assert not repo.bare
                         assert not repo.is_dirty()
-                        assert set([str(r) for r in repo.remotes]) == {
+                        assert {str(r) for r in repo.remotes} == {
                             "origin",
                             "origin2",
                         }
@@ -361,7 +360,7 @@ def test_repos_sync_repo_in_subdirectory(configtype):
                 with git.Repo(git_dir) as repo:
                     assert not repo.bare
                     assert not repo.is_dirty()
-                    assert set([str(r) for r in repo.remotes]) == {"origin"}
+                    assert {str(r) for r in repo.remotes} == {"origin"}
                     assert str(repo.active_branch) == "master"
                     assert str(repo.head.commit) == remote_head_commit_sha
 
@@ -395,7 +394,7 @@ def test_repos_sync_nested_clone(configtype):
                         with git.Repo(git_dir) as repo:
                             assert not repo.bare
                             assert not repo.is_dirty()
-                            assert set([str(r) for r in repo.remotes]) == {"origin"}
+                            assert {str(r) for r in repo.remotes} == {"origin"}
                             assert str(repo.active_branch) == "master"
                             assert str(repo.head.commit) == sha
 
@@ -443,7 +442,7 @@ def test_repos_sync_normal_init(configtype):
 def test_repos_sync_normal_add_remote(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
-            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+            with TempGitFileRemote() as (remote2, _remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
@@ -461,7 +460,7 @@ def test_repos_sync_normal_add_remote(configtype):
                     with git.Repo(git_dir) as repo:
                         assert not repo.bare
                         assert not repo.is_dirty()
-                        assert set([str(r) for r in repo.remotes]) == {"origin"}
+                        assert {str(r) for r in repo.remotes} == {"origin"}
                         assert str(repo.active_branch) == "master"
                         assert str(repo.head.commit) == remote1_head_commit_sha
 
@@ -475,7 +474,7 @@ def test_repos_sync_normal_add_remote(configtype):
                     cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
                     with git.Repo(git_dir) as repo:
-                        assert set([str(r) for r in repo.remotes]) == {
+                        assert {str(r) for r in repo.remotes} == {
                             "origin",
                             "origin2",
                         }
@@ -493,7 +492,7 @@ def test_repos_sync_normal_add_remote(configtype):
 def test_repos_sync_normal_remove_remote(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
-            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+            with TempGitFileRemote() as (remote2, _remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
@@ -511,7 +510,7 @@ def test_repos_sync_normal_remove_remote(configtype):
                     with git.Repo(git_dir) as repo:
                         assert not repo.bare
                         assert not repo.is_dirty()
-                        assert set([str(r) for r in repo.remotes]) == {
+                        assert {str(r) for r in repo.remotes} == {
                             "origin",
                             "origin2",
                         }
@@ -558,7 +557,7 @@ def test_repos_sync_normal_remove_remote(configtype):
 def test_repos_sync_normal_change_remote_url(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
-            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+            with TempGitFileRemote() as (remote2, _remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
@@ -576,7 +575,7 @@ def test_repos_sync_normal_change_remote_url(configtype):
                     with git.Repo(git_dir) as repo:
                         assert not repo.bare
                         assert not repo.is_dirty()
-                        assert set([str(r) for r in repo.remotes]) == {"origin"}
+                        assert {str(r) for r in repo.remotes} == {"origin"}
                         assert str(repo.active_branch) == "master"
                         assert str(repo.head.commit) == remote1_head_commit_sha
 
@@ -590,7 +589,7 @@ def test_repos_sync_normal_change_remote_url(configtype):
                     cmd = grm(["repos", "sync", "config", "--config", config.name])
                     assert cmd.returncode == 0
                     with git.Repo(git_dir) as repo:
-                        assert set([str(r) for r in repo.remotes]) == {"origin"}
+                        assert {str(r) for r in repo.remotes} == {"origin"}
 
                         urls = list(repo.remote("origin").urls)
                         assert len(urls) == 1
@@ -601,7 +600,7 @@ def test_repos_sync_normal_change_remote_url(configtype):
 def test_repos_sync_normal_change_remote_name(configtype):
     with tempfile.TemporaryDirectory() as target:
         with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
-            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+            with TempGitFileRemote() as (_remote2, _remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
@@ -619,7 +618,7 @@ def test_repos_sync_normal_change_remote_name(configtype):
                     with git.Repo(git_dir) as repo:
                         assert not repo.bare
                         assert not repo.is_dirty()
-                        assert set([str(r) for r in repo.remotes]) == {"origin"}
+                        assert {str(r) for r in repo.remotes} == {"origin"}
                         assert str(repo.active_branch) == "master"
                         assert str(repo.head.commit) == remote1_head_commit_sha
 
@@ -683,7 +682,7 @@ def test_repos_sync_worktree_clone(configtype, init_worktree):
                         os.path.join(worktree_dir, ".git-main-working-tree")
                     ) as repo:
                         assert repo.bare
-                        assert set([str(r) for r in repo.remotes]) == {"origin"}
+                        assert {str(r) for r in repo.remotes} == {"origin"}
                         assert str(repo.active_branch) == "master"
                         assert str(repo.head.commit) == head_commit_sha
 
@@ -713,30 +712,29 @@ def test_repos_sync_worktree_init(configtype):
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
 def test_repos_sync_invalid_syntax(configtype):
-    with tempfile.NamedTemporaryFile() as config:
-        with open(config.name, "w") as f:
-            if configtype == "toml":
-                f.write("""
+    with tempfile.NamedTemporaryFile() as config, open(config.name, "w") as f:
+        if configtype == "toml":
+            f.write("""
                     [[trees]]
                     root = invalid as there are no quotes ;)
                 """)
-            elif configtype == "yaml":
-                f.write("""
+        elif configtype == "yaml":
+            f.write("""
                     trees:
                     wrong:
                     indentation:
                 """)
-            else:
-                raise NotImplementedError()
-            cmd = grm(["repos", "sync", "config", "--config", config.name])
-            assert cmd.returncode != 0
+        else:
+            raise NotImplementedError()
+        cmd = grm(["repos", "sync", "config", "--config", config.name])
+        assert cmd.returncode != 0
 
 
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
 def test_repos_sync_unchanged(configtype):
     with tempfile.TemporaryDirectory() as target:
-        with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
-            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+        with TempGitFileRemote() as (remote1, _remote1_head_commit_sha):
+            with TempGitFileRemote() as (remote2, _remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
@@ -759,8 +757,8 @@ def test_repos_sync_unchanged(configtype):
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
 def test_repos_sync_normal_change_to_worktree(configtype):
     with tempfile.TemporaryDirectory() as target:
-        with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
-            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+        with TempGitFileRemote() as (remote1, _remote1_head_commit_sha):
+            with TempGitFileRemote() as (_remote2, _remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(
@@ -788,8 +786,8 @@ def test_repos_sync_normal_change_to_worktree(configtype):
 @pytest.mark.parametrize("configtype", ["toml", "yaml"])
 def test_repos_sync_worktree_change_to_normal(configtype):
     with tempfile.TemporaryDirectory() as target:
-        with TempGitFileRemote() as (remote1, remote1_head_commit_sha):
-            with TempGitFileRemote() as (remote2, remote2_head_commit_sha):
+        with TempGitFileRemote() as (remote1, _remote1_head_commit_sha):
+            with TempGitFileRemote() as (_remote2, _remote2_head_commit_sha):
                 with tempfile.NamedTemporaryFile() as config:
                     with open(config.name, "w") as f:
                         f.write(

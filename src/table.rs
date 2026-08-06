@@ -43,8 +43,7 @@ pub enum Error {
 
 fn add_table_header(table: &mut Table) {
     table
-        .load_preset(comfy_table::presets::UTF8_FULL)
-        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .load_style(comfy_table::presets::UTF8_FULL.with_rounded_corners())
         .set_header([
             Cell::new("Repo"),
             Cell::new("Worktree"),
@@ -69,19 +68,19 @@ fn add_repo_status(
             writeln!(
                 &mut acc,
                 "branch: {}{}",
-                &branch_name,
-                &match remote_branch {
+                branch_name,
+                match remote_branch {
                     None => String::from(" <!local>"),
                     Some((remote_branch_name, remote_tracking_status)) => {
                         format!(
                             " <{}>{}",
                             remote_branch_name,
-                            &match remote_tracking_status {
+                            match remote_tracking_status {
                                 repo::RemoteTrackingStatus::UpToDate => String::from(" \u{2714}"),
-                                repo::RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
-                                repo::RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
+                                repo::RemoteTrackingStatus::Ahead(d) => format!(" [+{d}]"),
+                                repo::RemoteTrackingStatus::Behind(d) => format!(" [-{d}]"),
                                 repo::RemoteTrackingStatus::Diverged(d1, d2) =>
-                                    format!(" [+{}/-{}]", &d1, &d2),
+                                    format!(" [+{d1}/-{d2}]"),
                             }
                         )
                     }
@@ -240,8 +239,7 @@ pub fn get_status_table(trees: Vec<tree::Tree>) -> Result<(Vec<Table>, Vec<Error
 
 fn add_worktree_table_header(table: &mut Table) {
     table
-        .load_preset(comfy_table::presets::UTF8_FULL)
-        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .load_style(comfy_table::presets::UTF8_FULL.with_rounded_corners())
         .set_header([
             Cell::new("Worktree"),
             Cell::new("Status"),
@@ -271,12 +269,12 @@ fn add_worktree_status(
 
             format!(
                 "{}{}\n",
-                &remote_branch_name,
-                &match (ahead, behind) {
+                remote_branch_name,
+                match (ahead, behind) {
                     (0, 0) => String::new(),
-                    (d, 0) => format!(" [+{}]", &d),
-                    (0, d) => format!(" [-{}]", &d),
-                    (d1, d2) => format!(" [+{}/-{}]", &d1, &d2),
+                    (d, 0) => format!(" [+{d}]"),
+                    (0, d) => format!(" [-{d}]"),
+                    (d1, d2) => format!(" [+{d1}/-{d2}]"),
                 },
             )
         }

@@ -18,7 +18,7 @@ pub(super) fn print_error(message: &str) {
         style = style.force_styling(true);
     }
     stderr
-        .write_line(&format!("[{}] {}", style.apply_to('\u{2718}'), &message))
+        .write_line(&format!("[{}] {}", style.apply_to('\u{2718}'), message))
         .expect("failed writing to stderr");
 }
 
@@ -33,7 +33,7 @@ pub(super) fn print_action(message: &str) {
         style = style.force_styling(true);
     }
     stdout
-        .write_line(&format!("[{}] {}", style.apply_to('\u{2699}'), &message))
+        .write_line(&format!("[{}] {}", style.apply_to('\u{2699}'), message))
         .expect("failed writing to stderr");
 }
 
@@ -44,7 +44,7 @@ pub(super) fn print_warning(message: impl Display) {
         style = style.force_styling(true);
     }
     stderr
-        .write_line(&format!("[{}] {}", style.apply_to('!'), &message))
+        .write_line(&format!("[{}] {}", style.apply_to('!'), message))
         .expect("failed writing to stderr");
 }
 
@@ -60,7 +60,7 @@ pub(super) fn print_success(message: &str) {
     }
 
     stdout
-        .write_line(&format!("[{}] {}", style.apply_to('\u{2714}'), &message))
+        .write_line(&format!("[{}] {}", style.apply_to('\u{2714}'), message))
         .expect("failed writing to stderr");
 }
 

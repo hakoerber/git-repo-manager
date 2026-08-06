@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import datetime
 import os.path
 
@@ -63,7 +61,7 @@ def test_worktree_add(
         config_has_default_track_enabled,
     ) = config_setup
     local_branch_exists, local_branch_has_tracking_branch = local_branch_setup
-    has_remotes = True if remote_count > 0 else False
+    has_remotes = remote_count > 0
 
     if worktree_with_slash:
         worktree_name = "dir/nested/test"
@@ -75,7 +73,7 @@ def test_worktree_add(
     else:
         explicit_track_branch_name = f"{default_remote}/{worktree_name}"
 
-    timestamp = datetime.datetime.now().replace(microsecond=0).isoformat()
+    timestamp = datetime.datetime.now(tz=None).replace(microsecond=0).isoformat()
     # GitPython has some weird behavior here. It is not possible to use kwargs
     # to set the commit and author date.
     #
@@ -215,7 +213,7 @@ def test_worktree_add(
                 origin = repo.remote(default_remote)
                 if remote_count >= 2:
                     otherremote = repo.remote("otherremote")
-                br = list(filter(lambda x: x.name == worktree_name, repo.branches))[0]
+                br = next(filter(lambda x: x.name == worktree_name, repo.branches))
                 assert os.path.exists(base_dir)
                 if track_differs_from_existing_branch_upstream:
                     origin.push(
@@ -228,11 +226,11 @@ def test_worktree_add(
                             set_upstream=True,
                         )
                     br.set_tracking_branch(
-                        list(
+                        next(
                             filter(
                                 lambda x: x.remote_head == "someothername", origin.refs
                             )
-                        )[0]
+                        )
                     )
                 else:
                     origin.push(
@@ -247,11 +245,11 @@ def test_worktree_add(
                             set_upstream=True,
                         )
                     br.set_tracking_branch(
-                        list(
+                        next(
                             filter(
                                 lambda x: x.remote_head == worktree_name, origin.refs
                             )
-                        )[0]
+                        )
                     )
 
         args = ["wt", "add", worktree_name]
@@ -334,9 +332,7 @@ def test_worktree_add(
 
         local_commit = repo.head.commit.hexsha
 
-        if not has_remotes:
-            assert local_commit == initial_commit
-        elif local_branch_exists:
+        if not has_remotes or local_branch_exists:
             assert local_commit == initial_commit
         elif explicit_track and not explicit_notrack:
             assert local_commit == repo.commit(explicit_track_branch_name).hexsha

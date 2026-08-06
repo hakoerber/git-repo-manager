@@ -15,7 +15,11 @@ fn agent() -> &'static ureq::Agent {
     AGENT.get_or_init(|| {
         ureq::Agent::new_with_config(
             ureq::config::Config::builder()
-                .tls_config(TlsConfig::builder().root_certs(RootCerts::PlatformVerifier).build())
+                .tls_config(
+                    TlsConfig::builder()
+                        .root_certs(RootCerts::PlatformVerifier)
+                        .build(),
+                )
                 .build(),
         )
     })
@@ -326,7 +330,7 @@ pub trait Provider {
                 &format!(
                     "{} {}",
                     Self::auth_header_key(),
-                    &self.secret_token().access()
+                    self.secret_token().access()
                 ),
             )
             .call()
@@ -495,7 +499,7 @@ where
         .header("accept", accept_header.unwrap_or("application/json"))
         .header(
             "authorization",
-            &format!("{} {}", &auth_header_key, &secret_token.access()),
+            &format!("{} {}", auth_header_key, secret_token.access()),
         )
         .call()
     {

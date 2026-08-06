@@ -625,7 +625,7 @@ impl<'a> NewWorktree<'a, WithRemoteTrackingBranch<'a>> {
 
             if let Some(remote_branch) = remote_branch {
                 if branch.commit()?.id().hex_string() != remote_branch.commit()?.id().hex_string() {
-                    warnings.push(Warning(format!("The local branch \"{}\" and the remote branch \"{}/{}\" differ. Make sure to push/pull afterwards!", &self.extra.local_branch_name, &remote_branch_config.remote_name, &remote_branch_config.remote_branch_name)));
+                    warnings.push(Warning(format!("The local branch \"{}\" and the remote branch \"{}/{}\" differ. Make sure to push/pull afterwards!", self.extra.local_branch_name, remote_branch_config.remote_name, remote_branch_config.remote_branch_name)));
                 }
 
                 branch.set_upstream(

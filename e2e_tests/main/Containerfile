@@ -1,4 +1,4 @@
-FROM docker.io/debian:11.3
+FROM docker.io/debian:13.6
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
