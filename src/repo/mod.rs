@@ -331,6 +331,17 @@ pub enum RemoteTrackingStatus {
     Diverged(usize, usize),
 }
 
+/// What happened to a local branch that does not have a remote tracking branch
+/// when looking for an obvious candidate.
+pub enum UpstreamDetection {
+    /// Exactly one remote has a branch with the same name, which was set as the
+    /// upstream of the local branch.
+    Set(RemoteName),
+    /// More than one remote has a branch with the same name, so there is no
+    /// obvious candidate. The local branch was left alone.
+    Ambiguous(Vec<RemoteName>),
+}
+
 pub struct RepoStatus {
     pub operation: Option<git2::RepositoryState>,
 
@@ -649,6 +660,46 @@ impl RepoHandle {
 
     pub fn create_branch(&self, name: &BranchName, target: &Commit) -> Result<Branch<'_>, Error> {
         Ok(Branch(self.0.branch(name.as_str(), &target.0, false)?))
+    }
+
+    /// Set the upstream of each local branch that does not have a remote
+    /// tracking branch yet to the branch of the same name on a remote, if
+    /// exactly one remote has such a branch.
+    ///
+    /// Branches that already have a remote tracking branch are never touched.
+    /// Note that only refs that are already present locally are taken into
+    /// account, so it may make sense to fetch beforehand.
+    ///
+    /// Returns the branches that were changed, together with the branches that
+    /// have more than one candidate and were therefore skipped. Branches
+    /// without any candidate are not returned.
+    pub fn set_missing_upstreams(&self) -> Result<Vec<(BranchName, UpstreamDetection)>, Error> {
+        let remotes = self.remotes()?;
+        let mut detections = Vec::new();
+
+        for mut branch in self.local_branches()? {
+            if branch.upstream()?.is_some() {
+                continue;
+            }
+
+            let branch_name = branch.name()?;
+
+            let mut candidates = Vec::new();
+            for remote in &remotes {
+                if self.find_remote_branch(remote, &branch_name)?.is_some() {
+                    candidates.push(remote.clone());
+                }
+            }
+
+            if candidates.len() > 1 {
+                detections.push((branch_name, UpstreamDetection::Ambiguous(candidates)));
+            } else if let Some(remote) = candidates.into_iter().next() {
+                branch.set_upstream(&remote, &branch_name)?;
+                detections.push((branch_name, UpstreamDetection::Set(remote)));
+            }
+        }
+
+        Ok(detections)
     }
 
     pub fn make_bare(&self, value: bool) -> Result<(), Error> {
