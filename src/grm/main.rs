@@ -250,10 +250,7 @@ fn sync_trees(
                             )) => {
                                 print_repo_action(
                                     repo_name.as_str(),
-                                    &format!(
-                                        "Updating remote {} to \"{}\"",
-                                        &remote_name, &remote_url
-                                    ),
+                                    &format!("Updating remote {remote_name} to \"{remote_url}\""),
                                 );
                             }
                             tree::SyncTreeMessage::CreateRemote((
@@ -264,15 +261,14 @@ fn sync_trees(
                                 print_repo_action(
                                     repo_name.as_str(),
                                     &format!(
-                                        "Setting up new remote \"{}\" to \"{}\"",
-                                        &remote_name, &remote_url
+                                        "Setting up new remote \"{remote_name}\" to \"{remote_url}\"",
                                     ),
                                 );
                             }
                             tree::SyncTreeMessage::DeleteRemote((repo_name, remote_name)) => {
                                 print_repo_action(
                                     repo_name.as_str(),
-                                    &format!("Deleting remote \"{}\"", &remote_name),
+                                    &format!("Deleting remote \"{remote_name}\""),
                                 );
                             }
                         },
@@ -691,7 +687,7 @@ fn handle_worktree_add(args: cmd::WorktreeAddArgs) -> HandlerResult {
         print_warning(&warning);
     }
 
-    print_success(&format!("Worktree {} created", &args.name));
+    print_success(&format!("Worktree {} created", args.name));
 
     Ok(MainExitCode::Success)
 }
@@ -724,7 +720,7 @@ fn handle_worktree_delete(args: cmd::WorktreeDeleteArgs) -> HandlerResult {
         _ => MainError::WorktreeRemove(e),
     })?;
 
-    print_success(&format!("Worktree {} deleted", &args.name));
+    print_success(&format!("Worktree {} deleted", args.name));
 
     Ok(MainExitCode::Success)
 }

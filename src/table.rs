@@ -68,19 +68,19 @@ fn add_repo_status(
             writeln!(
                 &mut acc,
                 "branch: {}{}",
-                &branch_name,
-                &match remote_branch {
+                branch_name,
+                match remote_branch {
                     None => String::from(" <!local>"),
                     Some((remote_branch_name, remote_tracking_status)) => {
                         format!(
                             " <{}>{}",
                             remote_branch_name,
-                            &match remote_tracking_status {
+                            match remote_tracking_status {
                                 repo::RemoteTrackingStatus::UpToDate => String::from(" \u{2714}"),
-                                repo::RemoteTrackingStatus::Ahead(d) => format!(" [+{}]", &d),
-                                repo::RemoteTrackingStatus::Behind(d) => format!(" [-{}]", &d),
+                                repo::RemoteTrackingStatus::Ahead(d) => format!(" [+{d}]"),
+                                repo::RemoteTrackingStatus::Behind(d) => format!(" [-{d}]"),
                                 repo::RemoteTrackingStatus::Diverged(d1, d2) =>
-                                    format!(" [+{}/-{}]", &d1, &d2),
+                                    format!(" [+{d1}/-{d2}]"),
                             }
                         )
                     }
@@ -269,12 +269,12 @@ fn add_worktree_status(
 
             format!(
                 "{}{}\n",
-                &remote_branch_name,
-                &match (ahead, behind) {
+                remote_branch_name,
+                match (ahead, behind) {
                     (0, 0) => String::new(),
-                    (d, 0) => format!(" [+{}]", &d),
-                    (0, d) => format!(" [-{}]", &d),
-                    (d1, d2) => format!(" [+{}/-{}]", &d1, &d2),
+                    (d, 0) => format!(" [+{d}]"),
+                    (0, d) => format!(" [-{d}]"),
+                    (d1, d2) => format!(" [+{d1}/-{d2}]"),
                 },
             )
         }

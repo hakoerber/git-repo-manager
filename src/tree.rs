@@ -229,9 +229,9 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
                                 continue;
                             }
                             if path.is_dir() {
-                                match find_repo_paths(&path) {
-                                    Ok(ref mut r) => repos.append(r),
-                                    Err(error) => return Err(error),
+                                {
+                                    let r = &mut find_repo_paths(&path)?;
+                                    repos.append(r);
                                 }
                             }
                         }
