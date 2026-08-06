@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import re
 import tempfile
@@ -340,9 +338,9 @@ def test_repos_find_remote_user(
     assert len(output["trees"][0]["repos"]) == 5
 
     for i in range(1, 6):
-        repo = [r for r in output["trees"][0]["repos"] if r["name"] == f"myproject{i}"][
-            0
-        ]
+        repo = next(
+            r for r in output["trees"][0]["repos"] if r["name"] == f"myproject{i}"
+        )
         assert repo["worktree_setup"] is (not worktree_default and worktree)
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
@@ -519,9 +517,9 @@ def test_repos_find_remote_group(
     assert len(output["trees"][0]["repos"]) == 5
 
     for i in range(1, 6):
-        repo = [r for r in output["trees"][0]["repos"] if r["name"] == f"myproject{i}"][
-            0
-        ]
+        repo = next(
+            r for r in output["trees"][0]["repos"] if r["name"] == f"myproject{i}"
+        )
         assert repo["worktree_setup"] is (not worktree_default and worktree)
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
@@ -635,14 +633,14 @@ def test_repos_find_remote_user_and_group(
     assert isinstance(output["trees"], list)
     assert len(output["trees"]) == 2
 
-    user_namespace = [t for t in output["trees"] if t["root"] == "/myroot/myuser1"][0]
+    user_namespace = next(t for t in output["trees"] if t["root"] == "/myroot/myuser1")
 
     assert set(user_namespace.keys()) == {"root", "repos"}
     assert isinstance(user_namespace["repos"], list)
     assert len(user_namespace["repos"]) == 5
 
     for i in range(1, 6):
-        repo = [r for r in user_namespace["repos"] if r["name"] == f"myproject{i}"][0]
+        repo = next(r for r in user_namespace["repos"] if r["name"] == f"myproject{i}")
         assert repo["worktree_setup"] is (not worktree_default and worktree)
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
@@ -660,14 +658,16 @@ def test_repos_find_remote_user_and_group(
             )
             assert repo["remotes"][0]["type"] == "https"
 
-    group_namespace = [t for t in output["trees"] if t["root"] == "/myroot/mygroup1"][0]
+    group_namespace = next(
+        t for t in output["trees"] if t["root"] == "/myroot/mygroup1"
+    )
 
     assert set(group_namespace.keys()) == {"root", "repos"}
     assert isinstance(group_namespace["repos"], list)
     assert len(group_namespace["repos"]) == 5
 
     for i in range(1, 6):
-        repo = [r for r in group_namespace["repos"] if r["name"] == f"myproject{i}"][0]
+        repo = next(r for r in group_namespace["repos"] if r["name"] == f"myproject{i}")
         assert repo["worktree_setup"] is (not worktree_default and worktree)
         assert isinstance(repo["remotes"], list)
         assert len(repo["remotes"]) == 1
@@ -782,7 +782,9 @@ def test_repos_find_remote_owner(
     assert isinstance(output["trees"], list)
     assert len(output["trees"]) == 4
 
-    user_namespace_1 = [t for t in output["trees"] if t["root"] == "/myroot/myuser1"][0]
+    user_namespace_1 = next(
+        t for t in output["trees"] if t["root"] == "/myroot/myuser1"
+    )
 
     assert set(user_namespace_1.keys()) == {"root", "repos"}
     assert isinstance(user_namespace_1["repos"], list)
@@ -791,9 +793,9 @@ def test_repos_find_remote_owner(
         assert len(user_namespace_1["repos"]) == 5
 
         for i in range(1, 6):
-            repo = [
+            repo = next(
                 r for r in user_namespace_1["repos"] if r["name"] == f"myproject{i}"
-            ][0]
+            )
             assert repo["worktree_setup"] is (not worktree_default and worktree)
             assert isinstance(repo["remotes"], list)
             assert len(repo["remotes"]) == 1
@@ -814,9 +816,9 @@ def test_repos_find_remote_owner(
         assert len(user_namespace_1["repos"]) == 2
 
         for i in range(1, 3):
-            repo = [
+            repo = next(
                 r for r in user_namespace_1["repos"] if r["name"] == f"myproject{i}"
-            ][0]
+            )
             assert repo["worktree_setup"] is (not worktree_default and worktree)
             assert isinstance(repo["remotes"], list)
             assert len(repo["remotes"]) == 1
@@ -834,7 +836,9 @@ def test_repos_find_remote_owner(
                 )
                 assert repo["remotes"][0]["type"] == "https"
 
-    user_namespace_2 = [t for t in output["trees"] if t["root"] == "/myroot/myuser2"][0]
+    user_namespace_2 = next(
+        t for t in output["trees"] if t["root"] == "/myroot/myuser2"
+    )
 
     assert set(user_namespace_2.keys()) == {"root", "repos"}
     assert isinstance(user_namespace_2["repos"], list)
@@ -854,9 +858,9 @@ def test_repos_find_remote_owner(
         assert repo["remotes"][0]["url"] == "https://example.com/myuser2/myproject3.git"
         assert repo["remotes"][0]["type"] == "https"
 
-    group_namespace_1 = [t for t in output["trees"] if t["root"] == "/myroot/mygroup1"][
-        0
-    ]
+    group_namespace_1 = next(
+        t for t in output["trees"] if t["root"] == "/myroot/mygroup1"
+    )
 
     assert set(group_namespace_1.keys()) == {"root", "repos"}
     assert isinstance(group_namespace_1["repos"], list)
@@ -865,9 +869,9 @@ def test_repos_find_remote_owner(
         assert len(group_namespace_1["repos"]) == 5
 
         for i in range(1, 6):
-            repo = [
+            repo = next(
                 r for r in group_namespace_1["repos"] if r["name"] == f"myproject{i}"
-            ][0]
+            )
             assert repo["worktree_setup"] is (not worktree_default and worktree)
             assert isinstance(repo["remotes"], list)
             assert len(repo["remotes"]) == 1
@@ -905,9 +909,9 @@ def test_repos_find_remote_owner(
             )
             assert repo["remotes"][0]["type"] == "https"
 
-    group_namespace_2 = [t for t in output["trees"] if t["root"] == "/myroot/mygroup2"][
-        0
-    ]
+    group_namespace_2 = next(
+        t for t in output["trees"] if t["root"] == "/myroot/mygroup2"
+    )
 
     assert set(group_namespace_2.keys()) == {"root", "repos"}
     assert isinstance(group_namespace_2["repos"], list)

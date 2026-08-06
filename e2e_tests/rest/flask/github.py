@@ -36,7 +36,7 @@ def add_pagination(response, page, last_page):
 
     if page < last_page:
         link_header += (
-            f'<{request.scheme}://{host}{request.path}?{args(page+1)}>; rel="next", '
+            f'<{request.scheme}://{host}{request.path}?{args(page + 1)}>; rel="next", '
         )
     link_header += (
         f'<{request.scheme}://{host}{request.path}?{args(last_page)}>; rel="last"'
@@ -44,18 +44,19 @@ def add_pagination(response, page, last_page):
     response.headers["link"] = link_header
 
 
-def read_project_files(namespaces=[]):
+def read_project_files(namespaces=None):
+    if namespaces is None:
+        namespaces = []
     last_page = 4
     page = int(request.args.get("page", "1"))
     response_file = f"./github_api_page_{page}.json.j2"
     if not os.path.exists(response_file):
         return jsonify([])
 
-    response = make_response(
-        jinja2.Template(open(response_file).read()).render(
-            namespace=namespaces[page - 1]
+    with open(response_file) as f:
+        response = make_response(
+            jinja2.Template(f.read()).render(namespace=namespaces[page - 1])
         )
-    )
     add_pagination(response, page, last_page)
     response.headers["content-type"] = "application/json"
     return response
@@ -80,7 +81,7 @@ def github_user_repos(user):
 @app.route("/github/orgs/<string:group>/repos/")
 def github_group_repos(group):
     check_headers()
-    if not (request.args.get("type") == "all"):
+    if request.args.get("type") != "all":
         abort(500, "wrong arguments")
     if group == "mygroup1":
         return single_namespaced_projects("mygroup1")
@@ -96,6 +97,7 @@ def github_own_repos():
 @app.route("/github/user/")
 def github_user():
     check_headers()
-    response = make_response(open("./github_api_user.json").read())
+    with open("./github_api_user.json") as f:
+        response = make_response(f.read())
     response.headers["content-type"] = "application/json"
     return response

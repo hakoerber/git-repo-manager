@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import hashlib
 import inspect
 import os
@@ -7,6 +5,7 @@ import os.path
 import shutil
 import subprocess
 import tempfile
+import typing
 
 import git
 
@@ -26,7 +25,9 @@ def get_temporary_directory(dir=None):
 
 
 def grm(args, cwd=None, is_invalid=False):
-    cmd = subprocess.run([binary] + args, cwd=cwd, capture_output=True, text=True)
+    cmd = subprocess.run(
+        [binary] + args, cwd=cwd, capture_output=True, text=True, check=False
+    )
     if not is_invalid:
         assert "usage" not in cmd.stderr.lower()
     print(f"grmcmd: {args}")
@@ -40,7 +41,9 @@ def grm(args, cwd=None, is_invalid=False):
 
 def shell(script):
     script = "set -o errexit\nset -o nounset\nset -o pipefail\n" + script
-    cmd = subprocess.run(["bash"], input=script, text=True, capture_output=True)
+    cmd = subprocess.run(
+        ["bash"], input=script, text=True, capture_output=True, check=False
+    )
     if cmd.returncode != 0:
         print(cmd.stdout)
         print(cmd.stderr)
@@ -153,7 +156,7 @@ class TempGitRepository:
 
 
 class TempGitRemote:
-    obj = {}
+    obj: typing.ClassVar = {}
 
     def __init__(self, tmpdir, remoteid=None):
         self.tmpdir = tmpdir
@@ -203,7 +206,7 @@ class TempGitRemote:
 
 
 class TempGitRepositoryWorktree:
-    obj = {}
+    obj: typing.ClassVar = {}
 
     def __init__(self, remotes, tmpdir, commit, remote1, remote2, remote1id, remote2id):
         self.remotes = remotes
@@ -249,8 +252,6 @@ class TempGitRepositoryWorktree:
                 remote1, remote1id = TempGitRemote.get(
                     cachekey=cachekeyremote, initfunc=initfunc
                 )
-                remote1 = remote1
-                remote1id = remote1id
                 shell(f"""
                     cd {tmpdir.name}
                     git --git-dir .git-main-working-tree remote add origin file://{remote1.tmpdir.name}
@@ -263,8 +264,6 @@ class TempGitRepositoryWorktree:
                 remote2, remote2id = TempGitRemote.get(
                     cachekey=cachekeyremote, initfunc=initfunc
                 )
-                remote2 = remote2
-                remote2id = remote2id
                 shell(f"""
                     cd {tmpdir.name}
                     git --git-dir .git-main-working-tree remote add otherremote file://{remote2.tmpdir.name}

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import re
 import tempfile
@@ -126,17 +124,17 @@ def test_repos_find(configtype, exclude, default_format):
             assert isinstance(tree["repos"], list)
             assert len(tree["repos"]) == (1 if exclude == "^.*/repo2$" else 2)
 
-            repo1 = [r for r in tree["repos"] if r["name"] == "repo1"][0]
+            repo1 = next(r for r in tree["repos"] if r["name"] == "repo1")
             assert repo1["worktree_setup"] is False
             assert isinstance(repo1["remotes"], list)
             assert len(repo1["remotes"]) == 2
 
-            origin = [r for r in repo1["remotes"] if r["name"] == "origin"][0]
+            origin = next(r for r in repo1["remotes"] if r["name"] == "origin")
             assert set(origin.keys()) == {"name", "type", "url"}
             assert origin["type"] == "https"
             assert origin["url"] == "https://example.com/repo2.git"
 
-            someremote = [r for r in repo1["remotes"] if r["name"] == "someremote"][0]
+            someremote = next(r for r in repo1["remotes"] if r["name"] == "someremote")
             assert set(origin.keys()) == {"name", "type", "url"}
             assert someremote["type"] == "ssh"
             assert someremote["url"] == "ssh://example.com/repo2.git"
@@ -144,12 +142,12 @@ def test_repos_find(configtype, exclude, default_format):
             if exclude == "^.*/repo2$":
                 assert [r for r in tree["repos"] if r["name"] == "repo2"] == []
             else:
-                repo2 = [r for r in tree["repos"] if r["name"] == "repo2"][0]
+                repo2 = next(r for r in tree["repos"] if r["name"] == "repo2")
                 assert repo2["worktree_setup"] is False
                 assert isinstance(repo1["remotes"], list)
                 assert len(repo2["remotes"]) == 1
 
-                origin = [r for r in repo2["remotes"] if r["name"] == "origin"][0]
+                origin = next(r for r in repo2["remotes"] if r["name"] == "origin")
                 assert set(origin.keys()) == {"name", "type", "url"}
                 assert origin["type"] == "https"
                 assert origin["url"] == "https://example.com/repo2.git"
@@ -183,18 +181,18 @@ def test_repos_find_in_root(configtype, default_format):
             assert isinstance(tree["repos"], list)
             assert len(tree["repos"]) == 1
 
-            repo1 = [
+            repo1 = next(
                 r for r in tree["repos"] if r["name"] == os.path.basename(repo_dir)
-            ][0]
+            )
             assert repo1["worktree_setup"] is False
             assert isinstance(repo1["remotes"], list)
             assert len(repo1["remotes"]) == 2
 
-            origin = [r for r in repo1["remotes"] if r["name"] == "origin"][0]
+            origin = next(r for r in repo1["remotes"] if r["name"] == "origin")
             assert set(origin.keys()) == {"name", "type", "url"}
             assert origin["type"] == "file"
 
-            someremote = [r for r in repo1["remotes"] if r["name"] == "otherremote"][0]
+            someremote = next(r for r in repo1["remotes"] if r["name"] == "otherremote")
             assert set(origin.keys()) == {"name", "type", "url"}
             assert someremote["type"] == "file"
 
@@ -256,27 +254,27 @@ def test_repos_find_with_invalid_repo(configtype, default_format):
             assert isinstance(tree["repos"], list)
             assert len(tree["repos"]) == 2
 
-            repo1 = [r for r in tree["repos"] if r["name"] == "repo1"][0]
+            repo1 = next(r for r in tree["repos"] if r["name"] == "repo1")
             assert repo1["worktree_setup"] is False
             assert isinstance(repo1["remotes"], list)
             assert len(repo1["remotes"]) == 2
 
-            origin = [r for r in repo1["remotes"] if r["name"] == "origin"][0]
+            origin = next(r for r in repo1["remotes"] if r["name"] == "origin")
             assert set(origin.keys()) == {"name", "type", "url"}
             assert origin["type"] == "https"
             assert origin["url"] == "https://example.com/repo2.git"
 
-            someremote = [r for r in repo1["remotes"] if r["name"] == "someremote"][0]
+            someremote = next(r for r in repo1["remotes"] if r["name"] == "someremote")
             assert set(origin.keys()) == {"name", "type", "url"}
             assert someremote["type"] == "ssh"
             assert someremote["url"] == "ssh://example.com/repo2.git"
 
-            repo2 = [r for r in tree["repos"] if r["name"] == "repo2"][0]
+            repo2 = next(r for r in tree["repos"] if r["name"] == "repo2")
             assert repo2["worktree_setup"] is False
             assert isinstance(repo1["remotes"], list)
             assert len(repo2["remotes"]) == 1
 
-            origin = [r for r in repo2["remotes"] if r["name"] == "origin"][0]
+            origin = next(r for r in repo2["remotes"] if r["name"] == "origin")
             assert set(origin.keys()) == {"name", "type", "url"}
             assert origin["type"] == "https"
             assert origin["url"] == "https://example.com/repo2.git"

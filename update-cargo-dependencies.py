@@ -72,6 +72,7 @@ for tier in ["dependencies", "dev-dependencies"]:
                     "--exit-code",
                     "./Cargo.lock",
                 ],
+                check=True,
             )
 
             if cmd.returncode == 1:
