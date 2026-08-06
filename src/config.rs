@@ -10,6 +10,8 @@ pub enum RemoteProvider {
     Github,
     #[serde(alias = "gitlab", alias = "GitLab")]
     Gitlab,
+    #[serde(alias = "gitea", alias = "Gitea")]
+    Gitea,
 }
 
 pub const WORKTREE_CONFIG_FILE_NAME: &str = "grm.toml";

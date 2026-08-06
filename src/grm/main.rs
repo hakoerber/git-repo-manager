@@ -301,6 +301,15 @@ fn handle_repos_sync_config(args: cmd::Config) -> HandlerResult {
     Ok(MainExitCode::Success)
 }
 
+fn get_projects_from_provider(
+    provider: RemoteProvider,
+    filter: Filter,
+    token: AuthToken,
+    api_url: Option<String>,
+) -> Result<HashMap<Option<ProjectNamespace>, Vec<Box<dyn provider::Project>>>, MainError> {
+    todo!()
+}
+
 fn get_repos_from_provider(
     provider: RemoteProvider,
     filter: Filter,
@@ -312,9 +321,10 @@ fn get_repos_from_provider(
 ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, MainError> {
     match provider {
         cmd::RemoteProvider::Github => {
-            provider::Github::new(filter, token, api_url.map(provider::Url::new))
+            provider::Github::new(token, api_url.map(provider::Url::new))
                 .map_err(|e| MainError::ProviderInit(e))?
-                .get_repos(
+                .get_repo_configs(
+                    filter,
                     use_worktree.into(),
                     if force_ssh {
                         ProtocolConfig::ForceSsh
@@ -325,9 +335,10 @@ fn get_repos_from_provider(
                 )
         }
         cmd::RemoteProvider::Gitlab => {
-            provider::Gitlab::new(filter, token, api_url.map(provider::Url::new))
+            provider::Gitlab::new(token, api_url.map(provider::Url::new))
                 .map_err(|e| MainError::ProviderInit(e))?
-                .get_repos(
+                .get_repo_configs(
+                    filter,
                     use_worktree.into(),
                     if force_ssh {
                         ProtocolConfig::ForceSsh
@@ -337,6 +348,7 @@ fn get_repos_from_provider(
                     remote_name.map(RemoteName::new),
                 )
         }
+        cmd::RemoteProvider::Gitea => unimplemented!(),
     }
     .map_err(|e| MainError::ProviderGetRepo(e))
 }
@@ -630,11 +642,52 @@ fn handle_repos_find(find: cmd::FindAction) -> HandlerResult {
     })
 }
 
+fn handle_repos_mirror(args: cmd::MirrorAction) -> HandlerResult {
+    println!("{args:#?}");
+    let token_origin = auth::get_token_from_command(&args.origin_token_command)
+        .map_err(|e| MainError::TokenCommandFailed(e))?;
+
+    let token_target = auth::get_token_from_command(&args.target_token_command)
+        .map_err(|e| MainError::TokenCommandFailed(e))?;
+
+    let filter = provider::Filter::new(
+        vec![provider::User::new(args.origin_user)],
+        vec![],
+        false,
+        false,
+        args.forks,
+    );
+
+    assert!(!filter.empty());
+
+    let target_provider: Box<dyn provider::Provider> = match args.target_provider {
+        RemoteProvider::Github => {
+            todo!();
+        }
+        RemoteProvider::Gitlab => todo!(),
+        RemoteProvider::Gitea => todo!(),
+    };
+
+    let repos = get_projects_from_provider(
+        args.origin_provider,
+        filter,
+        token_origin,
+        args.origin_api_url,
+    )?;
+
+    for repo in repos {
+        // if args.
+    }
+
+    todo!()
+}
+
 fn handle_repos(repos: cmd::Repos) -> HandlerResult {
     Ok(match repos.action {
         cmd::ReposAction::Sync(sync) => handle_repos_sync(sync)?,
         cmd::ReposAction::Status(args) => handle_repos_status(args)?,
         cmd::ReposAction::Find(find) => handle_repos_find(find)?,
+        cmd::ReposAction::Mirror(mirror) => handle_repos_mirror(mirror)?,
     })
 }
 

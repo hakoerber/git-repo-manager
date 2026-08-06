@@ -36,6 +36,8 @@ pub enum ReposAction {
     Find(FindAction),
     #[clap(about = "Show status of configured repositories")]
     Status(OptionalConfig),
+    #[clap()]
+    Mirror(MirrorAction),
 }
 
 #[derive(Parser)]
@@ -99,6 +101,45 @@ pub struct FindConfigArgs {
         default_value_t = ConfigFormat::Toml,
     )]
     pub format: ConfigFormat,
+}
+
+#[derive(Parser, Debug)]
+#[clap(about = "Mirror repositories between remotes")]
+pub struct MirrorAction {
+    #[clap(value_enum, short, long, help = "Remote provider to use")]
+    pub origin_provider: RemoteProvider,
+
+    #[clap(value_enum, short, long, help = "Remote provider to use")]
+    pub target_provider: RemoteProvider,
+
+    #[clap(long, help = "User to get repositories from on origin provider")]
+    pub origin_user: String,
+
+    #[clap(long, help = "User to mirror repositories to on target provider")]
+    pub target_user: String,
+
+    #[clap(long, help = "Command to get API token for origin provider")]
+    pub origin_token_command: String,
+
+    #[clap(long, help = "Command to get API token for target provider")]
+    pub target_token_command: String,
+
+    #[clap(long, help = "Base URL for the API of the origin provider")]
+    pub origin_api_url: Option<String>,
+
+    #[clap(long, help = "Base URL for the API of the target provider")]
+    pub target_api_url: Option<String>,
+
+    #[clap(
+        long,
+        help = "Get repositories that are forks",
+        value_parser = ["true", "false"],
+        default_value = "true",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        value_parser = str::parse::<bool>,
+    )]
+    pub forks: bool,
 }
 
 #[derive(Parser)]
