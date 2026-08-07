@@ -38,6 +38,8 @@ pub enum ReposAction {
     Status(ReposStatusArgs),
     #[clap(about = "Set the upstream of local branches that do not track a remote branch")]
     SetUpstream(ReposSetUpstreamArgs),
+    #[clap(about = "List files that are not part of any repository")]
+    UnmanagedFiles(ReposUnmanagedFilesArgs),
 }
 
 #[derive(Parser)]
@@ -299,6 +301,13 @@ pub struct ReposStatusArgs {
 #[derive(Parser)]
 #[clap()]
 pub struct ReposSetUpstreamArgs {
+    #[clap(short, long, help = "Path to the configuration file")]
+    pub config: Option<String>,
+}
+
+#[derive(Parser)]
+#[clap()]
+pub struct ReposUnmanagedFilesArgs {
     #[clap(short, long, help = "Path to the configuration file")]
     pub config: Option<String>,
 }
