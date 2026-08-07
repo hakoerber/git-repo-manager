@@ -113,6 +113,50 @@ $ grm repos status
 ╰──────────┴──────────┴────────┴──────────┴───────┴─────────╯
 ```
 
+### Fix up missing tracking branches
+
+Branches that show up as `<!local>` do not have a remote tracking branch. This
+happens easily when pushing with plain `git push` instead of
+`git push --set-upstream`. To repair those in bulk, use `set-upstream`:
+
+```bash
+$ grm repos set-upstream --config example.config.toml
+[✔] git-repo-manager: Set upstream of "feature" to "origin/feature"
+[✔] dotfiles: Set upstream of "wip" to "origin/wip"
+```
+
+For every local branch that does not have a remote tracking branch, GRM looks
+for a branch of the same name on the remotes of that repository:
+
+* If exactly one remote has such a branch, it is set as the upstream.
+* If no remote has such a branch, the branch is left alone. It only exists
+  locally, so there is nothing to track.
+* If more than one remote has such a branch, there is no obvious candidate.
+  GRM refuses to guess, warns and exits with code 2.
+
+Branches that already have a remote tracking branch are never touched, so the
+command is safe to rerun.
+
+Note that GRM only looks at the refs that are already present locally, it does
+not contact the remotes. If a branch was pushed from another machine, fetch
+first, otherwise there is no `refs/remotes/<remote>/<branch>` for GRM to find.
+
+Just like `status`, `set-upstream` works on the repository you're currently in
+when used without `--config`:
+
+```bash
+$ cd ~/example-projects/dotfiles
+$ grm repos set-upstream
+[✔] dotfiles: Set upstream of "wip" to "origin/wip"
+```
+
+To prevent the problem in the first place, tell git to set the upstream on push
+automatically (requires git 2.37 or newer):
+
+```bash
+git config --global push.autoSetupRemote true
+```
+
 ## YAML
 
 By default, the repo configuration uses TOML. If you prefer YAML, just give it a

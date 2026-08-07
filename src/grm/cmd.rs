@@ -36,6 +36,8 @@ pub enum ReposAction {
     Find(FindAction),
     #[clap(about = "Show status of configured repositories")]
     Status(ReposStatusArgs),
+    #[clap(about = "Set the upstream of local branches that do not track a remote branch")]
+    SetUpstream(ReposSetUpstreamArgs),
 }
 
 #[derive(Parser)]
@@ -292,6 +294,13 @@ pub struct ReposStatusArgs {
         help = "Only show repositories that hold changes which are not backed up on a remote"
     )]
     pub dirty: bool,
+}
+
+#[derive(Parser)]
+#[clap()]
+pub struct ReposSetUpstreamArgs {
+    #[clap(short, long, help = "Path to the configuration file")]
+    pub config: Option<String>,
 }
 
 #[derive(clap::ValueEnum, Clone)]

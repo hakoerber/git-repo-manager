@@ -120,6 +120,10 @@ enum MainError {
     InvalidWorktreeName(repo::WorktreeValidationError),
     #[error("Failed guessing default branch")]
     WorktreeDefaultBranch(WorktreeError),
+    #[error("Failed setting upstream: {0}")]
+    SetUpstream(repo::Error),
+    #[error("There were failures while setting upstreams")]
+    SetUpstreamHasFailures,
 }
 
 impl MainError {
@@ -441,6 +445,123 @@ fn handle_repos_status(args: cmd::ReposStatusArgs) -> HandlerResult {
     Ok(MainExitCode::Success)
 }
 
+/// Set the upstream of all local branches of a single repository, reporting
+/// each change. Returns whether every branch had an unambiguous candidate.
+fn set_upstreams(repo_name: &str, repo_handle: &repo::RepoHandle) -> Result<bool, repo::Error> {
+    let mut unambiguous = true;
+
+    for (branch_name, detection) in repo_handle.set_missing_upstreams()? {
+        match detection {
+            repo::UpstreamDetection::Set(remote_name) => print_repo_success(
+                repo_name,
+                &format!("Set upstream of \"{branch_name}\" to \"{remote_name}/{branch_name}\""),
+            ),
+            repo::UpstreamDetection::Ambiguous(remote_names) => {
+                print_warning(format!(
+                    "{repo_name}: \"{branch_name}\" exists on multiple remotes ({}), skipping",
+                    remote_names
+                        .iter()
+                        .map(RemoteName::as_str)
+                        .collect::<Vec<&str>>()
+                        .join(", ")
+                ));
+                unambiguous = false;
+            }
+        }
+    }
+
+    Ok(unambiguous)
+}
+
+fn handle_repos_set_upstream(args: cmd::ReposSetUpstreamArgs) -> HandlerResult {
+    let (warnings, failures) = if let Some(config_path) = args.config {
+        exec_with_result_channel(
+            |config_path, tx| -> Result<(bool, bool), MainError> {
+                let config = read_config(&config_path)?;
+
+                let trees: Vec<tree::Tree> =
+                    get_trees(config, tx).map_err(|e| MainError::GetTree(e))?;
+
+                let mut warnings = false;
+                let mut failures = false;
+
+                for tree in trees {
+                    let root_path = path::expand_path(tree.root.as_path())?;
+
+                    for repo in &tree.repos {
+                        let repo_name = repo.fullname();
+                        let repo_path = root_path.join(repo_name.as_str());
+
+                        if !repo_path.exists() {
+                            print_repo_error(
+                                repo_name.as_str(),
+                                "Repository does not exist. Run sync?",
+                            );
+                            failures = true;
+                            continue;
+                        }
+
+                        let repo_handle = match repo::RepoHandle::open_with_worktree_setup(
+                            &repo_path,
+                            repo.worktree_setup,
+                        ) {
+                            Ok(repo_handle) => repo_handle,
+                            Err(error) => {
+                                print_repo_error(repo_name.as_str(), &error.to_string());
+                                failures = true;
+                                continue;
+                            }
+                        };
+
+                        match set_upstreams(repo_name.as_str(), &repo_handle) {
+                            Ok(true) => (),
+                            Ok(false) => warnings = true,
+                            Err(error) => {
+                                print_repo_error(repo_name.as_str(), &error.to_string());
+                                failures = true;
+                            }
+                        }
+                    }
+                }
+
+                Ok((warnings, failures))
+            },
+            |rx| {
+                for message in rx {
+                    match message {
+                        SyncTreesMessage::SyncTreeMessage(_) => unreachable!(),
+                        SyncTreesMessage::GetTreeWarning(warning) => print_warning(warning),
+                    }
+                }
+            },
+            config_path,
+        )?
+    } else {
+        let dir = get_cwd()?;
+        let worktree_setup = repo::WorktreeSetup::detect(&dir);
+
+        let repo_handle = repo::RepoHandle::open_with_worktree_setup(&dir, worktree_setup)
+            .map_err(|e| MainError::OpenRepo(e))?;
+
+        let repo_name = dir.file_name().unwrap_or(dir.as_str());
+
+        let unambiguous =
+            set_upstreams(repo_name, &repo_handle).map_err(|e| MainError::SetUpstream(e))?;
+
+        (!unambiguous, false)
+    };
+
+    if failures {
+        return Err(MainError::SetUpstreamHasFailures);
+    }
+
+    Ok(if warnings {
+        MainExitCode::Warnings
+    } else {
+        MainExitCode::Success
+    })
+}
+
 fn handle_repos_find_local(args: cmd::FindLocalArgs) -> HandlerResult {
     let path = Path::new(&args.path);
     if !path.exists() {
@@ -632,6 +753,7 @@ fn handle_repos(repos: cmd::Repos) -> HandlerResult {
     Ok(match repos.action {
         cmd::ReposAction::Sync(sync) => handle_repos_sync(sync)?,
         cmd::ReposAction::Status(args) => handle_repos_status(args)?,
+        cmd::ReposAction::SetUpstream(args) => handle_repos_set_upstream(args)?,
         cmd::ReposAction::Find(find) => handle_repos_find(find)?,
     })
 }
