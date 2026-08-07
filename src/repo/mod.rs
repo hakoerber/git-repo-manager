@@ -350,6 +350,7 @@ pub struct RepoStatus {
 }
 
 impl RepoStatus {
+    /// Whether the working tree has no uncommitted changes.
     fn clean(&self) -> bool {
         match self.changes {
             None => true,
@@ -357,6 +358,30 @@ impl RepoStatus {
                 changes.files_new == 0 && changes.files_deleted == 0 && changes.files_modified == 0
             }
         }
+    }
+
+    /// Whether the repository holds any state that only exists locally, i.e.
+    /// that is not backed up on a remote. That is the case for uncommitted
+    /// changes in the working tree, and for branches that have commits their
+    /// remote tracking branch does not have.
+    ///
+    /// A branch that is behind its remote tracking branch is *not* dirty, as
+    /// everything it holds is on the remote already. A branch without a remote
+    /// tracking branch is dirty, as it only exists locally.
+    ///
+    /// Note that this is not the negation of [`Self::clean()`], which only
+    /// looks at the working tree.
+    pub fn dirty(&self) -> bool {
+        !self.clean()
+            || self.branches.iter().any(|branch| {
+                !matches!(
+                    branch.1,
+                    Some((
+                        _,
+                        RemoteTrackingStatus::UpToDate | RemoteTrackingStatus::Behind(_)
+                    ))
+                )
+            })
     }
 }
 

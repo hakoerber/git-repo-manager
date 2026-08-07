@@ -35,7 +35,7 @@ pub enum ReposAction {
     #[clap(subcommand)]
     Find(FindAction),
     #[clap(about = "Show status of configured repositories")]
-    Status(OptionalConfig),
+    Status(ReposStatusArgs),
 }
 
 #[derive(Parser)]
@@ -283,9 +283,15 @@ pub struct SyncRemoteArgs {
 
 #[derive(Parser)]
 #[clap()]
-pub struct OptionalConfig {
+pub struct ReposStatusArgs {
     #[clap(short, long, help = "Path to the configuration file")]
     pub config: Option<String>,
+
+    #[clap(
+        long = "dirty",
+        help = "Only show repositories that hold changes which are not backed up on a remote"
+    )]
+    pub dirty: bool,
 }
 
 #[derive(clap::ValueEnum, Clone)]
