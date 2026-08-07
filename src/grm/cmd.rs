@@ -289,7 +289,7 @@ pub struct ReposStatusArgs {
 
     #[clap(
         long = "dirty",
-        help = "Only show repositories with uncommitted changes or branches that are not up to date"
+        help = "Only show repositories that hold changes which are not backed up on a remote"
     )]
     pub dirty: bool,
 }

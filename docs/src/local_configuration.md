@@ -70,8 +70,8 @@ $ grm repos status --config example.config.toml
 ```
 
 If you have a lot of repositories, the interesting ones are usually those that
-are not in sync with their remote. Use `--dirty` to hide all repositories that
-have neither uncommitted changes nor branches that are out of sync:
+hold something that is not backed up on a remote yet. Use `--dirty` to hide all
+repositories that are fully backed up:
 
 ```bash
 $ grm repos status --config example.config.toml --dirty
@@ -87,10 +87,15 @@ A repository is considered dirty when either of the following is true:
 
 * There are uncommitted changes in the working tree (new, modified or deleted
   files, including untracked ones).
-* There is a branch that is ahead of, behind or diverged from its remote
-  tracking branch.
+* There is a branch that is ahead of or diverged from its remote tracking
+  branch, so it holds commits that the remote does not have.
 * There is a branch that does not have a remote tracking branch at all, as it
   only exists locally.
+
+A branch that is merely *behind* its remote tracking branch does not make a
+repository dirty. Everything it holds is on the remote already, you are just
+missing something the remote has, which is a `git pull` and not a risk of losing
+work.
 
 Note that for repositories in a worktree setup, only the branches are taken into
 account, as those repositories do not have a working tree of their own.
