@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import git
 from helpers import EmptyDir, grm, shell
 
