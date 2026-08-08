@@ -99,7 +99,7 @@ version = "=1.0.151"
 default-features = false
 
 [dependencies.ureq]
-version = "=3.3.0"
+version = "=3.4.0"
 default-features = false
 features = ["json", "rustls", "platform-verifier"]
 
