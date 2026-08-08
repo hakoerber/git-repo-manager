@@ -157,6 +157,43 @@ automatically (requires git 2.37 or newer):
 git config --global push.autoSetupRemote true
 ```
 
+### Find files that are not in any repository
+
+A file that ended up next to your repositories instead of inside one of them is
+not backed up by anything. `unmanaged-files` walks each tree root and lists
+everything that is not part of a repository:
+
+```bash
+$ grm repos unmanaged-files --config example.config.toml
+/home/example/projects/docs
+/home/example/projects/notes.txt
+```
+
+Directories that do not contain any repository are reported as a whole, so a
+directory with a thousand files in it gives you one line, not a thousand. Once
+there is a repository somewhere below a directory, its remaining contents are
+listed one by one instead:
+
+```
+~/projects/
+├── git-repo-manager/     # a repository, skipped
+├── notes.txt             # reported
+├── docs/                 # reported as a whole, no repository below it
+│   └── draft.md
+└── nested/
+    ├── dotfiles/         # a repository, skipped
+    └── loose.txt         # reported, "nested" does contain a repository
+```
+
+The command exits with code 2 if it found anything, so it can be used as a
+check. Symlinks are never followed, as they could point outside of the tree.
+
+Without `--config`, the current directory is used as the root:
+
+```bash
+$ cd ~/projects && grm repos unmanaged-files
+```
+
 ## YAML
 
 By default, the repo configuration uses TOML. If you prefer YAML, just give it a

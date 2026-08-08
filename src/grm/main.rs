@@ -124,6 +124,8 @@ enum MainError {
     SetUpstream(repo::Error),
     #[error("There were failures while setting upstreams")]
     SetUpstreamHasFailures,
+    #[error("Failed finding unmanaged files: {0}")]
+    FindUnmanagedFiles(tree::Error),
 }
 
 impl MainError {
@@ -562,6 +564,53 @@ fn handle_repos_set_upstream(args: cmd::ReposSetUpstreamArgs) -> HandlerResult {
     })
 }
 
+fn handle_repos_unmanaged_files(args: cmd::ReposUnmanagedFilesArgs) -> HandlerResult {
+    let unmanaged = if let Some(config_path) = args.config {
+        exec_with_result_channel(
+            |config_path, tx| -> Result<Vec<PathBuf>, MainError> {
+                let config = read_config(&config_path)?;
+
+                let trees: Vec<tree::Tree> =
+                    get_trees(config, tx).map_err(|e| MainError::GetTree(e))?;
+
+                let mut unmanaged = Vec::new();
+
+                for tree in trees {
+                    let root_path = path::expand_path(tree.root.as_path())?;
+
+                    unmanaged.extend(
+                        tree::find_unmanaged_files(&root_path)
+                            .map_err(|e| MainError::FindUnmanagedFiles(e))?,
+                    );
+                }
+
+                Ok(unmanaged)
+            },
+            |rx| {
+                for message in rx {
+                    match message {
+                        SyncTreesMessage::SyncTreeMessage(_) => unreachable!(),
+                        SyncTreesMessage::GetTreeWarning(warning) => print_warning(warning),
+                    }
+                }
+            },
+            config_path,
+        )?
+    } else {
+        tree::find_unmanaged_files(&get_cwd()?).map_err(|e| MainError::FindUnmanagedFiles(e))?
+    };
+
+    for path in &unmanaged {
+        println(path.as_str());
+    }
+
+    Ok(if unmanaged.is_empty() {
+        MainExitCode::Success
+    } else {
+        MainExitCode::Warnings
+    })
+}
+
 fn handle_repos_find_local(args: cmd::FindLocalArgs) -> HandlerResult {
     let path = Path::new(&args.path);
     if !path.exists() {
@@ -754,6 +803,7 @@ fn handle_repos(repos: cmd::Repos) -> HandlerResult {
         cmd::ReposAction::Sync(sync) => handle_repos_sync(sync)?,
         cmd::ReposAction::Status(args) => handle_repos_status(args)?,
         cmd::ReposAction::SetUpstream(args) => handle_repos_set_upstream(args)?,
+        cmd::ReposAction::UnmanagedFiles(args) => handle_repos_unmanaged_files(args)?,
         cmd::ReposAction::Find(find) => handle_repos_find(find)?,
     })
 }
