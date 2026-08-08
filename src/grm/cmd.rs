@@ -35,7 +35,11 @@ pub enum ReposAction {
     #[clap(subcommand)]
     Find(FindAction),
     #[clap(about = "Show status of configured repositories")]
-    Status(OptionalConfig),
+    Status(ReposStatusArgs),
+    #[clap(about = "Set the upstream of local branches that do not track a remote branch")]
+    SetUpstream(ReposSetUpstreamArgs),
+    #[clap(about = "List files that are not part of any repository")]
+    UnmanagedFiles(ReposUnmanagedFilesArgs),
 }
 
 #[derive(Parser)]
@@ -283,7 +287,27 @@ pub struct SyncRemoteArgs {
 
 #[derive(Parser)]
 #[clap()]
-pub struct OptionalConfig {
+pub struct ReposStatusArgs {
+    #[clap(short, long, help = "Path to the configuration file")]
+    pub config: Option<String>,
+
+    #[clap(
+        long = "dirty",
+        help = "Only show repositories that hold changes which are not backed up on a remote"
+    )]
+    pub dirty: bool,
+}
+
+#[derive(Parser)]
+#[clap()]
+pub struct ReposSetUpstreamArgs {
+    #[clap(short, long, help = "Path to the configuration file")]
+    pub config: Option<String>,
+}
+
+#[derive(Parser)]
+#[clap()]
+pub struct ReposUnmanagedFilesArgs {
     #[clap(short, long, help = "Path to the configuration file")]
     pub config: Option<String>,
 }

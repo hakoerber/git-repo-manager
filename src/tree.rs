@@ -209,14 +209,17 @@ pub fn sync_trees(
     ))
 }
 
+/// Whether the given directory is the root of a repository, either a normal one
+/// or one in a worktree setup.
+fn is_repo_root(path: &Path) -> bool {
+    path.join(".git").exists() || path.join(repo::GIT_MAIN_WORKTREE_DIRECTORY).exists()
+}
+
 /// Finds repositories recursively, returning their path
 pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
     let mut repos = Vec::new();
 
-    let git_dir = path.join(".git");
-    let git_worktree = path.join(repo::GIT_MAIN_WORKTREE_DIRECTORY);
-
-    if git_dir.exists() || git_worktree.exists() {
+    if is_repo_root(path) {
         repos.push(path.to_path_buf());
     } else {
         match fs::read_dir(path) {
@@ -258,6 +261,75 @@ pub fn find_repo_paths(path: &Path) -> Result<Vec<PathBuf>, Error> {
     }
 
     Ok(repos)
+}
+
+/// Collect everything under `path` that is not part of any repository, assuming
+/// that the contents of `path` have to be listed one by one.
+///
+/// Returns whether there is a repository somewhere below `path`, together with
+/// the paths that are not part of a repository. A directory that does not
+/// contain any repository is reported as a whole instead of each of its
+/// contents separately, as reporting a single directory is a lot more useful
+/// than reporting each file inside of it.
+///
+/// Symlinks are never followed. They are reported like normal files, as
+/// following them could lead outside of the tree.
+fn find_unmanaged_files_in(path: &Path) -> Result<(bool, Vec<PathBuf>), Error> {
+    if is_repo_root(path) {
+        return Ok((true, Vec::new()));
+    }
+
+    let contents = match fs::read_dir(path) {
+        Ok(contents) => contents,
+        Err(e) => {
+            return Err(match e.kind() {
+                std::io::ErrorKind::NotFound => Error::NotFound {
+                    path: path.to_path_buf(),
+                },
+                kind => Error::Open {
+                    path: path.to_path_buf(),
+                    kind,
+                },
+            });
+        }
+    };
+
+    let mut contains_repo = false;
+    let mut unmanaged = Vec::new();
+
+    for content in contents {
+        let entry = content.map_err(|e| Error::DirectoryAccess {
+            message: e.to_string(),
+        })?;
+        let entry_path = path::from_std_path_buf(entry.path())?;
+
+        if entry_path.is_dir() && !entry_path.is_symlink() {
+            let (sub_contains_repo, sub_unmanaged) = find_unmanaged_files_in(&entry_path)?;
+            if sub_contains_repo {
+                contains_repo = true;
+                unmanaged.extend(sub_unmanaged);
+            } else {
+                unmanaged.push(entry_path);
+            }
+        } else {
+            unmanaged.push(entry_path);
+        }
+    }
+
+    Ok((contains_repo, unmanaged))
+}
+
+/// Find all paths under `root_path` that are not part of any repository.
+///
+/// If `root_path` itself is a repository, nothing is reported. If it does not
+/// contain any repository at all, its contents are reported, as reporting the
+/// root itself would not tell the user anything they did not already know.
+pub fn find_unmanaged_files(root_path: &Path) -> Result<Vec<PathBuf>, Error> {
+    let (_contains_repo, mut unmanaged) = find_unmanaged_files_in(root_path)?;
+
+    unmanaged.sort();
+
+    Ok(unmanaged)
 }
 
 fn sync_repo(

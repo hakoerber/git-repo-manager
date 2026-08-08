@@ -331,6 +331,17 @@ pub enum RemoteTrackingStatus {
     Diverged(usize, usize),
 }
 
+/// What happened to a local branch that does not have a remote tracking branch
+/// when looking for an obvious candidate.
+pub enum UpstreamDetection {
+    /// Exactly one remote has a branch with the same name, which was set as the
+    /// upstream of the local branch.
+    Set(RemoteName),
+    /// More than one remote has a branch with the same name, so there is no
+    /// obvious candidate. The local branch was left alone.
+    Ambiguous(Vec<RemoteName>),
+}
+
 pub struct RepoStatus {
     pub operation: Option<git2::RepositoryState>,
 
@@ -350,6 +361,7 @@ pub struct RepoStatus {
 }
 
 impl RepoStatus {
+    /// Whether the working tree has no uncommitted changes.
     fn clean(&self) -> bool {
         match self.changes {
             None => true,
@@ -357,6 +369,30 @@ impl RepoStatus {
                 changes.files_new == 0 && changes.files_deleted == 0 && changes.files_modified == 0
             }
         }
+    }
+
+    /// Whether the repository holds any state that only exists locally, i.e.
+    /// that is not backed up on a remote. That is the case for uncommitted
+    /// changes in the working tree, and for branches that have commits their
+    /// remote tracking branch does not have.
+    ///
+    /// A branch that is behind its remote tracking branch is *not* dirty, as
+    /// everything it holds is on the remote already. A branch without a remote
+    /// tracking branch is dirty, as it only exists locally.
+    ///
+    /// Note that this is not the negation of [`Self::clean()`], which only
+    /// looks at the working tree.
+    pub fn dirty(&self) -> bool {
+        !self.clean()
+            || self.branches.iter().any(|branch| {
+                !matches!(
+                    branch.1,
+                    Some((
+                        _,
+                        RemoteTrackingStatus::UpToDate | RemoteTrackingStatus::Behind(_)
+                    ))
+                )
+            })
     }
 }
 
@@ -624,6 +660,46 @@ impl RepoHandle {
 
     pub fn create_branch(&self, name: &BranchName, target: &Commit) -> Result<Branch<'_>, Error> {
         Ok(Branch(self.0.branch(name.as_str(), &target.0, false)?))
+    }
+
+    /// Set the upstream of each local branch that does not have a remote
+    /// tracking branch yet to the branch of the same name on a remote, if
+    /// exactly one remote has such a branch.
+    ///
+    /// Branches that already have a remote tracking branch are never touched.
+    /// Note that only refs that are already present locally are taken into
+    /// account, so it may make sense to fetch beforehand.
+    ///
+    /// Returns the branches that were changed, together with the branches that
+    /// have more than one candidate and were therefore skipped. Branches
+    /// without any candidate are not returned.
+    pub fn set_missing_upstreams(&self) -> Result<Vec<(BranchName, UpstreamDetection)>, Error> {
+        let remotes = self.remotes()?;
+        let mut detections = Vec::new();
+
+        for mut branch in self.local_branches()? {
+            if branch.upstream()?.is_some() {
+                continue;
+            }
+
+            let branch_name = branch.name()?;
+
+            let mut candidates = Vec::new();
+            for remote in &remotes {
+                if self.find_remote_branch(remote, &branch_name)?.is_some() {
+                    candidates.push(remote.clone());
+                }
+            }
+
+            if candidates.len() > 1 {
+                detections.push((branch_name, UpstreamDetection::Ambiguous(candidates)));
+            } else if let Some(remote) = candidates.into_iter().next() {
+                branch.set_upstream(&remote, &branch_name)?;
+                detections.push((branch_name, UpstreamDetection::Set(remote)));
+            }
+        }
+
+        Ok(detections)
     }
 
     pub fn make_bare(&self, value: bool) -> Result<(), Error> {

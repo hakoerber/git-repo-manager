@@ -69,6 +69,37 @@ $ grm repos status --config example.config.toml
 ╰──────────────────┴──────────┴────────┴───────────────────┴────────┴─────────╯
 ```
 
+If you have a lot of repositories, the interesting ones are usually those that
+hold something that is not backed up on a remote yet. Use `--dirty` to hide all
+repositories that are fully backed up:
+
+```bash
+$ grm repos status --config example.config.toml --dirty
+╭──────────────────┬──────────┬─────────────┬──────────────────────┬────────┬─────────╮
+│ Repo             ┆ Worktree ┆ Status      ┆ Branches             ┆ HEAD   ┆ Remotes │
+╞══════════════════╪══════════╪═════════════╪══════════════════════╪════════╪═════════╡
+│ git-repo-manager ┆          ┆ Modified: 1 ┆ branch: master       ┆ master ┆ github  │
+│                  ┆          ┆             ┆ <origin/master> [+1] ┆        ┆ origin  │
+╰──────────────────┴──────────┴─────────────┴──────────────────────┴────────┴─────────╯
+```
+
+A repository is considered dirty when either of the following is true:
+
+* There are uncommitted changes in the working tree (new, modified or deleted
+  files, including untracked ones).
+* There is a branch that is ahead of or diverged from its remote tracking
+  branch, so it holds commits that the remote does not have.
+* There is a branch that does not have a remote tracking branch at all, as it
+  only exists locally.
+
+A branch that is merely *behind* its remote tracking branch does not make a
+repository dirty. Everything it holds is on the remote already, you are just
+missing something the remote has, which is a `git pull` and not a risk of losing
+work.
+
+Note that for repositories in a worktree setup, only the branches are taken into
+account, as those repositories do not have a working tree of their own.
+
 You can also use `status` without `--config` to check the repository you're
 currently in:
 
@@ -80,6 +111,87 @@ $ grm repos status
 ╞══════════╪══════════╪════════╪══════════╪═══════╪═════════╡
 │ dotfiles ┆          ┆ ✔      ┆          ┆ Empty ┆ origin  │
 ╰──────────┴──────────┴────────┴──────────┴───────┴─────────╯
+```
+
+### Fix up missing tracking branches
+
+Branches that show up as `<!local>` do not have a remote tracking branch. This
+happens easily when pushing with plain `git push` instead of
+`git push --set-upstream`. To repair those in bulk, use `set-upstream`:
+
+```bash
+$ grm repos set-upstream --config example.config.toml
+[✔] git-repo-manager: Set upstream of "feature" to "origin/feature"
+[✔] dotfiles: Set upstream of "wip" to "origin/wip"
+```
+
+For every local branch that does not have a remote tracking branch, GRM looks
+for a branch of the same name on the remotes of that repository:
+
+* If exactly one remote has such a branch, it is set as the upstream.
+* If no remote has such a branch, the branch is left alone. It only exists
+  locally, so there is nothing to track.
+* If more than one remote has such a branch, there is no obvious candidate.
+  GRM refuses to guess, warns and exits with code 2.
+
+Branches that already have a remote tracking branch are never touched, so the
+command is safe to rerun.
+
+Note that GRM only looks at the refs that are already present locally, it does
+not contact the remotes. If a branch was pushed from another machine, fetch
+first, otherwise there is no `refs/remotes/<remote>/<branch>` for GRM to find.
+
+Just like `status`, `set-upstream` works on the repository you're currently in
+when used without `--config`:
+
+```bash
+$ cd ~/example-projects/dotfiles
+$ grm repos set-upstream
+[✔] dotfiles: Set upstream of "wip" to "origin/wip"
+```
+
+To prevent the problem in the first place, tell git to set the upstream on push
+automatically (requires git 2.37 or newer):
+
+```bash
+git config --global push.autoSetupRemote true
+```
+
+### Find files that are not in any repository
+
+A file that ended up next to your repositories instead of inside one of them is
+not backed up by anything. `unmanaged-files` walks each tree root and lists
+everything that is not part of a repository:
+
+```bash
+$ grm repos unmanaged-files --config example.config.toml
+/home/example/projects/docs
+/home/example/projects/notes.txt
+```
+
+Directories that do not contain any repository are reported as a whole, so a
+directory with a thousand files in it gives you one line, not a thousand. Once
+there is a repository somewhere below a directory, its remaining contents are
+listed one by one instead:
+
+```
+~/projects/
+├── git-repo-manager/     # a repository, skipped
+├── notes.txt             # reported
+├── docs/                 # reported as a whole, no repository below it
+│   └── draft.md
+└── nested/
+    ├── dotfiles/         # a repository, skipped
+    └── loose.txt         # reported, "nested" does contain a repository
+```
+
+The command exits with code 2 if it found anything, so it can be used as a
+check. Symlinks are never followed, as they could point outside of the tree.
+
+Without `--config`, the current directory is used as the root:
+
+```bash
+$ cd ~/projects && grm repos unmanaged-files
 ```
 
 ## YAML
