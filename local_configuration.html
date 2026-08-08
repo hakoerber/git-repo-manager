@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d253b90b.js";
+            window.path_to_searchindex_js = "searchindex-9bbd3b69.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-c36df20a.js"></script>
@@ -224,6 +224,32 @@ a regex that will be test against the path of each discovered repository:</p>
 │ dotfiles         ┆          ┆ ✔      ┆                   ┆ Empty  ┆ origin  │
 ╰──────────────────┴──────────┴────────┴───────────────────┴────────┴─────────╯
 </code></pre>
+<p>If you have a lot of repositories, the interesting ones are usually those that
+hold something that is not backed up on a remote yet. Use <code>--dirty</code> to hide all
+repositories that are fully backed up:</p>
+<pre><code class="language-bash">$ grm repos status --config example.config.toml --dirty
+╭──────────────────┬──────────┬─────────────┬──────────────────────┬────────┬─────────╮
+│ Repo             ┆ Worktree ┆ Status      ┆ Branches             ┆ HEAD   ┆ Remotes │
+╞══════════════════╪══════════╪═════════════╪══════════════════════╪════════╪═════════╡
+│ git-repo-manager ┆          ┆ Modified: 1 ┆ branch: master       ┆ master ┆ github  │
+│                  ┆          ┆             ┆ &lt;origin/master&gt; [+1] ┆        ┆ origin  │
+╰──────────────────┴──────────┴─────────────┴──────────────────────┴────────┴─────────╯
+</code></pre>
+<p>A repository is considered dirty when either of the following is true:</p>
+<ul>
+<li>There are uncommitted changes in the working tree (new, modified or deleted
+files, including untracked ones).</li>
+<li>There is a branch that is ahead of or diverged from its remote tracking
+branch, so it holds commits that the remote does not have.</li>
+<li>There is a branch that does not have a remote tracking branch at all, as it
+only exists locally.</li>
+</ul>
+<p>A branch that is merely <em>behind</em> its remote tracking branch does not make a
+repository dirty. Everything it holds is on the remote already, you are just
+missing something the remote has, which is a <code>git pull</code> and not a risk of losing
+work.</p>
+<p>Note that for repositories in a worktree setup, only the branches are taken into
+account, as those repositories do not have a working tree of their own.</p>
 <p>You can also use <code>status</code> without <code>--config</code> to check the repository you’re
 currently in:</p>
 <pre><code class="language-bash">$ cd ~/example-projects/dotfiles
@@ -233,6 +259,64 @@ $ grm repos status
 ╞══════════╪══════════╪════════╪══════════╪═══════╪═════════╡
 │ dotfiles ┆          ┆ ✔      ┆          ┆ Empty ┆ origin  │
 ╰──────────┴──────────┴────────┴──────────┴───────┴─────────╯
+</code></pre>
+<h3 id="fix-up-missing-tracking-branches"><a class="header" href="#fix-up-missing-tracking-branches">Fix up missing tracking branches</a></h3>
+<p>Branches that show up as <code>&lt;!local&gt;</code> do not have a remote tracking branch. This
+happens easily when pushing with plain <code>git push</code> instead of
+<code>git push --set-upstream</code>. To repair those in bulk, use <code>set-upstream</code>:</p>
+<pre><code class="language-bash">$ grm repos set-upstream --config example.config.toml
+[✔] git-repo-manager: Set upstream of "feature" to "origin/feature"
+[✔] dotfiles: Set upstream of "wip" to "origin/wip"
+</code></pre>
+<p>For every local branch that does not have a remote tracking branch, GRM looks
+for a branch of the same name on the remotes of that repository:</p>
+<ul>
+<li>If exactly one remote has such a branch, it is set as the upstream.</li>
+<li>If no remote has such a branch, the branch is left alone. It only exists
+locally, so there is nothing to track.</li>
+<li>If more than one remote has such a branch, there is no obvious candidate.
+GRM refuses to guess, warns and exits with code 2.</li>
+</ul>
+<p>Branches that already have a remote tracking branch are never touched, so the
+command is safe to rerun.</p>
+<p>Note that GRM only looks at the refs that are already present locally, it does
+not contact the remotes. If a branch was pushed from another machine, fetch
+first, otherwise there is no <code>refs/remotes/&lt;remote&gt;/&lt;branch&gt;</code> for GRM to find.</p>
+<p>Just like <code>status</code>, <code>set-upstream</code> works on the repository you’re currently in
+when used without <code>--config</code>:</p>
+<pre><code class="language-bash">$ cd ~/example-projects/dotfiles
+$ grm repos set-upstream
+[✔] dotfiles: Set upstream of "wip" to "origin/wip"
+</code></pre>
+<p>To prevent the problem in the first place, tell git to set the upstream on push
+automatically (requires git 2.37 or newer):</p>
+<pre><code class="language-bash">git config --global push.autoSetupRemote true
+</code></pre>
+<h3 id="find-files-that-are-not-in-any-repository"><a class="header" href="#find-files-that-are-not-in-any-repository">Find files that are not in any repository</a></h3>
+<p>A file that ended up next to your repositories instead of inside one of them is
+not backed up by anything. <code>unmanaged-files</code> walks each tree root and lists
+everything that is not part of a repository:</p>
+<pre><code class="language-bash">$ grm repos unmanaged-files --config example.config.toml
+/home/example/projects/docs
+/home/example/projects/notes.txt
+</code></pre>
+<p>Directories that do not contain any repository are reported as a whole, so a
+directory with a thousand files in it gives you one line, not a thousand. Once
+there is a repository somewhere below a directory, its remaining contents are
+listed one by one instead:</p>
+<pre><code>~/projects/
+├── git-repo-manager/     # a repository, skipped
+├── notes.txt             # reported
+├── docs/                 # reported as a whole, no repository below it
+│   └── draft.md
+└── nested/
+    ├── dotfiles/         # a repository, skipped
+    └── loose.txt         # reported, "nested" does contain a repository
+</code></pre>
+<p>The command exits with code 2 if it found anything, so it can be used as a
+check. Symlinks are never followed, as they could point outside of the tree.</p>
+<p>Without <code>--config</code>, the current directory is used as the root:</p>
+<pre><code class="language-bash">$ cd ~/projects &amp;&amp; grm repos unmanaged-files
 </code></pre>
 <h2 id="yaml"><a class="header" href="#yaml">YAML</a></h2>
 <p>By default, the repo configuration uses TOML. If you prefer YAML, just give it a
