@@ -1204,22 +1204,27 @@ impl<'a> Branch<'a> {
 /// is what all the forges expect.
 const DEFAULT_SSH_USERNAME: &str = "git";
 
+#[derive(Debug, Error)]
+enum SshSocketError {
+    #[error("no ssh-agent available, as SSH_AUTH_SOCK is not set in the environment")]
+    EnvVariableNotFound,
+    #[error("SSH_AUTH_SOCK is set to \"{path}\", but there is no socket at that path")]
+    SocketNotFound { path: PathBuf },
+}
+
 /// Why the SSH agent cannot be used, if it cannot be used. libgit2 only ever
 /// reports a failure to talk to the agent as a generic authentication error,
 /// which points at the remote instead of at the actual problem, so we check
 /// upfront to be able to give a proper explanation.
-fn ssh_agent_problem() -> Option<String> {
+fn ssh_agent_problem() -> Option<SshSocketError> {
     match std::env::var("SSH_AUTH_SOCK") {
-        Err(_error) => Some(
-            "no ssh-agent available, as SSH_AUTH_SOCK is not set in the environment".to_owned(),
-        ),
+        Err(_error) => Some(SshSocketError::EnvVariableNotFound),
         Ok(socket) => {
-            if Path::new(&socket).exists() {
+            let path = PathBuf::from(socket);
+            if path.exists() {
                 None
             } else {
-                Some(format!(
-                    "SSH_AUTH_SOCK is set to \"{socket}\", but there is no socket at that path"
-                ))
+                Some(SshSocketError::SocketNotFound { path })
             }
         }
     }
@@ -1250,7 +1255,7 @@ fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
             return Err(git2::Error::new(
                 git2::ErrorCode::Auth,
                 git2::ErrorClass::Ssh,
-                problem,
+                problem.to_string(),
             ));
         }
 
@@ -1422,7 +1427,10 @@ mod tests {
     #[test]
     fn check_ssh_agent_without_socket_variable() {
         temp_env::with_var_unset("SSH_AUTH_SOCK", || {
-            assert!(ssh_agent_problem().is_some());
+            assert!(matches!(
+                ssh_agent_problem(),
+                Some(SshSocketError::EnvVariableNotFound)
+            ));
         });
     }
 
@@ -1432,7 +1440,10 @@ mod tests {
             "SSH_AUTH_SOCK",
             Some("/nonexistent/ssh-agent.socket"),
             || {
-                assert!(ssh_agent_problem().is_some());
+                assert!(matches!(
+                    ssh_agent_problem(),
+                    Some(SshSocketError::SocketNotFound { .. })
+                ));
             },
         );
     }
