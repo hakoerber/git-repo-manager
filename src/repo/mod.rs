@@ -1218,7 +1218,17 @@ enum SshSocketError {
 /// upfront to be able to give a proper explanation.
 fn ssh_agent_problem() -> Option<SshSocketError> {
     match std::env::var("SSH_AUTH_SOCK") {
-        Err(_error) => Some(SshSocketError::EnvVariableNotFound),
+        Err(std::env::VarError::NotPresent) => Some(SshSocketError::EnvVariableNotFound),
+        #[expect(
+            clippy::panic,
+            reason = "a socket path that is not utf-8 is broken beyond what we could handle"
+        )]
+        Err(std::env::VarError::NotUnicode(value)) => {
+            panic!(
+                "SSH_AUTH_SOCK is set to \"{}\", which is not valid utf-8",
+                value.display()
+            )
+        }
         Ok(socket) => {
             let path = PathBuf::from(socket);
             if path.exists() {
@@ -1446,6 +1456,18 @@ mod tests {
                 ));
             },
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    #[should_panic(expected = "which is not valid utf-8")]
+    fn check_ssh_agent_with_non_utf8_socket() {
+        use std::os::unix::ffi::OsStrExt as _;
+
+        let socket = std::ffi::OsStr::from_bytes(b"/tmp/\xffssh-agent.socket");
+        temp_env::with_var("SSH_AUTH_SOCK", Some(socket), || {
+            drop(ssh_agent_problem());
+        });
     }
 
     #[test]
