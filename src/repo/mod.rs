@@ -1200,6 +1200,46 @@ impl<'a> Branch<'a> {
     }
 }
 
+/// The username used for SSH remotes that do not specify one themselves. This
+/// is what all the forges expect.
+const DEFAULT_SSH_USERNAME: &str = "git";
+
+#[derive(Debug, Error)]
+enum SshSocketError {
+    #[error("no ssh-agent available, as SSH_AUTH_SOCK is not set in the environment")]
+    EnvVariableNotFound,
+    #[error("SSH_AUTH_SOCK is set to \"{path}\", but there is no socket at that path")]
+    SocketNotFound { path: PathBuf },
+}
+
+/// Why the SSH agent cannot be used, if it cannot be used. libgit2 only ever
+/// reports a failure to talk to the agent as a generic authentication error,
+/// which points at the remote instead of at the actual problem, so we check
+/// upfront to be able to give a proper explanation.
+fn ssh_agent_problem() -> Option<SshSocketError> {
+    match std::env::var("SSH_AUTH_SOCK") {
+        Err(std::env::VarError::NotPresent) => Some(SshSocketError::EnvVariableNotFound),
+        #[expect(
+            clippy::panic,
+            reason = "a socket path that is not utf-8 is broken beyond what we could handle"
+        )]
+        Err(std::env::VarError::NotUnicode(value)) => {
+            panic!(
+                "SSH_AUTH_SOCK is set to \"{}\", which is not valid utf-8",
+                value.display()
+            )
+        }
+        Ok(socket) => {
+            let path = PathBuf::from(socket);
+            if path.exists() {
+                None
+            } else {
+                Some(SshSocketError::SocketNotFound { path })
+            }
+        }
+    }
+}
+
 fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.push_update_reference(|_, status| {
@@ -1213,11 +1253,22 @@ fn get_remote_callbacks() -> git2::RemoteCallbacks<'static> {
         Ok(())
     });
 
-    callbacks.credentials(|_url, username_from_url, _allowed_types| {
-        #[expect(clippy::panic, reason = "there is no good way to bubble up that error")]
-        let Some(username) = username_from_url else {
-            panic!("Could not get username. This is a bug")
-        };
+    callbacks.credentials(|_url, username_from_url, allowed_types| {
+        // Without a username in the URL, libgit2 asks for the username first,
+        // before asking for the actual credentials.
+        let username = username_from_url.unwrap_or(DEFAULT_SSH_USERNAME);
+        if allowed_types.contains(git2::CredentialType::USERNAME) {
+            return git2::Cred::username(username);
+        }
+
+        if let Some(problem) = ssh_agent_problem() {
+            return Err(git2::Error::new(
+                git2::ErrorCode::Auth,
+                git2::ErrorClass::Ssh,
+                problem.to_string(),
+            ));
+        }
+
         git2::Cred::ssh_key_from_agent(username)
     });
 
@@ -1382,6 +1433,51 @@ pub fn clone_repo(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn check_ssh_agent_without_socket_variable() {
+        temp_env::with_var_unset("SSH_AUTH_SOCK", || {
+            assert!(matches!(
+                ssh_agent_problem(),
+                Some(SshSocketError::EnvVariableNotFound)
+            ));
+        });
+    }
+
+    #[test]
+    fn check_ssh_agent_with_missing_socket() {
+        temp_env::with_var(
+            "SSH_AUTH_SOCK",
+            Some("/nonexistent/ssh-agent.socket"),
+            || {
+                assert!(matches!(
+                    ssh_agent_problem(),
+                    Some(SshSocketError::SocketNotFound { .. })
+                ));
+            },
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    #[should_panic(expected = "which is not valid utf-8")]
+    fn check_ssh_agent_with_non_utf8_socket() {
+        use std::os::unix::ffi::OsStrExt as _;
+
+        let socket = std::ffi::OsStr::from_bytes(b"/tmp/\xffssh-agent.socket");
+        temp_env::with_var("SSH_AUTH_SOCK", Some(socket), || {
+            drop(ssh_agent_problem());
+        });
+    }
+
+    #[test]
+    fn check_ssh_agent_with_socket() -> Result<(), Error> {
+        let socket = tempfile::NamedTempFile::new()?;
+        temp_env::with_var("SSH_AUTH_SOCK", Some(socket.path()), || {
+            assert!(ssh_agent_problem().is_none());
+        });
+        Ok(())
+    }
 
     #[test]
     fn check_ssh_remote() -> Result<(), Error> {
