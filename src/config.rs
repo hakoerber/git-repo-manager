@@ -66,7 +66,7 @@ pub struct ConfigProviderFilter {
     pub groups: Option<Vec<Group>>,
     pub fork: Option<bool>,
     pub ignore_archived: Option<bool>,
-    pub exclude: Option<Vec<String>>,
+    pub exclude_repos: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

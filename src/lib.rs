@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{
     config::{Config, RemoteProvider, Root},
-    provider::{Filter, ProtocolConfig, Provider as _},
+    provider::{Filter, ProtocolConfig, Provider as _, ProviderRepos},
     tree::Tree,
 };
 
@@ -280,7 +280,7 @@ pub fn get_trees(
                 );
             }
 
-            let repos = match config.provider {
+            let ProviderRepos { repos, warnings } = match config.provider {
                 RemoteProvider::Github => {
                     provider::Github::new(filter, token, config.api_url.map(provider::Url::new))?
                         .get_repos(
@@ -306,6 +306,10 @@ pub fn get_trees(
                         )?
                 }
             };
+
+            for warning in warnings {
+                send_msg(result_channel, SyncTreesMessage::GetTreeWarning(warning));
+            }
 
             let mut trees = vec![];
 

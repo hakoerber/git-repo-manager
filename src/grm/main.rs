@@ -312,7 +312,7 @@ fn get_repos_from_provider(
     force_ssh: bool,
     remote_name: Option<String>,
 ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, MainError> {
-    match provider {
+    let found = match provider {
         cmd::RemoteProvider::Github => {
             provider::Github::new(filter, token, api_url.map(provider::Url::new))
                 .map_err(|e| MainError::ProviderInit(e))?
@@ -340,7 +340,13 @@ fn get_repos_from_provider(
                 )
         }
     }
-    .map_err(|e| MainError::ProviderGetRepo(e))
+    .map_err(|e| MainError::ProviderGetRepo(e))?;
+
+    for warning in found.warnings {
+        print_warning(warning);
+    }
+
+    Ok(found.repos)
 }
 
 fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
@@ -353,7 +359,8 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
         args.owner,
         args.access,
         args.forks,
-    );
+    )
+    .with_exclusions(args.ignore_archived, args.exclude_repos);
 
     if filter.empty() {
         print_warning("You did not specify any filters, so no repos will match");
@@ -720,7 +727,8 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
         args.owner,
         args.access,
         args.forks,
-    );
+    )
+    .with_exclusions(args.ignore_archived, args.exclude_repos);
 
     if filter.empty() {
         print_warning("You did not specify any filters, so no repos will match");

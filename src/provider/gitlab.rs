@@ -34,8 +34,7 @@ pub struct GitlabProject {
     pub ssh_url_to_repo: String,
     pub visibility: GitlabVisibility,
     pub forked_from_project: Option<ParentProject>,
-    #[serde(default)]
-    pub archived: bool,
+    pub archived: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -73,7 +72,7 @@ impl Project for GitlabProject {
     }
 
     fn is_archived(&self) -> bool {
-        self.archived
+        self.archived.unwrap_or(false)
     }
 }
 
