@@ -122,6 +122,55 @@ $ grm repos find config --config example.config.toml > repos.toml
 $ grm repos sync config --config repos.toml
 ```
 
+### Excluding repositories
+
+Provider configuration files support two optional exclusion filters:
+
+```toml
+[filters]
+access = true
+ignore_archived = true
+exclude = [
+  "my-org/legacy-service",
+  "my-org/large-repository",
+  "archived-org/*",
+  "my-org/legacy-*",
+]
+```
+
+* `ignore_archived` skips archived repositories. It defaults to `false`.
+* `exclude` skips case-sensitive full repository paths. It defaults to an empty
+  list. Use `owner/repo` for GitHub and `group/subgroup/repo` for GitLab projects
+  in subgroups. Use the spelling returned by the provider.
+* `*` matches zero or more characters, including `/`. For example, `my-org/*`
+  excludes all repositories in that organization, including GitLab subgroups.
+  `my-org/legacy-*` excludes names with that prefix; `*/repo` excludes that name
+  in any namespace. A pattern must match the complete path, not a substring.
+  `*` alone excludes everything. Without `*`, entries still match exact paths.
+  Only `*` is special; `?`, brackets, braces, and backslashes are literal.
+  There is no wildcard escape syntax. Bare names and clone URLs do not match
+  namespaced repository paths. Unmatched entries are ignored without a warning.
+
+These filters remove repositories from the combined results of `access`, `owner`,
+`users`, and `groups`. They also work with the existing `fork = false` filter.
+Exclusions alone do not select repositories; at least one inclusion filter is
+required. If the provider omits archive metadata, GRM treats that repository as
+not archived. GitLab group discovery already skips archived projects; setting
+`ignore_archived = false` does not include them through `groups`. They can still
+appear through `access`, `owner`, or `users` when `ignore_archived = false`. This
+existing GitLab behavior is unchanged.
+
+Preview the selected repositories without cloning them:
+
+```bash
+grm repos find config --config config.toml
+```
+
+Then use `grm repos sync config --config config.toml` to sync the selection.
+Excluded local clones are not deleted or changed. They can still be reported as
+unmanaged repositories. Static repository lists and local discovery are not
+affected. These new filters are config-only; they are not remote CLI flags.
+
 ## Using with self-hosted GitLab
 
 By default, `grm` uses the default GitLab API endpoint
