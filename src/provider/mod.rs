@@ -1,7 +1,15 @@
 pub mod github;
 pub mod gitlab;
 
-use std::{borrow::Cow, collections::HashMap, fmt, sync::OnceLock};
+#[cfg(test)]
+mod tests;
+
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    fmt,
+    sync::OnceLock,
+};
 
 pub use github::Github;
 pub use gitlab::Gitlab;
@@ -213,15 +221,47 @@ pub trait Project {
     fn http_url(&self) -> RemoteUrl;
     fn private(&self) -> bool;
     fn is_fork(&self) -> bool;
+    fn is_archived(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent repository filter options"
+)]
 pub struct Filter {
     users: Vec<User>,
     groups: Vec<Group>,
     owner: bool,
     access: bool,
     fork: bool,
+    ignore_archived: bool,
+    exclude: HashSet<String>,
+    exclude_patterns: Vec<String>,
+}
+
+/// Match the complete path, with `*` matching zero or more characters, including `/`.
+fn matches_exclusion(pattern: &str, path: &str) -> bool {
+    let mut parts = pattern.split('*');
+    let Some(remaining) = path.strip_prefix(parts.next().unwrap_or_default()) else {
+        return false;
+    };
+    let Some(suffix) = parts.next_back() else {
+        return remaining.is_empty();
+    };
+    let Some(mut remaining) = remaining.strip_suffix(suffix) else {
+        return false;
+    };
+    // Reserve the suffix before finding the middle parts, so they cannot overlap.
+    for part in parts {
+        let Some((_, rest)) = remaining.split_once(part) else {
+            return false;
+        };
+        remaining = rest;
+    }
+    true
 }
 
 impl Filter {
@@ -238,11 +278,71 @@ impl Filter {
             owner,
             access,
             fork,
+            ignore_archived: false,
+            exclude: HashSet::new(),
+            exclude_patterns: Vec::new(),
         }
+    }
+
+    /// Exclude archived projects and case-sensitive full repository paths.
+    /// A `*` in a path matches zero or more characters, including `/`.
+    #[must_use]
+    pub fn with_exclusions(mut self, ignore_archived: bool, exclude: Vec<String>) -> Self {
+        self.ignore_archived = ignore_archived;
+        let (patterns, exact): (HashSet<_>, HashSet<_>) =
+            exclude.into_iter().partition(|entry| entry.contains('*'));
+        self.exclude = exact;
+        self.exclude_patterns = patterns.into_iter().collect();
+        self
+    }
+
+    fn includes(&self, project: &impl Project) -> bool {
+        if (!self.fork && project.is_fork()) || (self.ignore_archived && project.is_archived()) {
+            return false;
+        }
+        if self.exclude.is_empty() && self.exclude_patterns.is_empty() {
+            return true;
+        }
+        let name = project.name().into_string();
+        let full_name = match project.namespace() {
+            Some(namespace) => format!("{}/{name}", namespace.as_str()),
+            None => name,
+        };
+        !self.exclude.contains(&full_name)
+            && !self
+                .exclude_patterns
+                .iter()
+                .any(|pattern| matches_exclusion(pattern, &full_name))
     }
 
     pub fn empty(&self) -> bool {
         self.users.is_empty() && self.groups.is_empty() && !self.owner && !self.access
+    }
+}
+
+impl From<config::ConfigProviderFilter> for Filter {
+    fn from(filters: config::ConfigProviderFilter) -> Self {
+        Self::new(
+            filters
+                .users
+                .unwrap_or_default()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            filters
+                .groups
+                .unwrap_or_default()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            filters.owner.unwrap_or(false),
+            filters.access.unwrap_or(false),
+            filters.fork.unwrap_or(true),
+        )
+        .with_exclusions(
+            filters.ignore_archived.unwrap_or(false),
+            filters.exclude.unwrap_or_default(),
+        )
     }
 }
 
@@ -465,7 +565,7 @@ pub trait Provider {
         let remote_name = remote_name.unwrap_or(DEFAULT_REMOTE_NAME);
 
         for repo in repos {
-            if !self.filter().fork && repo.is_fork() {
+            if !self.filter().includes(&repo) {
                 continue;
             }
 

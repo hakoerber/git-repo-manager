@@ -34,6 +34,8 @@ pub struct GitlabProject {
     pub ssh_url_to_repo: String,
     pub visibility: GitlabVisibility,
     pub forked_from_project: Option<ParentProject>,
+    #[serde(default)]
+    pub archived: bool,
 }
 
 #[derive(Deserialize)]
@@ -68,6 +70,10 @@ impl Project for GitlabProject {
 
     fn is_fork(&self) -> bool {
         self.forked_from_project.is_some()
+    }
+
+    fn is_archived(&self) -> bool {
+        self.archived
     }
 }
 

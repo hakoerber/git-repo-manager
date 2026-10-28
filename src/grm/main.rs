@@ -662,31 +662,7 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
     let token = auth::get_token_from_command(&config.token_command)
         .map_err(|e| MainError::TokenCommandFailed(e))?;
 
-    let filters = config.filters.unwrap_or(config::ConfigProviderFilter {
-        access: Some(false),
-        owner: Some(false),
-        users: Some(vec![]),
-        groups: Some(vec![]),
-        fork: Some(true),
-    });
-
-    let filter = provider::Filter::new(
-        filters
-            .users
-            .unwrap_or_default()
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-        filters
-            .groups
-            .unwrap_or_default()
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-        filters.owner.unwrap_or(false),
-        filters.access.unwrap_or(false),
-        filters.fork.unwrap_or(true),
-    );
+    let filter = provider::Filter::from(config.filters.unwrap_or_default());
 
     if filter.empty() {
         print_warning("You did not specify any filters, so no repos will match");
