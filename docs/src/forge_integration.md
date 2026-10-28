@@ -65,6 +65,42 @@ $ grm repos sync remote --provider github --user torvals --owner --group zalando
 This would sync all of Torvald's repositories, all of my own repositories and
 all (public) repositories in the "zalando" group.
 
+### Excluding repositories
+
+Two more filters remove repositories from that selection:
+
+* `--ignore-archived` skips archived repositories.
+* `--exclude-repo <PATTERN>` skips repositories whose full path matches
+  `<PATTERN>`. Give it more than once to skip more repositories.
+
+The full path is `owner/repo` on GitHub, or `group/subgroup/repo` on GitLab. A
+pattern must match the complete path. Matching ignores ASCII letter case, like
+the forges do. `*` matches zero or more characters, including `/`:
+
+* `my-org/legacy-service` matches only that repository.
+* `my-org/*` matches all repositories in `my-org`, including GitLab subgroups.
+* `my-org/legacy-*` matches the repositories in `my-org` whose names start
+  with `legacy-`.
+* `*/docs` matches a `docs` repository in any namespace.
+
+Only `*` is special. Patterns are not regular expressions, unlike the
+`--exclude` option of `grm repos find local`. Quote patterns on the command
+line, so that the shell does not expand `*`:
+
+```bash
+$ grm repos sync remote --provider github --access --ignore-archived --exclude-repo 'my-org/legacy-*' [...]
+```
+
+`grm` prints a warning for each pattern that matches no repository, to catch
+typos. Exclusions do not select repositories on their own, so you still need at
+least one of the filters above. If the forge does not report whether a
+repository is archived, `grm` treats it as not archived. Note that GitLab group
+discovery (`--group`) never returns archived projects, even without
+`--ignore-archived`.
+
+Excluded repositories that already exist locally are not deleted or changed.
+`grm repos sync` reports them as unmanaged repositories.
+
 ## Strategies
 
 There are generally three ways how you can use `grm` with forges:
@@ -107,6 +143,21 @@ groups = [
 The options in the file map to the command line options of the `grm repos sync
 remote` command.
 
+For example, `--ignore-archived` and `--exclude-repo` become:
+
+```toml
+[filters]
+access = true
+ignore_archived = true
+exclude_repos = [
+  "my-org/legacy-*",
+  "*/docs",
+]
+```
+
+In YAML, quote patterns that start with `*` (`- "*/docs"`). Otherwise YAML
+reads them as aliases.
+
 You'd then run the `grm repos sync` command the same way as with a list of
 repositories in a configuration:
 
@@ -121,55 +172,6 @@ You can even use that file to generate a repository list that you can feed into
 $ grm repos find config --config example.config.toml > repos.toml
 $ grm repos sync config --config repos.toml
 ```
-
-### Excluding repositories
-
-Provider configuration files support two optional exclusion filters:
-
-```toml
-[filters]
-access = true
-ignore_archived = true
-exclude = [
-  "my-org/legacy-service",
-  "my-org/large-repository",
-  "archived-org/*",
-  "my-org/legacy-*",
-]
-```
-
-* `ignore_archived` skips archived repositories. It defaults to `false`.
-* `exclude` skips case-sensitive full repository paths. It defaults to an empty
-  list. Use `owner/repo` for GitHub and `group/subgroup/repo` for GitLab projects
-  in subgroups. Use the spelling returned by the provider.
-* `*` matches zero or more characters, including `/`. For example, `my-org/*`
-  excludes all repositories in that organization, including GitLab subgroups.
-  `my-org/legacy-*` excludes names with that prefix; `*/repo` excludes that name
-  in any namespace. A pattern must match the complete path, not a substring.
-  `*` alone excludes everything. Without `*`, entries still match exact paths.
-  Only `*` is special; `?`, brackets, braces, and backslashes are literal.
-  There is no wildcard escape syntax. Bare names and clone URLs do not match
-  namespaced repository paths. Unmatched entries are ignored without a warning.
-
-These filters remove repositories from the combined results of `access`, `owner`,
-`users`, and `groups`. They also work with the existing `fork = false` filter.
-Exclusions alone do not select repositories; at least one inclusion filter is
-required. If the provider omits archive metadata, GRM treats that repository as
-not archived. GitLab group discovery already skips archived projects; setting
-`ignore_archived = false` does not include them through `groups`. They can still
-appear through `access`, `owner`, or `users` when `ignore_archived = false`. This
-existing GitLab behavior is unchanged.
-
-Preview the selected repositories without cloning them:
-
-```bash
-grm repos find config --config config.toml
-```
-
-Then use `grm repos sync config --config config.toml` to sync the selection.
-Excluded local clones are not deleted or changed. They can still be reported as
-unmanaged repositories. Static repository lists and local discovery are not
-affected. These new filters are config-only; they are not remote CLI flags.
 
 ## Using with self-hosted GitLab
 
