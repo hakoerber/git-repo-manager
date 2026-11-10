@@ -179,6 +179,18 @@ pub struct FindRemoteArgs {
     )]
     pub forks: bool,
 
+    #[clap(long, help = "Skip archived repositories")]
+    pub ignore_archived: bool,
+
+    #[clap(
+        action = clap::ArgAction::Append,
+        name = "exclude-repo",
+        long,
+        value_name = "PATTERN",
+        help = "Skip repositories by full path, ignoring case; `*` matches any characters"
+    )]
+    pub exclude_repos: Vec<String>,
+
     #[clap(long, help = "Base URL for the API")]
     pub api_url: Option<String>,
 }
@@ -283,6 +295,18 @@ pub struct SyncRemoteArgs {
         value_parser = str::parse::<bool>,
     )]
     pub forks: bool,
+
+    #[clap(long, help = "Skip archived repositories")]
+    pub ignore_archived: bool,
+
+    #[clap(
+        action = clap::ArgAction::Append,
+        name = "exclude-repo",
+        long,
+        value_name = "PATTERN",
+        help = "Skip repositories by full path, ignoring case; `*` matches any characters"
+    )]
+    pub exclude_repos: Vec<String>,
 }
 
 #[derive(Parser)]

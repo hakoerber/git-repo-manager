@@ -41,7 +41,7 @@
     },
     "packages_enabled": true,
     "empty_repo": false,
-    "archived": false,
+    "archived": true,
     "visibility": "public",
     "resolve_outdated_diff_discussions": false,
     "container_expiration_policy": {

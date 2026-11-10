@@ -20,6 +20,7 @@ pub struct GithubProject {
     pub private: bool,
     #[serde(rename = "fork")]
     pub is_fork: bool,
+    pub archived: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -55,6 +56,10 @@ impl Project for GithubProject {
 
     fn is_fork(&self) -> bool {
         self.is_fork
+    }
+
+    fn is_archived(&self) -> bool {
+        self.archived.unwrap_or(false)
     }
 }
 

@@ -6,8 +6,8 @@ use camino::{Utf8Path as Path, Utf8PathBuf as PathBuf};
 use thiserror::Error;
 
 use crate::{
-    config::{Config, ConfigProviderFilter, RemoteProvider, Root},
-    provider::{Filter, ProtocolConfig, Provider as _},
+    config::{Config, RemoteProvider, Root},
+    provider::{Filter, ProtocolConfig, Provider as _, ProviderRepos},
     tree::Tree,
 };
 
@@ -268,31 +268,7 @@ pub fn get_trees(
         Config::ConfigProvider(config) => {
             let token = auth::get_token_from_command(&config.token_command)?;
 
-            let filters = config.filters.unwrap_or(ConfigProviderFilter {
-                access: Some(false),
-                owner: Some(false),
-                users: Some(vec![]),
-                groups: Some(vec![]),
-                fork: Some(true),
-            });
-
-            let filter = Filter::new(
-                filters
-                    .users
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(Into::into)
-                    .collect(),
-                filters
-                    .groups
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(Into::into)
-                    .collect(),
-                filters.owner.unwrap_or(false),
-                filters.access.unwrap_or(false),
-                filters.fork.unwrap_or(true),
-            );
+            let filter = Filter::from(config.filters.unwrap_or_default());
 
             if filter.empty() {
                 send_msg(
@@ -304,7 +280,7 @@ pub fn get_trees(
                 );
             }
 
-            let repos = match config.provider {
+            let ProviderRepos { repos, warnings } = match config.provider {
                 RemoteProvider::Github => {
                     provider::Github::new(filter, token, config.api_url.map(provider::Url::new))?
                         .get_repos(
@@ -330,6 +306,10 @@ pub fn get_trees(
                         )?
                 }
             };
+
+            for warning in warnings {
+                send_msg(result_channel, SyncTreesMessage::GetTreeWarning(warning));
+            }
 
             let mut trees = vec![];
 

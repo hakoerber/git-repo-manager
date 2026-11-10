@@ -312,7 +312,7 @@ fn get_repos_from_provider(
     force_ssh: bool,
     remote_name: Option<String>,
 ) -> Result<HashMap<Option<ProjectNamespace>, Vec<repo::Repo>>, MainError> {
-    match provider {
+    let found = match provider {
         cmd::RemoteProvider::Github => {
             provider::Github::new(filter, token, api_url.map(provider::Url::new))
                 .map_err(|e| MainError::ProviderInit(e))?
@@ -340,7 +340,13 @@ fn get_repos_from_provider(
                 )
         }
     }
-    .map_err(|e| MainError::ProviderGetRepo(e))
+    .map_err(|e| MainError::ProviderGetRepo(e))?;
+
+    for warning in found.warnings {
+        print_warning(warning);
+    }
+
+    Ok(found.repos)
 }
 
 fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
@@ -353,7 +359,8 @@ fn handle_repos_sync_remote(args: cmd::SyncRemoteArgs) -> HandlerResult {
         args.owner,
         args.access,
         args.forks,
-    );
+    )
+    .with_exclusions(args.ignore_archived, args.exclude_repos);
 
     if filter.empty() {
         print_warning("You did not specify any filters, so no repos will match");
@@ -662,31 +669,7 @@ fn handle_repos_find_config(args: cmd::FindConfigArgs) -> HandlerResult {
     let token = auth::get_token_from_command(&config.token_command)
         .map_err(|e| MainError::TokenCommandFailed(e))?;
 
-    let filters = config.filters.unwrap_or(config::ConfigProviderFilter {
-        access: Some(false),
-        owner: Some(false),
-        users: Some(vec![]),
-        groups: Some(vec![]),
-        fork: Some(true),
-    });
-
-    let filter = provider::Filter::new(
-        filters
-            .users
-            .unwrap_or_default()
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-        filters
-            .groups
-            .unwrap_or_default()
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-        filters.owner.unwrap_or(false),
-        filters.access.unwrap_or(false),
-        filters.fork.unwrap_or(true),
-    );
+    let filter = provider::Filter::from(config.filters.unwrap_or_default());
 
     if filter.empty() {
         print_warning("You did not specify any filters, so no repos will match");
@@ -744,7 +727,8 @@ fn handle_repos_find_remote(args: cmd::FindRemoteArgs) -> HandlerResult {
         args.owner,
         args.access,
         args.forks,
-    );
+    )
+    .with_exclusions(args.ignore_archived, args.exclude_repos);
 
     if filter.empty() {
         print_warning("You did not specify any filters, so no repos will match");

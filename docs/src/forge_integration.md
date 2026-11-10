@@ -65,6 +65,42 @@ $ grm repos sync remote --provider github --user torvals --owner --group zalando
 This would sync all of Torvald's repositories, all of my own repositories and
 all (public) repositories in the "zalando" group.
 
+### Excluding repositories
+
+Two more filters remove repositories from that selection:
+
+* `--ignore-archived` skips archived repositories.
+* `--exclude-repo <PATTERN>` skips repositories whose full path matches
+  `<PATTERN>`. Give it more than once to skip more repositories.
+
+The full path is `owner/repo` on GitHub, or `group/subgroup/repo` on GitLab. A
+pattern must match the complete path. Matching ignores ASCII letter case, like
+the forges do. `*` matches zero or more characters, including `/`:
+
+* `my-org/legacy-service` matches only that repository.
+* `my-org/*` matches all repositories in `my-org`, including GitLab subgroups.
+* `my-org/legacy-*` matches the repositories in `my-org` whose names start
+  with `legacy-`.
+* `*/docs` matches a `docs` repository in any namespace.
+
+Only `*` is special. Patterns are not regular expressions, unlike the
+`--exclude` option of `grm repos find local`. Quote patterns on the command
+line, so that the shell does not expand `*`:
+
+```bash
+$ grm repos sync remote --provider github --access --ignore-archived --exclude-repo 'my-org/legacy-*' [...]
+```
+
+`grm` prints a warning for each pattern that matches no repository, to catch
+typos. Exclusions do not select repositories on their own, so you still need at
+least one of the filters above. If the forge does not report whether a
+repository is archived, `grm` treats it as not archived. Note that GitLab group
+discovery (`--group`) never returns archived projects, even without
+`--ignore-archived`.
+
+Excluded repositories that already exist locally are not deleted or changed.
+`grm repos sync` reports them as unmanaged repositories.
+
 ## Strategies
 
 There are generally three ways how you can use `grm` with forges:
@@ -106,6 +142,21 @@ groups = [
 
 The options in the file map to the command line options of the `grm repos sync
 remote` command.
+
+For example, `--ignore-archived` and `--exclude-repo` become:
+
+```toml
+[filters]
+access = true
+ignore_archived = true
+exclude_repos = [
+  "my-org/legacy-*",
+  "*/docs",
+]
+```
+
+In YAML, quote patterns that start with `*` (`- "*/docs"`). Otherwise YAML
+reads them as aliases.
 
 You'd then run the `grm repos sync` command the same way as with a list of
 repositories in a configuration:
