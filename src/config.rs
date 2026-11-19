@@ -57,7 +57,7 @@ impl Group {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigProviderFilter {
     pub access: Option<bool>,
@@ -65,8 +65,6 @@ pub struct ConfigProviderFilter {
     pub users: Option<Vec<User>>,
     pub groups: Option<Vec<Group>>,
     pub fork: Option<bool>,
-    pub ignore_archived: Option<bool>,
-    pub exclude_repos: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
